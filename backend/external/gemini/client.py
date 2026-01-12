@@ -7,7 +7,7 @@ class GeminiClient:
         self.api_key = os.environ.get("GEMINI_API_KEY")
         if self.api_key:
             genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel('gemini-2.0-flash')
+            self.model = genai.GenerativeModel('gemini-2.5-flash')
         else:
             self.model = None
 
@@ -18,10 +18,16 @@ class GeminiClient:
         if not self.model:
             return None
 
+        import datetime
+        today = datetime.date.today().strftime("%Y-%m-%d")
+
         prompt = f"""
         당신은 텍스트에서 소비 정보를 추출하는 AI입니다.
         다음 텍스트를 분석하여 JSON 형식으로 반환해주세요.
         
+        [기준 정보]
+        - 오늘 날짜: {today} (텍스트에 날짜가 명시되지 않은 경우 이 날짜를 사용하세요)
+
         [입력 텍스트]
         {text}
 
@@ -31,7 +37,7 @@ class GeminiClient:
             "item": "품목 (예: 아메리카노, 택시비)",
             "store": "소비처 (예: 스타벅스, 카카오택시)",
             "amount": 금액(숫자만),
-            "date": "YYYY-MM-DD 형식의 날짜 (텍스트에 날짜 정보가 없으면 오늘 날짜)",
+            "date": "YYYY-MM-DD 형식의 날짜",
             "memo": "기타 메모",
             "address": "추정되는 위치 (없으면 빈 문자열)",
             "is_fixed": true/false (고정 지출 여부: 구독료, 월세, 보험료 등 매달 나가는 돈이면 true)
@@ -41,7 +47,7 @@ class GeminiClient:
         """
         
         try:
-            response = self.model.generate_content(prompt)
+            response = self.model.generate_content(prompt)        
             cleaned_text = response.text.replace("```json", "").replace("```", "").strip()
             data = json.loads(cleaned_text)
             
@@ -56,7 +62,9 @@ class GeminiClient:
                 
             return data
         except Exception as e:
-            print(f"Gemini Analysis Error: {e}")
+            import traceback
+            print(f"DEBUG: Gemini Analysis Error Detailed: {e}")
+            traceback.print_exc() # 전체 에러 스택 출력
             return None
 
     def get_advice(self, transaction_list_str):

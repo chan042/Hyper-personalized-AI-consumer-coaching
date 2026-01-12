@@ -1,7 +1,7 @@
 "use client";
 
 import { Wallet, Edit2, ChevronRight, Search, MapPin, Calendar, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function TransactionConfirm({ initialData, onSave }) {
   const [isRecurring, setIsRecurring] = useState(true);
@@ -12,6 +12,19 @@ export default function TransactionConfirm({ initialData, onSave }) {
   const [item, setItem] = useState(initialData?.item || '');
   const [store, setStore] = useState(initialData?.store || '');
   const [rawDate, setRawDate] = useState(initialData?.date ? new Date(initialData.date) : new Date());
+
+  // initialData가 변경되면(AI 분석 완료 시) Form 상태 업데이트
+  useEffect(() => {
+    if (initialData) {
+      setAmount(initialData.amount || 0);
+      setCategory(initialData.category || '기타');
+      setItem(initialData.item || '');
+      setStore(initialData.store || '');
+      // 날짜 처리: 문자열이 오면 Date 객체로 변환
+      setRawDate(initialData.date ? new Date(initialData.date) : new Date());
+    }
+  }, [initialData]);
+
   const dateDisplay = rawDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
