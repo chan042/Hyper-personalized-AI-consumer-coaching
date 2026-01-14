@@ -1,6 +1,33 @@
 "use client";
 
+import { useState, useEffect } from 'react';
+import { getCategoryStats } from '@/lib/api/transaction';
+
 export default function TotalSpending() {
+    const [totalSpending, setTotalSpending] = useState(0);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchTotalSpending();
+    }, []);
+
+    const fetchTotalSpending = async () => {
+        try {
+            setLoading(true);
+            const response = await getCategoryStats();
+            setTotalSpending(response.total);
+        } catch (err) {
+            console.error('Failed to fetch total spending:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 예산 하드코딩 (추후 사용자 예산 기능 추가 시 수정 필요)
+    const budget = 1000000;
+    const remaining = budget - totalSpending;
+    const percentUsed = budget > 0 ? Math.round((totalSpending / budget) * 100) : 0;
+
     return (
         <div style={{
             backgroundColor: 'white',
@@ -14,16 +41,24 @@ export default function TotalSpending() {
             <div style={{ position: 'relative', zIndex: 1 }}>
                 <p style={{ fontSize: '0.95rem', color: 'var(--text-sub)', marginBottom: '0.5rem', fontWeight: '500' }}>이번 달 총 소비</p>
                 <h2 style={{ fontSize: '2.25rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '1.25rem', letterSpacing: '-0.02em' }}>
-                    ₩150,000
+                    {loading ? '...' : `₩${totalSpending.toLocaleString()}`}
                 </h2>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                    <span style={{ fontSize: '0.9rem', color: 'var(--text-sub)', fontWeight: '500' }}>남은 예산: ₩850,000</span>
-                    <span style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--primary)' }}>15%</span>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--text-sub)', fontWeight: '500' }}>
+                        남은 예산: ₩{remaining.toLocaleString()}
+                    </span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--primary)' }}>{percentUsed}%</span>
                 </div>
 
                 <div style={{ width: '100%', height: '12px', backgroundColor: '#edf2f7', borderRadius: '6px', overflow: 'hidden' }}>
-                    <div style={{ width: '15%', height: '100%', backgroundColor: 'var(--primary)', borderRadius: '6px' }}></div>
+                    <div style={{
+                        width: `${Math.min(percentUsed, 100)}%`,
+                        height: '100%',
+                        backgroundColor: 'var(--primary)',
+                        borderRadius: '6px',
+                        transition: 'width 0.3s ease'
+                    }}></div>
                 </div>
             </div>
         </div>

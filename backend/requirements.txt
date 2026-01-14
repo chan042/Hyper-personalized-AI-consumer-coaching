@@ -5,3 +5,4 @@ google-generativeai
 django-cors-headers
 djangorestframework
 django-filter
+djangorestframework-simplejwt

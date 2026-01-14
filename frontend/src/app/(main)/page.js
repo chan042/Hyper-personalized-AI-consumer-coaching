@@ -23,8 +23,8 @@ export default function Home() {
   return (
     <main style={{ padding: '1.5rem' }}>
       <ChallengeList />
-      <TotalSpending />
-      <CategorySpending />
+      <TotalSpending key={refreshKey} />
+      <CategorySpending key={refreshKey} />
       <RecentTransactions key={refreshKey} />
     </main>
   );

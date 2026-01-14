@@ -1,10 +1,8 @@
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8000/api';
+import client from './client';
 
 export const getCoachingAdvice = async () => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/coaching/advice/`);
+        const response = await client.get('/api/coaching/advice/');
         return response.data;
     } catch (error) {
         console.error('Error fetching coaching advice:', error);
@@ -14,7 +12,7 @@ export const getCoachingAdvice = async () => {
 
 export const submitFeedback = async (isLiked, dislikeReason = '') => {
     try {
-        const response = await axios.post(`${API_BASE_URL}/coaching/feedback/`, {
+        const response = await client.post('/api/coaching/feedback/', {
             is_liked: isLiked,
             dislike_reason: dislikeReason
         });

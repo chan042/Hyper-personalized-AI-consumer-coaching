@@ -29,3 +29,14 @@ export const getTransactions = async () => {
         throw error;
     }
 };
+
+export const getCategoryStats = async () => {
+    try {
+        const response = await client.get('/api/transactions/category-stats/');
+        return response.data;
+    } catch (error) {
+        console.error('Get Category Stats Error:', error);
+        throw error;
+    }
+};
+

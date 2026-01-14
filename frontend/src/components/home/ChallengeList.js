@@ -76,7 +76,7 @@ export default function ChallengeList() {
                                     fontWeight: '700',
                                     display: 'inline-block',
                                     marginBottom: '0.25rem',
-                                    backgroundColor: '#e6fffa',
+                                    backgroundColor: '#ccfbf1',
                                     padding: '0.2rem 0.5rem',
                                     borderRadius: '8px'
                                 }}>
@@ -85,7 +85,7 @@ export default function ChallengeList() {
                                 <h3 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--text-main)' }}>커피값 아끼기</h3>
                             </div>
                             <div style={{
-                                backgroundColor: '#f7fafc',
+                                backgroundColor: '#f0fdfa',
                                 padding: '0.5rem',
                                 borderRadius: '50%',
                                 boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.03)'
@@ -124,7 +124,7 @@ export default function ChallengeList() {
                                     fontWeight: '700',
                                     display: 'inline-block',
                                     marginBottom: '0.25rem',
-                                    backgroundColor: '#e6fffa',
+                                    backgroundColor: '#ccfbf1',
                                     padding: '0.2rem 0.5rem',
                                     borderRadius: '8px'
                                 }}>
@@ -133,7 +133,7 @@ export default function ChallengeList() {
                                 <h3 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--text-main)' }}>배달음식 줄이기</h3>
                             </div>
                             <div style={{
-                                backgroundColor: '#f7fafc',
+                                backgroundColor: '#f0fdfa',
                                 padding: '0.5rem',
                                 borderRadius: '50%',
                                 boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.03)'

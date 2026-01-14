@@ -14,16 +14,7 @@ export default function HistoryHeader() {
             top: 0,
             zIndex: 10
         }}>
-            <Link href="/coaching" style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0.5rem',
-                marginRight: '0.5rem',
-                color: 'var(--text-main)'
-            }}>
-                <ChevronLeft size={24} />
-            </Link>
+            {/* 뒤로가기 버튼 제거됨 */}
             <h1 style={{
                 fontSize: '1.2rem',
                 fontWeight: 'bold',

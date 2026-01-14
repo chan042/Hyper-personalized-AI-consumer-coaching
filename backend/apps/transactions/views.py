@@ -16,7 +16,7 @@ class ParseTransactionView(APIView):
     자연어 텍스트를 입력받아 AI(Gemini)를 통해 구조화된 데이터로 변환하는 뷰
     DB에 저장하지 않고, 분석 결과만 반환합니다.
     """
-    permission_classes = [AllowAny] # MVP 편의상 AllowAny, 실제로는 IsAuthenticated 권장
+    permission_classes = [IsAuthenticated]  # 인증된 사용자만 사용 가능
 
     def post(self, request):
         text = request.data.get('text', '')
@@ -36,19 +36,13 @@ class CreateTransactionView(APIView):
     """
     분석된(또는 사용자가 입력한) 데이터를 받아 실제 DB에 지출 내역을 저장하는 뷰
     """
-    permission_classes = [AllowAny] # MVP 편의상 AllowAny
+    permission_classes = [IsAuthenticated]  # 인증된 사용자만 사용 가능
 
     def post(self, request):
         data = request.data
         
-        # 임시 유저 할당 (로그인 안된 경우 첫 번째 유저 사용) - MVP용
+        # 로그인한 사용자 사용
         user = request.user
-        if not user.is_authenticated:
-            first_user = User.objects.first()
-            if first_user:
-                user = first_user
-            else:
-                return Response({"error": "No users found in DB. Create a user first."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             from django.utils import timezone
@@ -79,17 +73,11 @@ class TransactionListView(APIView):
     """
     사용자의 지출 내역 목록을 조회하는 뷰
     """
-    permission_classes = [AllowAny] # MVP 편의상 AllowAny
+    permission_classes = [IsAuthenticated]  # 인증된 사용자만 사용 가능
 
     def get(self, request):
-        # 임시 유저 할당 (로그인 안된 경우 첫 번째 유저 사용) - MVP용
+        # 로그인한 사용자의 지출 내역만 조회
         user = request.user
-        if not user.is_authenticated:
-            first_user = User.objects.first()
-            if first_user:
-                user = first_user
-            else:
-                return Response({"error": "No users found in DB. Create a user first."}, status=status.HTTP_400_BAD_REQUEST)
         
         # 최신순으로 정렬하여 조회 (날짜 같으면 최신 등록순)
         transactions = Transaction.objects.filter(user=user).order_by('-date', '-id')
@@ -109,3 +97,38 @@ class TransactionListView(APIView):
                 "is_fixed": t.is_fixed
             })
         return Response(data)
+
+class CategoryStatsView(APIView):
+    """
+    사용자의 카테고리별 지출 통계를 조회하는 뷰
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        
+        # 사용자의 모든 지출 내역 조회
+        transactions = Transaction.objects.filter(user=user)
+        
+        # 카테고리별 지출 합계 계산
+        from django.db.models import Sum
+        category_stats = transactions.values('category').annotate(
+            total=Sum('amount')
+        ).order_by('-total')
+        
+        # 전체 지출 금액 계산
+        total_spending = sum(item['total'] for item in category_stats)
+        
+        # 카테고리별 데이터 구성 (비율 포함)
+        result = []
+        for item in category_stats:
+            result.append({
+                'category': item['category'],
+                'amount': item['total'],
+                'percent': round((item['total'] / total_spending * 100), 1) if total_spending > 0 else 0
+            })
+        
+        return Response({
+            'categories': result,
+            'total': total_spending
+        })

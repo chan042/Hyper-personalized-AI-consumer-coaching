@@ -1,12 +1,16 @@
 :root {
-  --primary: #2f855a;
-  --primary-light: #48bb78;
+  --primary: #14b8a6;
+  --primary-light: #5eead4;
+  --primary-dark: #0d9488;
   --background-light: #f8f9fa;
-  /* Slightly cooler grey */
   --card-bg: #ffffff;
-  --text-main: #2d3748;
-  --text-sub: #718096;
-  --text-guide: #a0aec0;
+  --text-main: #0f172a;
+  --text-sub: #64748b;
+  --text-guide: #94a3b8;
+  --accent-1: #f59e0b;
+  --accent-2: #8b5cf6;
+  --accent-3: #ec4899;
+  --accent-4: #06b6d4;
   --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);

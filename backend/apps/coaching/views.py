@@ -14,17 +14,11 @@ class CoachingAdviceView(APIView):
     사용자의 코칭 카드 목록을 조회하는 뷰
     (코칭 생성은 지출 내역 추가 시 자동으로 이루어짐)
     """
-    permission_classes = [AllowAny] # MVP 편의상 AllowAny
+    permission_classes = [IsAuthenticated]  # 인증된 사용자만 사용 가능
 
     def get(self, request):
-        # 임시 유저 할당 (로그인 안된 경우 첫 번째 유저 사용) - MVP용
+        # 로그인한 사용자의 코칭 카드만 조회
         user = request.user
-        if not user.is_authenticated:
-            first_user = User.objects.first()
-            if first_user:
-                user = first_user
-            else:
-                return Response({"error": "No users found in DB. Create a user first."}, status=status.HTTP_400_BAD_REQUEST)
 
         from .models import Coaching
 
@@ -48,17 +42,11 @@ class FeedbackView(APIView):
     """
     AI 조언에 대한 사용자의 피드백(좋아요/싫어요)을 저장하는 뷰
     """
-    permission_classes = [AllowAny] # MVP 편의상 AllowAny
+    permission_classes = [IsAuthenticated]  # 인증된 사용자만 사용 가능
 
     def post(self, request):
-        # 임시 유저 할당 (로그인 안된 경우 첫 번째 유저 사용) - MVP용
+        # 로그인한 사용자의 피드백 저장
         user = request.user
-        if not user.is_authenticated:
-            first_user = User.objects.first()
-            if first_user:
-                user = first_user
-            else:
-                return Response({"error": "No users found in DB. Create a user first."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             from .models import CoachingFeedback

@@ -96,7 +96,7 @@ export default function RecentTransactions() {
                                 cursor: 'pointer'
                             }}>
                                 <div style={{
-                                    backgroundColor: '#e6fffa', // 임시 고정 색상
+                                    backgroundColor: '#ccfbf1',
                                     padding: '0.85rem',
                                     borderRadius: '50%',
                                     marginRight: '1.25rem',
@@ -104,7 +104,7 @@ export default function RecentTransactions() {
                                     alignItems: 'center',
                                     justifyContent: 'center'
                                 }}>
-                                    <Icon size={22} color="#2f855a" strokeWidth={2} />
+                                    <Icon size={22} color="#14b8a6" strokeWidth={2} />
                                 </div>
 
                                 <div style={{ flex: 1 }}>
