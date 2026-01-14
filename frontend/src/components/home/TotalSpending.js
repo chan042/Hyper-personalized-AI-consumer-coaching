@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { getCategoryStats } from '@/lib/api/transaction';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function TotalSpending() {
+    const { user } = useAuth();
     const [totalSpending, setTotalSpending] = useState(0);
     const [loading, setLoading] = useState(true);
 
@@ -23,8 +25,8 @@ export default function TotalSpending() {
         }
     };
 
-    // 예산 하드코딩 (추후 사용자 예산 기능 추가 시 수정 필요)
-    const budget = 1000000;
+    // 사용자 예산 가져오기 (없으면 0)
+    const budget = user?.monthly_budget ? Number(user.monthly_budget) : 0;
     const remaining = budget - totalSpending;
     const percentUsed = budget > 0 ? Math.round((totalSpending / budget) * 100) : 0;
 
@@ -46,7 +48,7 @@ export default function TotalSpending() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                     <span style={{ fontSize: '0.9rem', color: 'var(--text-sub)', fontWeight: '500' }}>
-                        남은 예산: ₩{remaining.toLocaleString()}
+                        남은 예산: {remaining.toLocaleString()}/{budget.toLocaleString()}(₩)
                     </span>
                     <span style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--primary)' }}>{percentUsed}%</span>
                 </div>

@@ -77,7 +77,7 @@ export default function RecentTransactions() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {transactions.length === 0 ? (
+                {!Array.isArray(transactions) || transactions.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-sub)' }}>
                         아직 지출 내역이 없습니다.
                     </div>
