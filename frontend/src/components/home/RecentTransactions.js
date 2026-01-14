@@ -10,7 +10,7 @@ export default function RecentTransactions() {
         const fetchTransactions = async () => {
             try {
                 const data = await getTransactions();
-                setTransactions(data);
+                setTransactions(data.transactions);
             } catch (error) {
                 console.error('Failed to fetch transactions:', error);
             } finally {
