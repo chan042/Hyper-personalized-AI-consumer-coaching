@@ -13,6 +13,7 @@ import ChallengeHeader from '@/components/challenge/ChallengeHeader';
 import ChallengeTabs from '@/components/challenge/ChallengeTabs';
 import ChallengeFilters from '@/components/challenge/ChallengeFilters';
 import ChallengeCard from '@/components/challenge/ChallengeCard';
+import ChallengeDetailModal from '@/components/challenge/ChallengeDetailModal';
 
 // 데이터
 import {
@@ -28,6 +29,7 @@ export default function ChallengePage() {
     const [activeTab, setActiveTab] = useState('duduk');
     const [activeFilter, setActiveFilter] = useState('saving');
     const [userPoints, setUserPoints] = useState(2350);
+    const [selectedChallenge, setSelectedChallenge] = useState(null);
 
     // 현재 탭에 따른 챌린지 데이터
     const getCurrentChallenges = () => {
@@ -49,6 +51,14 @@ export default function ChallengePage() {
             default:
                 return dudukChallenges;
         }
+    };
+
+    const handleCardClick = (challenge) => {
+        setSelectedChallenge(challenge);
+    };
+
+    const handleCloseModal = () => {
+        setSelectedChallenge(null);
     };
 
     const handleStartChallenge = (challenge) => {
@@ -99,6 +109,7 @@ export default function ChallengePage() {
                     <ChallengeCard
                         key={challenge.id}
                         challenge={challenge}
+                        onClick={handleCardClick}
                         onStart={handleStartChallenge}
                         onRetry={handleRetryChallenge}
                     />
@@ -114,6 +125,16 @@ export default function ChallengePage() {
 
             {/* 하단 여백 (BottomNavigation 위) */}
             <div style={{ height: '100px' }}></div>
+
+            {/* 챌린지 상세 모달 */}
+            {selectedChallenge && (
+                <ChallengeDetailModal
+                    challenge={selectedChallenge}
+                    onClose={handleCloseModal}
+                    onStart={handleStartChallenge}
+                    onRetry={handleRetryChallenge}
+                />
+            )}
         </div>
     );
 }

@@ -35,12 +35,21 @@ const getDifficultyStyle = (difficulty) => {
     }
 };
 
-export default function ChallengeCard({ challenge, onStart, onRetry }) {
+export default function ChallengeCard({ challenge, onStart, onRetry, onClick }) {
+    const handleCardClick = (e) => {
+        // 버튼 클릭은 전파하지 않음
+        if (e.target.tagName === 'BUTTON') return;
+        onClick?.(challenge);
+    };
+
     return (
-        <div style={{
-            ...styles.card,
-            backgroundColor: challenge.color,
-        }}>
+        <div
+            style={{
+                ...styles.card,
+                backgroundColor: challenge.color,
+            }}
+            onClick={handleCardClick}
+        >
             {/* 난이도 배지 */}
             <div style={{
                 ...styles.difficultyBadge,
@@ -96,7 +105,13 @@ export default function ChallengeCard({ challenge, onStart, onRetry }) {
 
             {/* 시작 버튼 */}
             {!challenge.progress && !challenge.failedDate && (
-                <button style={styles.startButton} onClick={() => onStart?.(challenge)}>
+                <button
+                    style={styles.startButton}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onStart?.(challenge);
+                    }}
+                >
                     시작
                 </button>
             )}
@@ -105,7 +120,10 @@ export default function ChallengeCard({ challenge, onStart, onRetry }) {
             {challenge.failedDate && (
                 <button
                     style={{ ...styles.startButton, backgroundColor: '#EF4444' }}
-                    onClick={() => onRetry?.(challenge)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRetry?.(challenge);
+                    }}
                 >
                     재도전
                 </button>
@@ -124,6 +142,8 @@ const styles = {
         alignItems: 'center',
         textAlign: 'center',
         boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        cursor: 'pointer',
+        transition: 'transform 0.2s ease',
     },
     difficultyBadge: {
         position: 'absolute',
