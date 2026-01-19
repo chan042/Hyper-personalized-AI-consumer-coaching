@@ -93,6 +93,16 @@ export default function CalendarView({
     const selectedDayTotal = selectedDate ? getDayTotal(selectedDate) : 0;
     const selectedDateStr = selectedDate ? `${currentMonth}월 ${selectedDate}일` : '';
 
+    // 선택된 날짜의 일일 권장 예산 (dailyStatus에서 해당 날짜의 값 사용)
+    const getSelectedDayBudget = () => {
+        if (!selectedDate) return dailyBudget;
+        const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
+        const status = dailyStatus[dateStr];
+        // 해당 날짜의 스냅샷 값이 있으면 사용, 없으면 dailyBudget 사용
+        return status?.daily_budget ?? dailyBudget;
+    };
+    const selectedDayBudget = getSelectedDayBudget();
+
     return (
         <div className={styles.calendarWrapper}>
             <div className={styles.calendarGrid}>
@@ -133,7 +143,7 @@ export default function CalendarView({
                     <div className={styles.dateHeaderRow}>
                         <span className={styles.dateText}>{selectedDateStr}</span>
                         <div className={styles.dateMeta}>
-                            <span className={styles.dateBudgetInfo}>일일 권장 예산 {dailyBudget.toLocaleString()}원</span>
+                            <span className={styles.dateBudgetInfo}>일일 권장 예산 {selectedDayBudget.toLocaleString()}원</span>
                             <span className={styles.dateTotalAmount}>-{selectedDayTotal.toLocaleString()}원</span>
                         </div>
                     </div>
