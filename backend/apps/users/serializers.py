@@ -20,8 +20,9 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'username', 'first_name', 'last_name', 
                   'job', 'hobbies', 'self_development_field', 
                   'marital_status', 'has_children', 'birth_date',
-                  'age', 'monthly_budget', 'spending_to_improve', 'is_profile_complete']
-        read_only_fields = ['id', 'email']
+                  'age', 'monthly_budget', 'spending_to_improve', 'is_profile_complete',
+                  'character_type', 'character_name', 'date_joined']
+        read_only_fields = ['id', 'email', 'date_joined']
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -43,7 +44,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'username', 'password', 'password_confirm']
+        fields = ['email', 'username', 'password', 'password_confirm', 'character_type', 'character_name']
 
     def validate(self, attrs):
         """비밀번호 일치 여부 검증"""
@@ -58,9 +59,15 @@ class RegisterSerializer(serializers.ModelSerializer):
         # password_confirm은 생성에 사용하지 않으므로 제거
         validated_data.pop('password_confirm')
         
+        # 캐릭터 정보 추출
+        character_type = validated_data.pop('character_type', 'char_cat')
+        character_name = validated_data.pop('character_name', None)
+        
         user = User.objects.create_user(
             email=validated_data['email'],
             username=validated_data['username'],
-            password=validated_data['password']
+            password=validated_data['password'],
+            character_type=character_type,
+            character_name=character_name
         )
         return user

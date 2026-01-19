@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
+import Image from 'next/image';
 import TransactionItem from './TransactionItem';
 import styles from './expense.module.css';
 
@@ -13,7 +14,9 @@ export default function CalendarView({
     currentMonth,
     successDays = 0,
     failDays = 0,
-    dailyBudget = 0
+    dailyBudget = 0,
+    characterType = 'char_cat',
+    dateJoined = null // 사용자 가입일
 }) {
     // 해당 월의 일수 계산
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
@@ -26,6 +29,18 @@ export default function CalendarView({
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === currentYear && (today.getMonth() + 1) === currentMonth;
     const todayDate = today.getDate();
+
+    // 가입일 파싱
+    const joinedDate = dateJoined ? new Date(dateJoined) : null;
+
+    // 해당 날짜가 가입일 이전인지 확인
+    const isBeforeJoinDate = (day) => {
+        if (!joinedDate) return false;
+        const checkDate = new Date(currentYear, currentMonth - 1, day);
+        // 가입일의 시작 시간으로 비교 (같은 날은 허용)
+        const joinDateStart = new Date(joinedDate.getFullYear(), joinedDate.getMonth(), joinedDate.getDate());
+        return checkDate < joinDateStart;
+    };
 
     // ISO 형식 날짜에서 일(day) 추출
     const parseDateToDay = (dateStr) => {
@@ -50,11 +65,34 @@ export default function CalendarView({
         return dailyStatus[dateStr] || null;
     };
 
+    // status에 따라 face 이미지 경로 반환
+    const getFaceImage = (status) => {
+        const basePath = `/images/characters/${characterType}`;
+        switch (status) {
+            case 'money':
+                return `${basePath}/face_money.png`;
+            case 'happy':
+                return `${basePath}/face_happy.png`;
+            case 'sad':
+                return `${basePath}/face_sad.png`;
+            case 'angry':
+                return `${basePath}/face_angry.png`;
+            default:
+                return `${basePath}/face_money.png`;
+        }
+    };
+
     const getDayContent = (day) => {
+        // 가입일 이전 날짜는 상태 표시 안 함
+        if (isBeforeJoinDate(day)) {
+            return null;
+        }
+
         const status = getDayStatus(day);
+        const dayTotal = getDayTotal(day);
 
         let total = 0;
-        let emoji = '😊';
+        let faceStatus = 'money';
         let level = 'green';
 
         if (status) {
@@ -62,52 +100,50 @@ export default function CalendarView({
             // 백엔드에서 받은 status 값으로 판단
             switch (status.status) {
                 case 'money':
-                    emoji = '💰';
+                    faceStatus = 'money';
                     level = 'green';
                     break;
                 case 'happy':
-                    emoji = '😊';
+                    faceStatus = 'happy';
                     level = 'green';
                     break;
                 case 'sad':
-                    emoji = '😥';
+                    faceStatus = 'sad';
                     level = 'yellow';
                     break;
                 case 'angry':
-                    emoji = '😡';
+                    faceStatus = 'angry';
                     level = 'red';
                     break;
                 default:
                     // status가 있지만 구체적인 상태가 없는 경우
                     if (total === 0) {
-                        emoji = '�';
+                        faceStatus = 'money';
                         level = 'green';
                     } else {
-                        emoji = '�😊';
+                        faceStatus = 'happy';
                         level = 'green';
                     }
             }
         } else {
             // status 정보가 없는 경우 (지출이 아예 없는 날 등)
-            // 과거 날짜이면서 지출이 없으면 money(초록) 처리
+            // 가입일 이후이면서 과거 날짜는 money(초록) 처리
             // 미래 날짜는 표시 안 함
-            if (isCurrentMonth && day < todayDate) {
-                emoji = '💰';
+            const checkDate = new Date(currentYear, currentMonth - 1, day);
+
+            if (checkDate < today && checkDate.toDateString() !== today.toDateString()) {
+                // 과거 날짜이면서 지출이 없으면 money(초록) 표시
+                faceStatus = 'money';
                 level = 'green';
-                return { emoji, amount: '0', level }; // 지출 0원 표시
-            } else if (!isCurrentMonth && new Date(currentYear, currentMonth - 1, day) < today) {
-                // 지난 달인 경우 모든 날짜에 대해 체크
-                emoji = '💰';
-                level = 'green';
-                return { emoji, amount: '0', level };
+                return { faceStatus, amount: '0', level };
             }
 
             return null; // 미래 날짜거나 오늘인데 지출 없으면 빈칸
         }
 
-        if (total === 0 && emoji !== '💰') return null; // 지출 0원인데 money 상태 아니면 표시 X
+        if (total === 0 && faceStatus !== 'money') return null;
 
-        return { emoji, amount: total.toLocaleString(), level };
+        return { faceStatus, amount: total.toLocaleString(), level };
     };
 
     const getSpendingClass = (level) => {
@@ -157,7 +193,15 @@ export default function CalendarView({
                             <span className={styles.dayNumber}>{day}</span>
                             {content && (
                                 <>
-                                    <span className={styles.dayEmoji}>{content.emoji}</span>
+                                    <div className={styles.dayFaceImage}>
+                                        <Image
+                                            src={getFaceImage(content.faceStatus)}
+                                            alt={content.faceStatus}
+                                            width={24}
+                                            height={24}
+                                            style={{ objectFit: 'contain' }}
+                                        />
+                                    </div>
                                     <span className={styles.dayAmount}>{content.amount}</span>
                                 </>
                             )}

@@ -3,9 +3,9 @@
 /**
  * [파일 역할]
  * - 챌린지 페이지 메인 컴포넌트
- * - 컴포넌트들을 조합하여 페이지 구성
+ * - 백엔드 API 연동으로 실제 데이터 표시
  */
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 
 // 컴포넌트
@@ -15,43 +15,99 @@ import ChallengeFilters from '@/components/challenge/ChallengeFilters';
 import ChallengeCard from '@/components/challenge/ChallengeCard';
 import ChallengeDetailModal from '@/components/challenge/ChallengeDetailModal';
 
-// 데이터
+// API
 import {
-    dudukChallenges,
-    aiChallenges,
-    ongoingChallenges,
-    failedChallenges,
-    challengeTabs,
-    challengeFilters,
-} from '@/components/challenge/challengeData';
+    getChallenges,
+    getMyChallenges,
+    getAIChallenges,
+    startChallenge,
+    startAIChallenge,
+    cancelChallenge,
+    getUserPoints,
+} from '@/lib/api/challenge';
+
+// 탭 정의
+const challengeTabs = [
+    { id: 'duduk', label: '두둑 챌린지' },
+    { id: 'ai', label: 'AI 맞춤' },
+    { id: 'ongoing', label: '도전 중' },
+    { id: 'failed', label: '실패' },
+];
+
+// 필터 정의
+const challengeFilters = [
+    { id: 'saving', label: '최고절약' },
+    { id: 'popular', label: '인기 성공' },
+    { id: 'failed', label: '다수 실패' },
+];
 
 export default function ChallengePage() {
     const [activeTab, setActiveTab] = useState('duduk');
     const [activeFilter, setActiveFilter] = useState('saving');
-    const [userPoints, setUserPoints] = useState(2350);
+    const [userPoints, setUserPoints] = useState(0);
     const [selectedChallenge, setSelectedChallenge] = useState(null);
+    const [challenges, setChallenges] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    // 현재 탭에 따른 챌린지 데이터
-    const getCurrentChallenges = () => {
-        switch (activeTab) {
-            case 'duduk':
-                if (activeFilter === 'saving') {
-                    return dudukChallenges.filter(c => c.category === 'saving' || c.category === 'popular');
-                } else if (activeFilter === 'popular') {
-                    return dudukChallenges.filter(c => c.category === 'popular');
-                } else {
-                    return dudukChallenges.filter(c => c.category === 'failed' || c.difficulty === '어려움');
-                }
-            case 'ai':
-                return aiChallenges;
-            case 'ongoing':
-                return ongoingChallenges;
-            case 'failed':
-                return failedChallenges;
-            default:
-                return dudukChallenges;
+    // 포인트 조회
+    const fetchUserPoints = useCallback(async () => {
+        try {
+            const data = await getUserPoints();
+            setUserPoints(data.points);
+        } catch (err) {
+            console.error('포인트 조회 실패:', err);
         }
-    };
+    }, []);
+
+    // 챌린지 데이터 로드
+    const fetchChallenges = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            let data = [];
+            switch (activeTab) {
+                case 'duduk':
+                    data = await getChallenges('duduk');
+                    // 필터 적용 (saving은 모든 챌린지, popular/failed는 해당 키워드만)
+                    if (activeFilter === 'popular') {
+                        data = data.filter(c => c.category === 'popular_success');
+                    } else if (activeFilter === 'failed') {
+                        data = data.filter(c => c.category === 'many_fail' || c.difficulty === '어려움');
+                    }
+                    // saving 필터는 모든 챌린지 표시 (기본값)
+                    break;
+                case 'ai':
+                    data = await getAIChallenges();
+                    break;
+                case 'ongoing':
+                    data = await getMyChallenges('in_progress');
+                    break;
+                case 'failed':
+                    data = await getMyChallenges('failed');
+                    break;
+                default:
+                    data = await getChallenges('duduk');
+            }
+            setChallenges(data);
+        } catch (err) {
+            console.error('챌린지 로드 실패:', err);
+            setError('챌린지를 불러오는데 실패했습니다.');
+            setChallenges([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [activeTab, activeFilter]);
+
+    // 초기 로드
+    useEffect(() => {
+        fetchUserPoints();
+    }, [fetchUserPoints]);
+
+    // 탭/필터 변경 시 데이터 로드
+    useEffect(() => {
+        fetchChallenges();
+    }, [fetchChallenges]);
 
     const handleCardClick = (challenge) => {
         setSelectedChallenge(challenge);
@@ -61,19 +117,43 @@ export default function ChallengePage() {
         setSelectedChallenge(null);
     };
 
-    const handleStartChallenge = (challenge) => {
-        // TODO: 챌린지 시작 로직 (백엔드 연동)
-        console.log('챌린지 시작:', challenge);
+    const handleStartChallenge = async (challenge) => {
+        try {
+            // AI 챌린지인지 확인 (aiReason이 있으면 AI 챌린지)
+            if (challenge.aiReason) {
+                await startAIChallenge(challenge.id);
+            } else {
+                await startChallenge(challenge.id);
+            }
+            // 성공 시 데이터 새로고침
+            await fetchChallenges();
+            await fetchUserPoints();
+            setSelectedChallenge(null);
+            alert('챌린지가 시작되었습니다!');
+        } catch (err) {
+            console.error('챌린지 시작 실패:', err);
+            alert(err.response?.data?.error || '챌린지 시작에 실패했습니다.');
+        }
     };
 
-    const handleRetryChallenge = (challenge) => {
-        // TODO: 챌린지 재도전 로직 (백엔드 연동)
-        console.log('챌린지 재도전:', challenge);
+    const handleRetryChallenge = async (challenge) => {
+        // 재도전 = 동일한 챌린지 다시 시작
+        // 실패한 챌린지의 원본 챌린지를 찾아서 시작
+        try {
+            await startChallenge(challenge.id);
+            await fetchChallenges();
+            await fetchUserPoints();
+            setSelectedChallenge(null);
+            alert('챌린지를 재도전합니다!');
+        } catch (err) {
+            console.error('재도전 실패:', err);
+            alert(err.response?.data?.error || '재도전에 실패했습니다.');
+        }
     };
 
     const handleCreateChallenge = () => {
-        // TODO: 챌린지 만들기 모달/페이지 (백엔드 연동)
-        console.log('챌린지 만들기');
+        // TODO: 챌린지 만들기 모달/페이지
+        alert('나만의 챌린지 만들기 기능은 준비 중입니다.');
     };
 
     return (
@@ -103,21 +183,40 @@ export default function ChallengePage() {
                 <span>나만의 챌린지 만들기</span>
             </button>
 
+            {/* 로딩 상태 */}
+            {loading && (
+                <div style={styles.loadingState}>
+                    <p>로딩 중...</p>
+                </div>
+            )}
+
+            {/* 에러 상태 */}
+            {error && (
+                <div style={styles.errorState}>
+                    <p>{error}</p>
+                    <button onClick={fetchChallenges} style={styles.retryButton}>
+                        다시 시도
+                    </button>
+                </div>
+            )}
+
             {/* 챌린지 카드 그리드 */}
-            <div style={styles.cardGrid}>
-                {getCurrentChallenges().map((challenge) => (
-                    <ChallengeCard
-                        key={challenge.id}
-                        challenge={challenge}
-                        onClick={handleCardClick}
-                        onStart={handleStartChallenge}
-                        onRetry={handleRetryChallenge}
-                    />
-                ))}
-            </div>
+            {!loading && !error && (
+                <div style={styles.cardGrid}>
+                    {challenges.map((challenge) => (
+                        <ChallengeCard
+                            key={challenge.id}
+                            challenge={challenge}
+                            onClick={handleCardClick}
+                            onStart={handleStartChallenge}
+                            onRetry={handleRetryChallenge}
+                        />
+                    ))}
+                </div>
+            )}
 
             {/* 빈 상태 */}
-            {getCurrentChallenges().length === 0 && (
+            {!loading && !error && challenges.length === 0 && (
                 <div style={styles.emptyState}>
                     <p>해당하는 챌린지가 없습니다.</p>
                 </div>
@@ -173,5 +272,29 @@ const styles = {
         alignItems: 'center',
         padding: '3rem',
         color: 'var(--text-sub)',
+    },
+    loadingState: {
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '3rem',
+        color: 'var(--text-sub)',
+    },
+    errorState: {
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '3rem',
+        color: 'var(--error)',
+        gap: '1rem',
+    },
+    retryButton: {
+        padding: '8px 16px',
+        borderRadius: '8px',
+        border: 'none',
+        backgroundColor: 'var(--primary)',
+        color: 'white',
+        cursor: 'pointer',
     },
 };

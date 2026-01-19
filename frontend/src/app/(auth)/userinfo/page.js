@@ -3,13 +3,22 @@
 /**
  * [파일 역할]
  * - 최초 회원가입 사용자를 위한 정보 수집 온보딩 페이지입니다.
- * - 질문-답변 형식으로 6가지 정보를 순차적으로 수집합니다.
+ * - 질문-답변 형식으로 정보를 순차적으로 수집합니다.
+ * - 캐릭터를 선택한 후 이름을 입력합니다.
  * - 완료 후 메인 페이지로 이동합니다.
  */
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { updateProfile } from '@/lib/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
+
+const CHARACTERS = [
+    { id: 'char_cat', name: '고양이', image: '/images/characters/char_cat/body.png' },
+    { id: 'char_dog', name: '강아지', image: '/images/characters/char_dog/body.png' },
+    { id: 'char_ham', name: '햄스터', image: '/images/characters/char_ham/body.png' },
+    { id: 'char_sheep', name: '양', image: '/images/characters/char_sheep/body.png' },
+];
 
 // 질문 목록
 const questions = [
@@ -56,19 +65,74 @@ const questions = [
 ];
 
 export default function UserInfoPage() {
+    // 0 ~ (questions.length - 1): 질문 단계
+    // questions.length: 캐릭터 선택
+    // questions.length + 1: 캐릭터 이름 (마자막)
     const [currentStep, setCurrentStep] = useState(0);
     const [answers, setAnswers] = useState({});
     const [inputValue, setInputValue] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // 캐릭터 관련 상태
+    const [selectedCharacter, setSelectedCharacter] = useState('');
+    const [characterName, setCharacterName] = useState('');
+
     const router = useRouter();
     const { refreshUser } = useAuth();
 
-    const currentQuestion = questions[currentStep];
-    const isLastQuestion = currentStep === questions.length - 1;
+    const totalSteps = questions.length + 2;
 
-    // 답변 제출 처리
-    const handleSubmit = async () => {
+    // 현재 단계가 질문 단계인지 확인
+    const isQuestionStep = currentStep < questions.length;
+    const currentQuestion = isQuestionStep ? questions[currentStep] : null;
+
+    // 캐릭터 선택 처리 (두 번 누르면 선택 해제)
+    const handleCharacterSelect = (characterId) => {
+        if (selectedCharacter === characterId) {
+            setSelectedCharacter(''); // 같은 캐릭터 두 번 클릭 시 선택 해제
+        } else {
+            setSelectedCharacter(characterId); // 다른 캐릭터 선택 시 변경
+        }
+    };
+
+    // 캐릭터 선택 다음 단계로 (이름 입력으로 이동)
+    const handleCharacterNext = () => {
+        if (!selectedCharacter) {
+            setError('캐릭터를 선택해주세요.');
+            return;
+        }
+        setError('');
+        setCurrentStep(prev => prev + 1);
+    };
+
+    // 캐릭터 이름 입력 후 완료 (최종 제출)
+    const handleCharacterNameSubmit = async () => {
+        if (!characterName.trim()) {
+            setError('캐릭터 이름을 입력해주세요.');
+            return;
+        }
+        setError('');
+
+        setLoading(true);
+        try {
+            await updateProfile({
+                ...answers,
+                character_type: selectedCharacter,
+                character_name: characterName,
+                is_profile_complete: true
+            });
+            await refreshUser();
+            router.push('/');
+        } catch (err) {
+            console.error('프로필 저장 실패:', err);
+            setError('저장에 실패했습니다. 다시 시도해주세요.');
+            setLoading(false);
+        }
+    };
+
+    // 질문 답변 제출 처리 (다음 단계로 이동)
+    const handleQuestionSubmit = () => {
         // 현재 답변 저장
         const newAnswers = {
             ...answers,
@@ -78,27 +142,10 @@ export default function UserInfoPage() {
         };
         setAnswers(newAnswers);
         setInputValue('');
+        setError('');
 
-        if (isLastQuestion) {
-            // 마지막 질문이면 API 호출
-            setLoading(true);
-            setError('');
-            try {
-                await updateProfile({
-                    ...newAnswers,
-                    is_profile_complete: true
-                });
-                await refreshUser();
-                router.push('/');
-            } catch (err) {
-                console.error('프로필 저장 실패:', err);
-                setError('저장에 실패했습니다. 다시 시도해주세요.');
-                setLoading(false);
-            }
-        } else {
-            // 다음 질문으로 이동
-            setCurrentStep(prev => prev + 1);
-        }
+        // 다음 질문 또는 캐릭터 선택 단계로 이동
+        setCurrentStep(prev => prev + 1);
     };
 
     // 선택형 답변 처리
@@ -108,31 +155,166 @@ export default function UserInfoPage() {
             [currentQuestion.id]: value
         };
         setAnswers(newAnswers);
+        setError('');
 
-        if (isLastQuestion) {
-            setLoading(true);
-            updateProfile({
-                ...newAnswers,
-                is_profile_complete: true
-            }).then(() => {
-                refreshUser();
-                router.push('/');
-            }).catch(err => {
-                console.error('프로필 저장 실패:', err);
-                setError('저장에 실패했습니다. 다시 시도해주세요.');
-                setLoading(false);
-            });
-        } else {
-            setCurrentStep(prev => prev + 1);
-        }
+        // 다음 질문 또는 캐릭터 선택 단계로 이동
+        setCurrentStep(prev => prev + 1);
     };
 
     // Enter 키 처리
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && inputValue.trim()) {
-            handleSubmit();
+        if (e.key === 'Enter') {
+            if (isQuestionStep && currentQuestion.type !== 'select' && inputValue.trim()) {
+                handleQuestionSubmit();
+            } else if (currentStep === questions.length + 1 && characterName.trim()) {
+                handleCharacterNameSubmit();
+            }
         }
     };
+
+    // 캐릭터 선택 단계 렌더링
+    const renderCharacterSelection = () => (
+        <>
+            <h2 style={styles.question}>나만의 두둑이를 선택하세요!</h2>
+
+            {error && <div style={styles.errorBox}>{error}</div>}
+
+            <div style={styles.characterGrid}>
+                {CHARACTERS.map((char) => (
+                    <div
+                        key={char.id}
+                        onClick={() => handleCharacterSelect(char.id)}
+                        style={{
+                            ...styles.characterCard,
+                            ...(selectedCharacter === char.id ? styles.characterCardSelected : {})
+                        }}
+                    >
+                        <div style={styles.characterImageWrapper}>
+                            <Image
+                                src={char.image}
+                                alt={char.name}
+                                width={80}
+                                height={80}
+                                style={{ objectFit: 'contain' }}
+                            />
+                        </div>
+                        <span style={styles.characterName}>{char.name}</span>
+                    </div>
+                ))}
+            </div>
+
+            <button
+                onClick={handleCharacterNext}
+                disabled={!selectedCharacter}
+                style={{
+                    ...styles.nextButton,
+                    opacity: !selectedCharacter ? 0.5 : 1,
+                    cursor: !selectedCharacter ? 'not-allowed' : 'pointer'
+                }}
+            >
+                다음
+            </button>
+        </>
+    );
+
+    // 캐릭터 이름 입력 단계 렌더링
+    const renderCharacterNaming = () => (
+        <>
+            <h2 style={styles.question}>두둑이의 이름을 지어주세요!</h2>
+
+            {error && <div style={styles.errorBox}>{error}</div>}
+
+            <div style={styles.selectedCharacterPreview}>
+                <Image
+                    src={CHARACTERS.find(c => c.id === selectedCharacter)?.image || ''}
+                    alt="선택된 캐릭터"
+                    width={120}
+                    height={120}
+                    style={{ objectFit: 'contain' }}
+                />
+            </div>
+
+            <div style={styles.inputContainer}>
+                <input
+                    type="text"
+                    value={characterName}
+                    onChange={(e) => setCharacterName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="예: 두둑이"
+                    style={styles.input}
+                    maxLength={20}
+                    autoFocus
+                    disabled={loading}
+                />
+            </div>
+
+            <button
+                onClick={handleCharacterNameSubmit}
+                disabled={!characterName.trim() || loading}
+                style={{
+                    ...styles.nextButton,
+                    opacity: !characterName.trim() || loading ? 0.5 : 1,
+                    cursor: !characterName.trim() || loading ? 'not-allowed' : 'pointer'
+                }}
+            >
+                {loading ? '저장 중...' : '완료'}
+            </button>
+        </>
+    );
+
+    // 질문 단계 렌더링
+    const renderQuestion = () => (
+        <>
+            <h2 style={styles.question}>{currentQuestion.question}</h2>
+
+            {error && <div style={styles.errorBox}>{error}</div>}
+
+            {currentQuestion.type === 'select' ? (
+                <div style={styles.optionsContainer}>
+                    {currentQuestion.options.map((option) => (
+                        <button
+                            key={option.value}
+                            onClick={() => handleSelect(option.value)}
+                            style={styles.optionButton}
+                            disabled={loading}
+                        >
+                            {option.label}
+                        </button>
+                    ))}
+                </div>
+            ) : (
+                <div style={styles.inputContainer}>
+                    <input
+                        type={currentQuestion.type}
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder={currentQuestion.placeholder}
+                        style={styles.input}
+                        autoFocus
+                        disabled={loading}
+                    />
+                    {currentQuestion.suffix && (
+                        <span style={styles.suffix}>{currentQuestion.suffix}</span>
+                    )}
+                </div>
+            )}
+
+            {currentQuestion.type !== 'select' && (
+                <button
+                    onClick={handleQuestionSubmit}
+                    disabled={!inputValue.trim() || loading}
+                    style={{
+                        ...styles.nextButton,
+                        opacity: !inputValue.trim() || loading ? 0.5 : 1,
+                        cursor: !inputValue.trim() || loading ? 'not-allowed' : 'pointer'
+                    }}
+                >
+                    다음
+                </button>
+            )}
+        </>
+    );
 
     return (
         <div style={styles.container}>
@@ -145,70 +327,21 @@ export default function UserInfoPage() {
                     <div
                         style={{
                             ...styles.progressFill,
-                            width: `${((currentStep + 1) / questions.length) * 100}%`
+                            width: `${((currentStep + 1) / totalSteps) * 100}%`
                         }}
                     />
                 </div>
                 <span style={styles.progressText}>
-                    {currentStep + 1} / {questions.length}
+                    {currentStep + 1} / {totalSteps}
                 </span>
             </div>
 
-            {/* 질문 */}
+            {/* 단계별 컨텐츠 */}
             <div style={styles.questionContainer}>
-                <h2 style={styles.question}>{currentQuestion.question}</h2>
-
-                {error && (
-                    <div style={styles.errorBox}>{error}</div>
-                )}
-
-                {/* 입력 타입에 따른 UI */}
-                {currentQuestion.type === 'select' ? (
-                    <div style={styles.optionsContainer}>
-                        {currentQuestion.options.map((option) => (
-                            <button
-                                key={option.value}
-                                onClick={() => handleSelect(option.value)}
-                                style={styles.optionButton}
-                                disabled={loading}
-                            >
-                                {option.label}
-                            </button>
-                        ))}
-                    </div>
-                ) : (
-                    <div style={styles.inputContainer}>
-                        <input
-                            type={currentQuestion.type}
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder={currentQuestion.placeholder}
-                            style={styles.input}
-                            autoFocus
-                            disabled={loading}
-                        />
-                        {currentQuestion.suffix && (
-                            <span style={styles.suffix}>{currentQuestion.suffix}</span>
-                        )}
-                    </div>
-                )}
+                {isQuestionStep && renderQuestion()}
+                {currentStep === questions.length && renderCharacterSelection()}
+                {currentStep === questions.length + 1 && renderCharacterNaming()}
             </div>
-
-            {/* 다음 버튼 (텍스트/숫자 입력용) */}
-            {currentQuestion.type !== 'select' && (
-                <button
-                    onClick={handleSubmit}
-                    disabled={!inputValue.trim() || loading}
-                    style={{
-                        ...styles.nextButton,
-                        opacity: !inputValue.trim() || loading ? 0.5 : 1,
-                        cursor: !inputValue.trim() || loading ? 'not-allowed' : 'pointer'
-                    }}
-                >
-                    {loading ? '저장 중...' : isLastQuestion ? '완료' : '다음'}
-                </button>
-            )}
         </div>
     );
 }
@@ -233,7 +366,7 @@ const styles = {
     },
     progress: {
         width: '100%',
-        marginBottom: '3rem',
+        marginBottom: '2rem',
     },
     progressBar: {
         width: '100%',
@@ -258,10 +391,9 @@ const styles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
     },
     question: {
-        fontSize: '1.5rem',
+        fontSize: '1.4rem',
         fontWeight: '600',
         color: 'var(--text-main)',
         textAlign: 'center',
@@ -277,6 +409,55 @@ const styles = {
         textAlign: 'center',
         marginBottom: '1rem',
         width: '100%',
+    },
+    characterGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '1rem',
+        marginBottom: '1.5rem',
+        width: '100%',
+    },
+    characterCard: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '1rem',
+        borderRadius: '16px',
+        border: '2px solid #E2E8F0',
+        backgroundColor: '#FFFFFF',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+    },
+    characterCardSelected: {
+        borderColor: 'var(--primary)',
+        backgroundColor: 'rgba(72, 187, 120, 0.1)',
+        boxShadow: '0 4px 12px rgba(47, 133, 90, 0.2)',
+    },
+    characterImageWrapper: {
+        width: '100px',
+        height: '100px',
+        borderRadius: '50%',
+        backgroundColor: '#f0f9ff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: '0.75rem',
+        overflow: 'hidden',
+    },
+    characterName: {
+        fontSize: '0.875rem',
+        fontWeight: '600',
+        color: 'var(--text-main)',
+    },
+    selectedCharacterPreview: {
+        width: '140px',
+        height: '140px',
+        borderRadius: '50%',
+        backgroundColor: '#f0f9ff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: '1.5rem',
     },
     inputContainer: {
         width: '100%',

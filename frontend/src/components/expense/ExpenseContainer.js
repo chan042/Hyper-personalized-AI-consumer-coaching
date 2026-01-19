@@ -8,6 +8,7 @@ import CalendarView from './CalendarView';
 import ExpenseModal from './ExpenseModal';
 import styles from './expense.module.css';
 import { getTransactionsByMonth, getMonthlyAnalysis, updateTransaction, deleteTransaction } from '@/lib/api/transaction';
+import { getProfile } from '@/lib/api/auth';
 
 export default function ExpenseContainer() {
     const [viewMode, setViewMode] = useState('calendar');
@@ -21,13 +22,14 @@ export default function ExpenseContainer() {
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
 
-    // 월간 통계
     const [monthlyStats, setMonthlyStats] = useState({
         totalSpent: 0,
         successDays: 0,
         failDays: 0
     });
     const [dailyBudget, setDailyBudget] = useState(0);
+    const [characterType, setCharacterType] = useState('char_cat');
+    const [dateJoined, setDateJoined] = useState(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -57,6 +59,19 @@ export default function ExpenseContainer() {
                 successDays: analysisData.success_days || 0,
                 failDays: analysisData.fail_days || 0
             });
+
+            // 사용자 프로필에서 캐릭터 타입 및 가입일 조회
+            try {
+                const profile = await getProfile();
+                if (profile.character_type) {
+                    setCharacterType(profile.character_type);
+                }
+                if (profile.date_joined) {
+                    setDateJoined(profile.date_joined);
+                }
+            } catch (err) {
+                console.log('Profile fetch failed, using default character');
+            }
 
         } catch (error) {
             console.error('Failed to fetch data:', error);
@@ -163,6 +178,8 @@ export default function ExpenseContainer() {
                     successDays={monthlyStats.successDays}
                     failDays={monthlyStats.failDays}
                     dailyBudget={dailyBudget}
+                    characterType={characterType}
+                    dateJoined={dateJoined}
                 />
             )}
 

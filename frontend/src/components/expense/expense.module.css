@@ -256,8 +256,12 @@
   margin-bottom: 2px;
 }
 
-.dayEmoji {
-  font-size: 1rem;
+.dayFaceImage {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
 }
 

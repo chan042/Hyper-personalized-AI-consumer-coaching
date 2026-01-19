@@ -25,15 +25,27 @@ export const login = async (email, password) => {
  * @param {string} username - 사용자명
  * @param {string} password - 비밀번호
  * @param {string} passwordConfirm - 비밀번호 확인
+ * @param {string} characterType - 캐릭터 타입 (선택적)
+ * @param {string} characterName - 캐릭터 이름 (선택적)
  * @returns {Promise<{message: string, user: object}>}
  */
-export const register = async (email, username, password, passwordConfirm) => {
-    const response = await client.post('/api/users/register/', {
+export const register = async (email, username, password, passwordConfirm, characterType = null, characterName = null) => {
+    const data = {
         email,
         username,
         password,
         password_confirm: passwordConfirm
-    });
+    };
+
+    // 캐릭터 정보가 있을 때만 포함
+    if (characterType) {
+        data.character_type = characterType;
+    }
+    if (characterName) {
+        data.character_name = characterName;
+    }
+
+    const response = await client.post('/api/users/register/', data);
     return response.data;
 };
 
