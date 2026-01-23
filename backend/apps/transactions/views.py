@@ -44,20 +44,42 @@ class CreateTransactionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        import logging
+        logger = logging.getLogger(__name__)
+        
         data = request.data
+        logger.info(f"=== Transaction Create Request ===")
+        logger.info(f"User: {request.user}")
+        logger.info(f"Data: {data}")
         
         # 로그인한 사용자 사용
         user = request.user
 
         try:
             from django.utils import timezone
+            from django.utils.dateparse import parse_datetime
+            
             transaction_date = data.get('date')
             
-            # 날짜가 없으면 현재 시간으로 설정
+            logger.info(f"Original date from request: {transaction_date}")
+            
+            # 날짜 처리
             if not transaction_date:
                 transaction_date = timezone.now()
+                logger.info(f"Date was None, set to now: {transaction_date}")
+            else:
+                # ISO 문자열을 datetime 객체로 파싱
+                parsed_date = parse_datetime(transaction_date)
+                if parsed_date:
+                    transaction_date = parsed_date
+                    logger.info(f"Parsed ISO date: {transaction_date}")
+                else:
+                    # 파싱 실패 시 현재 시간으로
+                    transaction_date = timezone.now()
+                    logger.warning(f"Failed to parse date, using now: {transaction_date}")
 
             # DB에 Transaction 객체 생성 및 저장
+            logger.info(f"Attempting to create transaction...")
             transaction = Transaction.objects.create(
                 user=user,
                 category=data.get('category', '기타'),
@@ -69,13 +91,21 @@ class CreateTransactionView(APIView):
                 address=data.get('address', ''),
                 is_fixed=data.get('is_fixed', False)
             )
+            logger.info(f"Transaction created successfully: ID={transaction.id}")
 
             # 해당 날짜 이후의 스냅샷 재계산
+            logger.info(f"Recalculating snapshots from {transaction.date.date()}...")
             from .services import recalculate_snapshots_from_date
             recalculate_snapshots_from_date(user, transaction.date.date())
+            logger.info(f"Snapshots recalculated successfully")
 
             return Response({"message": "Transaction created", "id": transaction.id}, status=status.HTTP_201_CREATED)
         except Exception as e:
+            import traceback
+            logger.error(f"=== Transaction Creation Error ===")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error message: {str(e)}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 

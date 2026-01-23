@@ -230,7 +230,7 @@ export default function TransactionConfirm({ initialData, onSave }) {
 
             {/* Save Button */}
             <button
-                onClick={() => onSave({ amount, category, item, store, date: rawDate.toISOString(), isRecurring })}
+                onClick={() => onSave({ amount, category, item, store, date: rawDate.toISOString(), is_fixed: isRecurring })}
                 style={{
                     width: '100%',
                     padding: '1rem',
