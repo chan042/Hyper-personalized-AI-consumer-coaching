@@ -23,11 +23,7 @@ def update_challenge_progress_on_transaction(sender, instance, created, **kwargs
     )
     
     for uc in in_progress_challenges:
-        target_category = None
-        if uc.challenge:
-            target_category = uc.challenge.target_category
-        elif uc.ai_challenge:
-            target_category = uc.ai_challenge.target_category
+        target_category = uc.challenge.target_category if uc.challenge else None
         
         # 카테고리 필터가 있으면 해당하는 경우만 업데이트
         if target_category and target_category != category:

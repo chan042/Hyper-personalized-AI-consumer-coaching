@@ -30,8 +30,8 @@ DUDUK_CHALLENGES = [
         "keyword": "TOP_SAVING",
         "duration_days": 7,
         "target_amount": 30000,
-        "target_category": "",  # 모든 카테고리 대상
-        "type": "DUDUK",
+        "target_category": "",
+        "source": "DUDUK",
         "is_active": True,
     },
     # ========================================================================
@@ -48,7 +48,7 @@ DUDUK_CHALLENGES = [
     #     "duration_days": 1,
     #     "target_amount": 0,
     #     "target_category": "",
-    #     "type": "DUDUK",
+    #     "source": "DUDUK",
     #     "is_active": True,
     # },
 ]

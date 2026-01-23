@@ -5,9 +5,9 @@ from django.utils import timezone
 
 class Challenge(models.Model):
     """
-    두둑 챌린지, 이벤트 챌린지 템플릿
     - 두둑 챌린지: 플랫폼에서 제공하는 기본 챌린지
     - 이벤트 챌린지: 기간 한정 특별 챌린지
+    - AI 맞춤 챌린지: 사용자별로 AI가 생성한 개인화 챌린지
     """
     DIFFICULTY_CHOICES = [
         ('EASY', '쉬움'),
@@ -15,9 +15,10 @@ class Challenge(models.Model):
         ('HARD', '어려움'),
     ]
     
-    TYPE_CHOICES = [
+    SOURCE_CHOICES = [
         ('DUDUK', '두둑 챌린지'),
         ('EVENT', '이벤트 챌린지'),
+        ('AI', 'AI 맞춤 챌린지'),
     ]
     
     KEYWORD_CHOICES = [
@@ -26,10 +27,10 @@ class Challenge(models.Model):
         ('MANY_FAIL', '다수 실패'),
     ]
     
-    type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='DUDUK')
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='DUDUK')  # 챌린지 출처
     name = models.CharField(max_length=100)  # 챌린지 이름
     description = models.TextField()  # 상세 설명
-    icon = models.CharField(max_length=50, blank=True)  # 아이콘 식별자 (예: 'cart', 'coffee', 'pig')
+    icon = models.CharField(max_length=50, blank=True, default='sparkles')  # 아이콘 식별자
     icon_color = models.CharField(max_length=20, blank=True, default='#6366F1')  # 아이콘 배경색
     
     points = models.IntegerField(default=0)  # 완료 시 포인트
@@ -41,13 +42,29 @@ class Challenge(models.Model):
     target_amount = models.IntegerField(null=True, blank=True)  # 목표 금액 (예: 0원 = 무지출)
     target_category = models.CharField(max_length=50, blank=True)  # 대상 카테고리 (예: 카페, 편의점)
     
-    # 이벤트 챌린지용
+    # 이벤트 챌린지용 (source='EVENT'일 때만 사용)
     event_start = models.DateTimeField(null=True, blank=True)
     event_end = models.DateTimeField(null=True, blank=True)
     
-    is_active = models.BooleanField(default=True) # 챌린지 활성화 여부
-    created_at = models.DateTimeField(auto_now_add=True) # 생성 날짜
-    updated_at = models.DateTimeField(auto_now=True) # 수정 날짜
+    # AI 맞춤 챌린지용 (source='AI'일 때만 사용)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='ai_challenges'
+    )
+    coaching = models.ForeignKey(
+        'coaching.Coaching',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='generated_challenges'
+    )
+    
+    is_active = models.BooleanField(default=True)  # 챌린지 활성화 여부
+    created_at = models.DateTimeField(auto_now_add=True)  # 생성 날짜
+    updated_at = models.DateTimeField(auto_now=True)  # 수정 날짜
 
     class Meta:
         ordering = ['-created_at']
@@ -55,12 +72,22 @@ class Challenge(models.Model):
         verbose_name_plural = '챌린지 목록'
 
     def __str__(self):
-        return f"[{self.get_type_display()}] {self.name}"
+        return f"[{self.get_source_display()}] {self.name}"
+
+    @property
+    def is_template(self):
+        """재사용 가능한 템플릿인지"""
+        return self.source in ['DUDUK', 'EVENT']
+    
+    @property
+    def is_ai_generated(self):
+        """AI가 생성한 개인화 챌린지인지"""
+        return self.source == 'AI'
 
     @property
     def is_event_active(self):
         """이벤트 챌린지가 현재 활성 상태인지 확인"""
-        if self.type != 'EVENT':
+        if self.source != 'EVENT':
             return True
         now = timezone.now()
         if self.event_start and self.event_end:
@@ -86,20 +113,9 @@ class UserChallenge(models.Model):
         related_name='user_challenges'
     )
     challenge = models.ForeignKey(
-        Challenge, 
-        null=True, 
-        blank=True,
-        on_delete=models.SET_NULL,
+        Challenge,
+        on_delete=models.CASCADE,
         related_name='participants'
-    )
-    
-    # AI 맞춤 챌린지인 경우 coaching 연결
-    ai_challenge = models.ForeignKey(
-        'AIGeneratedChallenge',
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='user_challenges'
     )
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='IN_PROGRESS') # 챌린지 상태
@@ -124,9 +140,7 @@ class UserChallenge(models.Model):
         verbose_name_plural = '사용자 챌린지 목록'
 
     def __str__(self):
-        challenge_name = self.challenge.name if self.challenge else (
-            self.ai_challenge.name if self.ai_challenge else '알 수 없음'
-        )
+        challenge_name = self.challenge.name if self.challenge else '알 수 없음'
         return f"{self.user.username} - {challenge_name} ({self.get_status_display()})"
 
     @property
@@ -170,9 +184,7 @@ class UserChallenge(models.Model):
             # 성공 조건: 목표 금액 이하로 지출
             if self.current_spent <= self.target_amount:
                 self.status = 'SUCCESS'
-                self.points_earned = self.challenge.points if self.challenge else (
-                    self.ai_challenge.points if self.ai_challenge else 0
-                )
+                self.points_earned = self.challenge.points if self.challenge else 0
                 # 사용자 포인트 적립
                 self.user.points = getattr(self.user, 'points', 0) + self.points_earned
                 self.user.save()
@@ -182,51 +194,3 @@ class UserChallenge(models.Model):
             self.completed_at = timezone.now()
             self.save()
 
-
-class AIGeneratedChallenge(models.Model):
-    """
-    AI가 생성한 맞춤 챌린지
-    - Coaching 모델의 분석 결과를 바탕으로 자동 생성
-    - 사용자별 개인화된 챌린지
-    """
-    DIFFICULTY_CHOICES = [
-        ('EASY', '쉬움'),
-        ('MEDIUM', '보통'),
-        ('HARD', '어려움'),
-    ]
-    
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE,
-        related_name='ai_challenges'
-    )
-    coaching = models.ForeignKey(
-        'coaching.Coaching',
-        on_delete=models.CASCADE,
-        related_name='generated_challenges'
-    )
-    
-    name = models.CharField(max_length=100) # 챌린지 이름
-    description = models.TextField() # 챌린지 설명
-    icon = models.CharField(max_length=50, blank=True, default='sparkles') # 아이콘
-    icon_color = models.CharField(max_length=20, blank=True, default='#8B5CF6') # 아이콘 색상
-    
-    points = models.IntegerField(default=0) # 포인트
-    difficulty = models.CharField(max_length=20, choices=DIFFICULTY_CHOICES, default='MEDIUM') # 난이도
-    duration_days = models.IntegerField(default=7) # 지속일
-    target_amount = models.IntegerField(null=True, blank=True) # 목표 금액
-    target_category = models.CharField(max_length=50, blank=True) # 목표 카테고리
-    
-    is_started = models.BooleanField(default=False)  # UserChallenge로 변환됨
-    is_active = models.BooleanField(default=True) # 챌린지 활성화 여부
-    
-    created_at = models.DateTimeField(auto_now_add=True) # 생성 날짜
-    updated_at = models.DateTimeField(auto_now=True) # 수정 날짜
-
-    class Meta:
-        ordering = ['-created_at']
-        verbose_name = 'AI 맞춤 챌린지'
-        verbose_name_plural = 'AI 맞춤 챌린지 목록'
-
-    def __str__(self):
-        return f"[AI] {self.user.username} - {self.name}"

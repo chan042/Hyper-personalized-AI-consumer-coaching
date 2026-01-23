@@ -7,11 +7,11 @@ from django.utils import timezone
 from django.db.models import Sum
 from datetime import timedelta
 
-from .models import Challenge, UserChallenge, AIGeneratedChallenge
+from .models import Challenge, UserChallenge
 from .serializers import (
     ChallengeSerializer, ChallengeListSerializer,
     UserChallengeSerializer, UserChallengeCreateSerializer,
-    AIGeneratedChallengeSerializer, UserPointsSerializer
+    UserPointsSerializer
 )
 from apps.transactions.models import Transaction
 
@@ -37,14 +37,20 @@ class ChallengeViewSet(viewsets.ReadOnlyModelViewSet):
         tab = self.request.query_params.get('tab')
         
         if tab == 'duduk':
-            queryset = queryset.filter(type='DUDUK')
+            queryset = queryset.filter(source='DUDUK')
         elif tab == 'event':
-            queryset = queryset.filter(type='EVENT')
+            queryset = queryset.filter(source='EVENT')
             # 이벤트 챌린지는 현재 활성 상태인 것만
             now = timezone.now()
             queryset = queryset.filter(
                 event_start__lte=now,
                 event_end__gte=now
+            )
+        elif tab == 'ai':
+            # AI 맞춤 챌린지
+            queryset = queryset.filter(
+                source='AI',
+                user=self.request.user
             )
         
         return queryset.order_by('-created_at')
@@ -134,11 +140,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
             )
         
         # 챌린지 기간 내 해당 카테고리 지출 합계 계산
-        target_category = None
-        if user_challenge.challenge:
-            target_category = user_challenge.challenge.target_category
-        elif user_challenge.ai_challenge:
-            target_category = user_challenge.ai_challenge.target_category
+        target_category = user_challenge.challenge.target_category if user_challenge.challenge else None
         
         transactions = Transaction.objects.filter(
             user=request.user,
@@ -159,52 +161,6 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         serializer = UserChallengeSerializer(user_challenge)
         return Response(serializer.data)
 
-
-class AIGeneratedChallengeViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    AI 맞춤 챌린지 조회 API
-    
-    GET /api/challenges/ai/ - AI 맞춤 챌린지 목록
-    GET /api/challenges/ai/<id>/ - AI 맞춤 챌린지 상세
-    POST /api/challenges/ai/<id>/start/ - AI 챌린지 시작
-    """
-    serializer_class = AIGeneratedChallengeSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        return AIGeneratedChallenge.objects.filter(
-            user=self.request.user,
-            is_active=True,
-            is_started=False
-        ).order_by('-created_at')
-
-    @action(detail=True, methods=['post'])
-    def start(self, request, pk=None):
-        """AI 맞춤 챌린지 시작"""
-        ai_challenge = self.get_object()
-        user = request.user
-        
-        if ai_challenge.is_started:
-            return Response(
-                {'error': '이미 시작된 챌린지입니다.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # UserChallenge 생성
-        end_date = timezone.now().date() + timedelta(days=ai_challenge.duration_days)
-        user_challenge = UserChallenge.objects.create(
-            user=user,
-            ai_challenge=ai_challenge,
-            end_date=end_date,
-            target_amount=ai_challenge.target_amount or 0
-        )
-        
-        # AI 챌린지 상태 업데이트
-        ai_challenge.is_started = True
-        ai_challenge.save()
-        
-        serializer = UserChallengeSerializer(user_challenge)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class UserPointsView(APIView):
@@ -247,11 +203,7 @@ class ChallengeProgressUpdateView(APIView):
         
         updated_challenges = []
         for uc in in_progress_challenges:
-            target_category = None
-            if uc.challenge:
-                target_category = uc.challenge.target_category
-            elif uc.ai_challenge:
-                target_category = uc.ai_challenge.target_category
+            target_category = uc.challenge.target_category if uc.challenge else None
             
             # 카테고리 필터가 있으면 해당하는 경우만 업데이트
             if target_category and target_category != category:

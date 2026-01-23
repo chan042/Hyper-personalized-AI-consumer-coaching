@@ -1,29 +1,33 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Challenge, UserChallenge, AIGeneratedChallenge
+from .models import Challenge, UserChallenge
 
 
 class ChallengeSerializer(serializers.ModelSerializer):
     """챌린지 목록/상세 직렬화"""
-    type_display = serializers.CharField(source='get_type_display', read_only=True)
+    source_display = serializers.CharField(source='get_source_display', read_only=True)
     difficulty_display = serializers.CharField(source='get_difficulty_display', read_only=True)
     keyword_display = serializers.CharField(source='get_keyword_display', read_only=True)
     remaining_event_time = serializers.SerializerMethodField()
     is_event_active = serializers.BooleanField(read_only=True)
+    coaching_title = serializers.CharField(source='coaching.title', read_only=True, allow_null=True)
+    is_template = serializers.BooleanField(read_only=True)
+    is_ai_generated = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = Challenge
         fields = [
-            'id', 'type', 'type_display', 'name', 'description', 
+            'id', 'source', 'source_display', 'name', 'description', 
             'icon', 'icon_color', 'points', 'difficulty', 'difficulty_display',
             'keyword', 'keyword_display', 'duration_days', 'target_amount', 
             'target_category', 'event_start', 'event_end', 
-            'remaining_event_time', 'is_event_active', 'is_active'
+            'remaining_event_time', 'is_event_active', 'is_template', 'is_ai_generated',
+            'user', 'coaching', 'coaching_title', 'is_active', 'created_at'
         ]
 
     def get_remaining_event_time(self, obj):
         """이벤트 챌린지의 남은 시간 (초 단위)"""
-        if obj.type != 'EVENT' or not obj.event_end:
+        if obj.source != 'EVENT' or not obj.event_end:
             return None
         now = timezone.now()
         if now > obj.event_end:
@@ -34,16 +38,18 @@ class ChallengeSerializer(serializers.ModelSerializer):
 
 class ChallengeListSerializer(serializers.ModelSerializer):
     """챌린지 목록용 간략 직렬화"""
-    type_display = serializers.CharField(source='get_type_display', read_only=True)
+    source_display = serializers.CharField(source='get_source_display', read_only=True)
     difficulty_display = serializers.CharField(source='get_difficulty_display', read_only=True)
     keyword_display = serializers.CharField(source='get_keyword_display', read_only=True)
+    is_template = serializers.BooleanField(read_only=True)
+    is_ai_generated = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = Challenge
         fields = [
-            'id', 'type', 'type_display', 'name', 'description', 'icon', 'icon_color',
+            'id', 'source', 'source_display', 'name', 'description', 'icon', 'icon_color',
             'points', 'difficulty', 'difficulty_display', 'duration_days',
-            'keyword', 'keyword_display'
+            'keyword', 'keyword_display', 'is_template', 'is_ai_generated'
         ]
 
 
@@ -67,53 +73,28 @@ class UserChallengeSerializer(serializers.ModelSerializer):
         ]
 
     def get_challenge_name(self, obj):
-        if obj.challenge:
-            return obj.challenge.name
-        elif obj.ai_challenge:
-            return obj.ai_challenge.name
-        return '알 수 없음'
+        return obj.challenge.name if obj.challenge else '알 수 없음'
 
     def get_challenge_icon(self, obj):
-        if obj.challenge:
-            return obj.challenge.icon
-        elif obj.ai_challenge:
-            return obj.ai_challenge.icon
-        return 'sparkles'
+        return obj.challenge.icon if obj.challenge else 'sparkles'
 
     def get_challenge_icon_color(self, obj):
-        if obj.challenge:
-            return obj.challenge.icon_color
-        elif obj.ai_challenge:
-            return obj.ai_challenge.icon_color
-        return '#8B5CF6'
+        return obj.challenge.icon_color if obj.challenge else '#8B5CF6'
 
 
 class UserChallengeCreateSerializer(serializers.Serializer):
     """챌린지 시작용 직렬화"""
-    challenge_id = serializers.IntegerField(required=False)
-    ai_challenge_id = serializers.IntegerField(required=False)
+    challenge_id = serializers.IntegerField(required=True)
 
-    def validate(self, data):
-        if not data.get('challenge_id') and not data.get('ai_challenge_id'):
-            raise serializers.ValidationError(
-                "challenge_id 또는 ai_challenge_id 중 하나는 필수입니다."
-            )
-        return data
+    def validate_challenge_id(self, value):
+        try:
+            Challenge.objects.get(id=value, is_active=True)
+        except Challenge.DoesNotExist:
+            raise serializers.ValidationError("유효하지 않은 챌린지입니다.")
+        return value
 
 
-class AIGeneratedChallengeSerializer(serializers.ModelSerializer):
-    """AI 맞춤 챌린지 직렬화"""
-    difficulty_display = serializers.CharField(source='get_difficulty_display', read_only=True)
-    coaching_title = serializers.CharField(source='coaching.title', read_only=True)
-    
-    class Meta:
-        model = AIGeneratedChallenge
-        fields = [
-            'id', 'name', 'description', 'icon', 'icon_color',
-            'points', 'difficulty', 'difficulty_display',
-            'duration_days', 'target_amount', 'target_category',
-            'coaching_title', 'is_started', 'is_active', 'created_at'
-        ]
+
 
 
 class UserPointsSerializer(serializers.Serializer):

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Challenge, UserChallenge, AIGeneratedChallenge
+from .models import Challenge, UserChallenge
 
 """
 Challenges 관리자(Admin) 설정 파일
@@ -11,13 +11,13 @@ Challenges 관리자(Admin) 설정 파일
 @admin.register(Challenge)
 class ChallengeAdmin(admin.ModelAdmin):
     """
-    기본 챌린지 템플릿 관리 (두둑 챌린지, 이벤트 챌린지)
-    - 목록 조회: 이름, 유형, 난이도, 포인트, 활성 상태
-    - 필터링: 유형, 난이도, 활성 상태
+    챌린지 관리 (두둑, 이벤트, AI)
+    - 목록 조회: 이름, 출처, 난이도, 포인트, 활성 상태
+    - 필터링: 출처, 난이도, 활성 상태
     """
-    list_display = ['name', 'type', 'difficulty', 'points', 'is_active', 'created_at']
-    list_filter = ['type', 'difficulty', 'is_active', 'keyword']
-    search_fields = ['name', 'description']
+    list_display = ['name', 'source', 'difficulty', 'points', 'is_active', 'user', 'created_at']
+    list_filter = ['source', 'difficulty', 'is_active', 'keyword']
+    search_fields = ['name', 'description', 'user__username']
     ordering = ['-created_at']
 
 
@@ -34,21 +34,5 @@ class UserChallengeAdmin(admin.ModelAdmin):
     ordering = ['-started_at']
 
     def get_challenge_name(self, obj):
-        if obj.challenge:
-            return obj.challenge.name
-        elif obj.ai_challenge:
-            return f"[AI] {obj.ai_challenge.name}"
-        return '-'
+        return obj.challenge.name if obj.challenge else '-'
     get_challenge_name.short_description = '챌린지'
-
-
-@admin.register(AIGeneratedChallenge)
-class AIGeneratedChallengeAdmin(admin.ModelAdmin):
-    """
-    AI가 생성한 맞춤형 챌린지 관리
-    - 코칭 기반으로 생성된 개별 챌린지 데이터
-    """
-    list_display = ['user', 'name', 'difficulty', 'points', 'is_started', 'created_at']
-    list_filter = ['difficulty', 'is_started', 'is_active']
-    search_fields = ['user__username', 'name']
-    ordering = ['-created_at']
