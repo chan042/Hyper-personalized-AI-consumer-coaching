@@ -9,7 +9,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 
 // 컴포넌트
-import ChallengeHeader from '@/components/challenge/ChallengeHeader';
 import ChallengeTabs from '@/components/challenge/ChallengeTabs';
 import ChallengeFilters from '@/components/challenge/ChallengeFilters';
 import ChallengeCard from '@/components/challenge/ChallengeCard';
@@ -159,7 +158,7 @@ export default function ChallengePage() {
     return (
         <div style={styles.container}>
             {/* 헤더 */}
-            <ChallengeHeader title="챌린지" points={userPoints} />
+            {/* <ChallengeHeader title="챌린지" points={userPoints} /> (Removed: using GlobalHeader) */}
 
             {/* 탭 네비게이션 */}
             <ChallengeTabs

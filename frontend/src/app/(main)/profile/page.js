@@ -112,11 +112,7 @@ export default function ProfilePage() {
     return (
         <div style={styles.container}>
             {/* 헤더 */}
-            <div style={styles.header}>
-                <div style={{ width: '24px' }}></div>
-                <h1 style={styles.title}>프로필</h1>
-                <div style={{ width: '24px' }}></div>
-            </div>
+
 
             {/* 프로필 정보 카드 */}
             <div style={styles.profileCard}>

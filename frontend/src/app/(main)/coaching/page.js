@@ -55,14 +55,7 @@ export default function CoachingPage() {
             backgroundColor: 'var(--background-light)',
             paddingBottom: '6rem'
         }}>
-            <h1 style={{
-                fontSize: '1.5rem',
-                fontWeight: 'bold',
-                color: 'var(--primary)',
-                padding: '1rem 1.5rem 0.5rem 1.5rem'
-            }}>
-                AI 코칭
-            </h1>
+
             <main>
                 {/* 계산된 합계를 전달 */}
                 <SavingsSummary totalSavings={totalSavings} />
