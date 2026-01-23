@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import ViewToggle from './ViewToggle';
 import ListView from './ListView';
@@ -11,7 +12,20 @@ import { getTransactionsByMonth, getMonthlyAnalysis, updateTransaction, deleteTr
 import { getProfile } from '@/lib/api/auth';
 
 export default function ExpenseContainer() {
-    const [viewMode, setViewMode] = useState('calendar');
+    const searchParams = useSearchParams();
+    const initialView = searchParams.get('view') === 'list' ? 'list' : 'calendar';
+    const [viewMode, setViewMode] = useState(initialView);
+
+    // URL 파라미터가 변경되면 뷰 모드 업데이트
+    useEffect(() => {
+        const viewOverride = searchParams.get('view');
+        if (viewOverride === 'list') {
+            setViewMode('list');
+        } else if (viewOverride === 'calendar') {
+            setViewMode('calendar');
+        }
+    }, [searchParams]);
+
     const [selectedTransaction, setSelectedTransaction] = useState(null);
     const [selectedDate, setSelectedDate] = useState(null);
     const [transactions, setTransactions] = useState([]);

@@ -33,6 +33,7 @@ class CoachingAdviceView(APIView):
                 "title": c.title,
                 "analysis": c.analysis,
                 "coaching_content": c.coaching_content,
+                "estimated_savings": c.estimated_savings,
                 "created_at": c.created_at
             })
             

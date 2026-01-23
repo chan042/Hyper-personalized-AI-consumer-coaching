@@ -131,7 +131,8 @@ class GeminiClient:
             "subject": "선택한 주제",
             "title": "코칭 제목 (예: 편의점 간식 줄이기)",
             "analysis": "소비 분석 내용",
-            "coaching_content": "코칭 내용"
+            "coaching_content": "코칭 내용",
+            "estimated_savings": 예상 월 절감액(숫자만, 없으면 0)
         }}
         
         JSON 외에 다른 말은 하지 마세요.

@@ -20,15 +20,15 @@ def generate_coaching_if_needed(sender, instance, created, **kwargs):
         
         # 마지막 코칭 이후의 지출 내역 조회
         if last_coaching:
-            new_transactions = Transaction.objects.filter(user=user, created_at__gt=last_coaching.created_at).order_by('-date')
+            new_transactions = Transaction.objects.filter(user=user, created_at__gt=last_coaching.created_at).order_by('-created_at')
         else:
-            new_transactions = Transaction.objects.filter(user=user).order_by('-date')
+            new_transactions = Transaction.objects.filter(user=user).order_by('-created_at')
 
         # !테스트 중에는 1로 수정!
         # 10건 이상이면 코칭 생성
         if new_transactions.count() >= 1:
             # 분석 컨텍스트 (최근 10건)
-            context_transactions = Transaction.objects.filter(user=user).order_by('-date')[:1]
+            context_transactions = Transaction.objects.filter(user=user).order_by('-created_at')[:1]
             transaction_list_str = ""
             for t in context_transactions:
                 transaction_list_str += f"- {t.date.strftime('%Y-%m-%d')} {t.category} / {t.item} ({t.store}) / {t.amount}원\n"
@@ -42,7 +42,8 @@ def generate_coaching_if_needed(sender, instance, created, **kwargs):
                     subject=advice_data.get('subject', '소비 분석'),
                     title=advice_data.get('title', '소비 코칭'),
                     analysis=advice_data.get('analysis', ''),
-                    coaching_content=advice_data.get('coaching_content', '')
+                    coaching_content=advice_data.get('coaching_content', ''),
+                    estimated_savings=advice_data.get('estimated_savings', 0)
                 )
                 
                 # 코칭 카드 최대 4개 유지 (오래된 것 삭제)

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Coffee, ShoppingBag, Bus, Film, Utensils, ChevronRight, HelpCircle } from 'lucide-react';
 import { getTransactions } from '../../lib/api/transaction';
 
@@ -61,19 +62,21 @@ export default function RecentTransactions() {
         <div style={{ paddingBottom: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>최근 내역</h2>
-                <button style={{
-                    background: 'none',
-                    border: 'none',
-                    fontSize: '0.9rem',
-                    color: 'var(--text-sub)',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem'
-                }}>
+                <Link
+                    href="/expense?view=list"
+                    style={{
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        color: 'var(--text-sub)',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                    }}
+                >
                     더보기 <ChevronRight size={16} />
-                </button>
+                </Link>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

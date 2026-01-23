@@ -10,6 +10,7 @@ class Coaching(models.Model):
     subject = models.CharField(max_length=50) # 주제: 행동 변화 제안, 누수 소비, 위치 기반 대안, 키워드 기반 대안
     analysis = models.TextField() # 소비 분석
     coaching_content = models.TextField() # 코칭 내용
+    estimated_savings = models.IntegerField(default=0) # 예상 절약액
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

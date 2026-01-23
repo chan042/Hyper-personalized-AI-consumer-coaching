@@ -6,37 +6,15 @@ import DislikeReasonPopup from './DislikeReasonPopup';
 import CoachingDetailPopup from './CoachingDetailPopup';
 import { getCoachingAdvice, submitFeedback } from '@/lib/api/coaching';
 
-export default function CoachingCardList() {
-    const [cards, setCards] = useState([]);
-    const [loading, setLoading] = useState(true);
+export default function CoachingCardList({ cards, loading }) {
+    // 부모 컴포넌트로부터 cards와 loading 상태를 props로 받습니다.
+    // liked, disliked 상태는 로컬에서 관리하거나 필요시 부모로 올릴 수 있습니다.
     const [likedCards, setLikedCards] = useState(new Set());
     const [dislikedCards, setDislikedCards] = useState(new Set());
     const [showDislikePopup, setShowDislikePopup] = useState(null); // Stores card ID
     const [selectedCard, setSelectedCard] = useState(null); // For detail popup
 
-    useEffect(() => {
-        const fetchCoaching = async () => {
-            try {
-                const data = await getCoachingAdvice();
-                // Map backend data to frontend format
-                const mappedCards = data.map(item => ({
-                    id: item.id,
-                    tag: item.subject,
-                    title: item.title,
-                    analysis: item.analysis,
-                    description: item.coaching_content,
-                    icon: getIconForSubject(item.subject)
-                }));
-                setCards(mappedCards);
-            } catch (error) {
-                console.error("Failed to fetch coaching:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchCoaching();
-    }, []);
+    // useEffect(() => { ... }) 제거됨
 
     const getIconForSubject = (subject) => {
         switch (subject) {
