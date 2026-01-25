@@ -168,11 +168,12 @@ export default function CalendarView({
                 {days.map(day => {
                     const content = getDayContent(day);
                     const isSelected = day === selectedDate;
+                    const isToday = isCurrentMonth && day === todayDate;
 
                     return (
                         <div
                             key={day}
-                            className={`${styles.calendarDay} ${content ? getSpendingClass(content.level) : ''} ${isSelected ? styles.selectedDay : ''}`}
+                            className={`${styles.calendarDay} ${content ? getSpendingClass(content.level) : ''} ${isSelected ? styles.selectedDay : ''} ${isToday ? styles.today : ''}`}
                             onClick={() => onDateClick(day)}
                             style={{ cursor: 'pointer' }}
                         >

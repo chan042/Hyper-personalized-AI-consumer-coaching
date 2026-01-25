@@ -251,7 +251,8 @@
 }
 
 .calendarDay.today {
-  background-color: transparent;
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
 }
 
 .calendarDay.selectedDay {
