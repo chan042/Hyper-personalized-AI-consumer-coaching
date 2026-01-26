@@ -1,4 +1,4 @@
-# 💰 두둑 (Duduk)
+# 👨🏻‍💻 서비스 소개
 
 <div align="center">
 
@@ -10,7 +10,6 @@
 나만의 두둑이와 자산을 관리하고, 친구들과 함께 절약 챌린지에 도전하세요!
 </p>
 </div>
-
 <div align="center">
 
 <img src="[https://img.shields.io/badge/Next.js_16.0-000000?style=for-the-badge&logo=nextdotjs&logoColor=white](https://www.google.com/search?q=https://img.shields.io/badge/Next.js_16.0-000000%3Fstyle%3Dfor-the-badge%26logo%3Dnextdotjs%26logoColor%3Dwhite)"/>
@@ -25,9 +24,6 @@
 <img src="[https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white](https://www.google.com/search?q=https://img.shields.io/badge/Docker-2496ED%3Fstyle%3Dfor-the-badge%26logo%3Ddocker%26logoColor%3Dwhite)"/>
 
 </div>
-
----
-
 
 ## 🌟 주요 기능 (Key Features)
 
@@ -62,9 +58,6 @@
 * **일일 권장 예산**: 이번 달 남은 일수와 잔액을 계산하여 '오늘 쓸 수 있는 돈'을 알려줍니다.
 * **무지출 도장**: 지출이 없는 날은 '무지출 확인' 스탬프 쾅!
 * **고정 지출 분리**: 월세, 구독료 등 숨만 쉬어도 나가는 돈을 따로 관리하여 정확한 가용 자산을 파악합니다.
-
----
-
 
 ## 📂 폴더 구조 (Project Structure)
 
