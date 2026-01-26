@@ -2,25 +2,13 @@
 
 <div align="center">
 
-
-
-
-
-
 <h3>"두둑이와 함께하는 즐거운 절약 습관"</h3>
+
 <p>
 두둑은 <b>AI 소비 코칭</b>과 <b>게이미피케이션</b>으로 사용자의 자산을 두둑하게 만들어주는 서비스 입니다.
-
-
-
-
+    
 나만의 두둑이와 자산을 관리하고, 친구들과 함께 절약 챌린지에 도전하세요!
 </p>
-
-
-
-
-
 </div>
 
 <div align="center">
@@ -39,6 +27,7 @@
 </div>
 
 ---
+
 
 ## 🌟 주요 기능 (Key Features)
 
@@ -76,75 +65,6 @@
 
 ---
 
-## 🏗️ 시스템 아키텍처 (Architecture)
-
-프로젝트는 **Docker Compose**를 기반으로 3개의 마이크로서비스가 유기적으로 연결되어 있습니다.
-
-```mermaid
-graph LR
-    A[Client (Browser)] -- Port 3000 --> B(Frontend: Next.js)
-    A -- Port 8000 --> C(Backend: Django API)
-    C -- AI Request --> D[Google Gemini API]
-    C -- SQL Query --> E[(Database: PostgreSQL)]
-
-```
-
-| 서비스 | 기술 스택 | 설명 |
-| --- | --- | --- |
-| **Frontend** | Next.js 16, React 19 | App Router 기반의 반응형 웹 애플리케이션 |
-| **Backend** | Django 5, DRF | RESTful API 서버, JWT 인증, 비즈니스 로직 처리 |
-| **Database** | PostgreSQL 15 | 사용자 데이터 및 트랜잭션, 로그 저장소 |
-
----
-
-## 🚀 시작 가이드 (Getting Started)
-
-### 1. 프로젝트 설치
-
-```bash
-git clone https://github.com/your-username/duduk-project.git
-cd duduk-project
-
-```
-
-### 2. 환경 변수 설정
-
-최상위 경로에 `.env` 파일을 생성하고 아래 내용을 채워주세요.
-
-```properties
-# --- Database Configuration ---
-POSTGRES_DB=duduk_db
-POSTGRES_USER=duduk_user
-POSTGRES_PASSWORD=duduk_password
-
-# --- Django Configuration ---
-SECRET_KEY=your_secret_key_here
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1,backend
-
-# --- Google AI Configuration ---
-GOOGLE_API_KEY=your_gemini_api_key_here
-
-```
-
-### 3. 실행 (Docker)
-
-모든 서비스(DB, Backend, Frontend)를 한 번에 실행합니다.
-
-```bash
-docker-compose up --build
-
-```
-
-> **Note**: 초기 실행 시 PostgreSQL 데이터베이스 초기화 및 Django 마이그레이션이 자동으로 수행됩니다.
-
-### 4. 접속 주소
-
-* **웹 서비스**: [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
-* **API 문서**: [http://localhost:8000/api/schema](https://www.google.com/search?q=http://localhost:8000/api/schema) (Swagger/Redoc 설정 시)
-* **Admin 페이지**: [http://localhost:8000/admin](https://www.google.com/search?q=http://localhost:8000/admin)
-
----
 
 ## 📂 폴더 구조 (Project Structure)
 
