@@ -1,0 +1,8 @@
+# backend/requirements.txt
+django
+psycopg2-binary
+google-generativeai
+django-cors-headers
+djangorestframework
+django-filter
+djangorestframework-simplejwt

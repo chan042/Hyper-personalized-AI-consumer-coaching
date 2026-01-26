@@ -1,0 +1,67 @@
+# docker-compose.yml
+#
+# [파일 역할]
+# - 프로젝트의 모든 서비스(DB, Backend, Frontend)를 한 번에 실행하고 관리하는 설정 파일입니다.
+# - `docker-compose up` 명령어로 이 파일에 정의된 컨테이너들을 실행합니다.
+#
+# [주요 서비스]
+# 1. db: PostgreSQL 데이터베이스
+# 2. backend: Django API 서버 (포트 8000)
+# 3. frontend: Next.js 웹 서버 (포트 3000)
+
+# 사용할 Docker Compose 파일의 버전
+version: '3.8'
+
+# 이곳에 우리 프로젝트의 서비스(앱)들을 정의합니다.
+services:
+  #################
+  # 1. DB 서버 (PostgreSQL)
+  #################
+  db:
+    image: postgres:15-alpine # 공식 PostgreSQL 이미지(15버전, 가벼운 alpine 버전)를 사용
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/ # DB 데이터를 컴퓨터에 저장해 컨테이너가 삭제돼도 유지
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5432:5432" # 내 컴퓨터의 5432 포트와 컨테이너의 5432 포트를 연결 (DB 툴로 접속 시 필요)
+
+  #################
+  # 2. 백엔드 서버 (Django)
+  #################
+  backend:
+    build: ./backend # ./backend 폴더에 있는 Dockerfile을 사용해 이미지를 직접 빌드
+    command: python manage.py runserver 0.0.0.0:8000
+    #command: tail -f /dev/null
+    volumes:
+      - ./backend:/app # 내 컴퓨터의 backend 폴더와 컨테이너의 /app 폴더를 실시간으로 동기화
+    ports:
+      - "8000:8000" # 내 컴퓨터의 8000 포트와 컨테이너의 8000 포트를 연결
+    env_file:
+      - .env
+    depends_on:
+      - db # db 서비스가 먼저 실행된 후에 backend 서비스를 실행
+
+  #################
+  # 3. 프론트엔드 서버 (Next.js)
+  #################
+  frontend:
+    build: ./frontend # ./frontend 폴더에 있는 Dockerfile을 사용해 이미지를 직접 빌드
+    command: npm run dev # 컨테이너가 시작될 때 실행할 명령어
+    volumes:
+      - ./frontend:/app # 내 컴퓨터의 frontend 폴더와 컨테이너의 /app 폴더를 실시간으로 동기화
+      - /app/node_modules # 단, node_modules는 컨테이너 안의 것을 계속 사용 (OS 충돌 방지)
+      - /app/.next
+    ports:
+      - "3000:3000" # 내 컴퓨터의 3000 포트와 컨테이너의 3000 포트를 연결
+    environment:
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+    env_file:
+      - .env
+
+# DB 데이터를 저장할 공간(볼륨)을 정의합니다.
+volumes:
+  postgres_data:

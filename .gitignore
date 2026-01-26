@@ -1,0 +1,23 @@
+# .gitignore
+
+# .gitignore
+#
+# [파일 역할]
+# - Git 버전 관리에서 제외할 파일이나 폴더 목록을 지정합니다.
+# - 가상환경, OS 설정 파일, 민감한 정보(API Key 등), 빌드 결과물 등을 포함합니다.
+
+# Python/Django
+__pycache__/
+*.pyc
+.env
+db.sqlite3
+
+# Node/Next.js
+node_modules/
+.next/
+npm-debug.log*
+yarn-error.log*
+
+# OS generated files
+.DS_Store
+Thumbs.db
