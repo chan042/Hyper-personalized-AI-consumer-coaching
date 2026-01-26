@@ -138,3 +138,4 @@ duduk-project/
     │   └── 📂 lib/            # API 호출 함수 및 유틸리티
     └── 📄 package.json
 ```
+
