@@ -173,11 +173,11 @@ export default function CalendarView({
                     return (
                         <div
                             key={day}
-                            className={`${styles.calendarDay} ${content ? getSpendingClass(content.level) : ''} ${isSelected ? styles.selectedDay : ''} ${isToday ? styles.today : ''}`}
+                            className={`${styles.calendarDay} ${content ? getSpendingClass(content.level) : ''} ${isSelected ? styles.selectedDay : ''}`}
                             onClick={() => onDateClick(day)}
                             style={{ cursor: 'pointer' }}
                         >
-                            <span className={styles.dayNumber}>{day}</span>
+                            <span className={`${styles.dayNumber} ${isToday ? styles.todayNumber : ''}`}>{day}</span>
                             {content && (
                                 <>
                                     <div className={styles.dayFaceImage}>

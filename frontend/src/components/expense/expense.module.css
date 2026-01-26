@@ -250,20 +250,29 @@
   overflow: hidden;
 }
 
-.calendarDay.today {
-  border: 2px solid var(--primary);
-  box-shadow: 0 0 0 1px var(--primary);
-}
-
 .calendarDay.selectedDay {
   border: 2px solid var(--primary);
   box-shadow: 0 0 0 1px var(--primary);
 }
 
-
 .dayNumber {
   font-size: 0.875rem;
   margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.todayNumber {
+  background-color: #e53e3e;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
 }
 
 .dayFaceImage {
