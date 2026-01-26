@@ -1,7 +1,6 @@
 # 💰 두둑 (Duduk)
 
 <div align="center">
-<img src="[https://capsule-render.vercel.app/api?type=waving&color=6366F1&height=200&section=header&text=Duduk&fontSize=80&animation=fadeIn&fontAlignY=35&desc=AI%20Gamified%20Asset%20Management%20Platform&descAlignY=55&descSize=20](https://www.google.com/search?q=https://capsule-render.vercel.app/api%3Ftype%3Dwaving%26color%3D6366F1%26height%3D200%26section%3Dheader%26text%3DDuduk%26fontSize%3D80%26animation%3DfadeIn%26fontAlignY%3D35%26desc%3DAI%2520Gamified%2520Asset%2520Management%2520Platform%26descAlignY%3D55%26descSize%3D20)" alt="Duduk Header" width="100%">
 
 
 
@@ -53,7 +52,7 @@
 ### 2. 🐾 나만의 '두둑이'
 
 두둑이와 함께 절약하세요! 4가지 귀여운 캐릭터 중 하나를 선택해 절약 파트너로 삼으세요.
-| 🐱 고양이 (Cat) | 🐶 강아지 (Dog) | 🐹 햄스터 (Hamster) | 🐑 양 (Sheep) |
+| 🐱 고양이  | 🐶 강아지  | 🐹 햄스터  | 🐑 양  |
 | :---: | :---: | :---: | :---: |
 | <img src="frontend/public/images/characters/char_cat/face_happy.png" width="80"> | <img src="frontend/public/images/characters/char_dog/face_happy.png" width="80"> | <img src="frontend/public/images/characters/char_ham/face_happy.png" width="80"> | <img src="frontend/public/images/characters/char_sheep/face_happy.png" width="80"> |
 
