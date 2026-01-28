@@ -5,12 +5,10 @@
  * - 사용자 프로필 페이지 UI를 구현합니다.
  * - 사용자 정보 표시, 로그아웃, 회원탈퇴 기능을 제공합니다.
  */
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, Trash2, User, Mail, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { deleteAccount, updateProfile, updateProfileImage } from '@/lib/api/auth';
-
 export default function ProfilePage() {
     const { user, logout, loading, refreshUser } = useAuth();
     const router = useRouter();
@@ -21,26 +19,9 @@ export default function ProfilePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
     const [editData, setEditData] = useState({});
-    const fileInputRef = useRef(null);
 
     // 프로필 이미지 변경 처리
-    const handleProfileImageChange = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
 
-        try {
-            await updateProfileImage(file);
-            await refreshUser();
-        } catch (err) {
-            console.error('프로필 이미지 수정 실패:', err);
-            alert('이미지 업로드에 실패했습니다.');
-        }
-    };
-
-    // 프로필 이미지 영역 클릭 시
-    const handleAvatarClick = () => {
-        fileInputRef.current?.click();
-    };
 
     // 나의 정보 모달 열기
     const openInfoModal = () => {
@@ -137,22 +118,11 @@ export default function ProfilePage() {
             {/* 프로필 정보 카드 */}
             <div style={styles.profileCard}>
                 <div style={styles.avatarContainer}>
-                    <div style={{ ...styles.avatar, cursor: 'pointer', overflow: 'hidden' }} onClick={handleAvatarClick}>
-                        {user?.profile_image ? (
-                            <img
-                                src={user.profile_image}
-                                alt="Profile"
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                        ) : (
-                            <Edit2 size={32} color="white" />
-                        )}
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleProfileImageChange}
-                            style={{ display: 'none' }}
-                            accept="image/*"
+                    <div style={styles.avatar}>
+                        <img
+                            src={`/images/characters/${user?.character_type || 'char_cat'}/face_basic.png`}
+                            alt="Character"
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                         />
                     </div>
                 </div>
@@ -409,14 +379,11 @@ const styles = {
         marginBottom: '1.5rem',
     },
     avatar: {
-        width: '80px',
-        height: '80px',
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
+        width: '120px',
+        height: '120px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: '0 8px 24px rgba(47, 133, 90, 0.3)',
     },
     userInfo: {
         display: 'flex',

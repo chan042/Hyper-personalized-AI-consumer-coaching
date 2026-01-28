@@ -3,10 +3,12 @@
 import { usePathname } from 'next/navigation';
 import { User, Bell } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 
 
 export default function GlobalHeader() {
     const pathname = usePathname();
+    const { user } = useAuth();
     const isHome = pathname === '/';
 
     const getHeaderContent = () => {
@@ -14,7 +16,15 @@ export default function GlobalHeader() {
             return {
                 left: (
                     <Link href="/profile" style={{ display: 'flex', alignItems: 'center' }}>
-                        <User color="var(--text-main)" size={24} />
+                        <img
+                            src={`/images/characters/${user?.character_type || 'char_cat'}/face_basic.png`}
+                            alt="Profile"
+                            style={{
+                                width: '40px',
+                                height: '40px',
+                                objectFit: 'contain'
+                            }}
+                        />
                     </Link>
                 ),
                 title: 'Duduk',
