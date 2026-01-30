@@ -16,15 +16,13 @@ class ChallengeTemplate(models.Model):
     
     DIFFICULTY_CHOICES = [
         ('easy', '쉬움'),
-        ('medium', '보통'),
+        ('normal', '보통'),
         ('hard', '어려움'),
     ]
     
     # 기본 정보
     name = models.CharField(max_length=100, verbose_name='챌린지 이름')
     description = models.TextField(verbose_name='상세 설명')
-    icon = models.CharField(max_length=50, blank=True, default='target', verbose_name='아이콘')
-    icon_color = models.CharField(max_length=20, blank=True, default='#4CAF50', verbose_name='아이콘 색상')
     
     source_type = models.CharField(
         max_length=20, 
@@ -35,7 +33,7 @@ class ChallengeTemplate(models.Model):
     difficulty = models.CharField(
         max_length=10, 
         choices=DIFFICULTY_CHOICES, 
-        default='medium',
+        default='normal',
         verbose_name='난이도'
     )
     
@@ -117,7 +115,7 @@ class UserChallenge(models.Model):
     
     DIFFICULTY_CHOICES = [
         ('easy', '쉬움'),
-        ('medium', '보통'),
+        ('normal', '보통'),
         ('hard', '어려움'),
     ]
     
@@ -162,19 +160,17 @@ class UserChallenge(models.Model):
     # 챌린지 정보
     name = models.CharField(max_length=100, verbose_name='챌린지 이름', default='챌린지')
     description = models.TextField(blank=True, null=True, verbose_name='상세 설명')
-    icon = models.CharField(max_length=50, default='target', verbose_name='아이콘')
-    icon_color = models.CharField(max_length=20, default='#4CAF50', verbose_name='아이콘 색상')
     difficulty = models.CharField(
         max_length=10,
         choices=DIFFICULTY_CHOICES,
-        default='medium',
+        default='normal',
         verbose_name='난이도'
     )
     
     # 기간
     duration_days = models.IntegerField(verbose_name='기간(일)', default=7)
-    started_at = models.DateTimeField(verbose_name='시작일시', default=timezone.now)
-    ends_at = models.DateTimeField(verbose_name='종료일시', default=timezone.now)
+    started_at = models.DateTimeField(verbose_name='시작일시', null=True, blank=True)
+    ends_at = models.DateTimeField(verbose_name='종료일시', null=True, blank=True)
     
     # 검증 조건 (백엔드용)
     success_conditions = models.JSONField(verbose_name='성공 조건', default=dict)
@@ -254,6 +250,8 @@ class UserChallenge(models.Model):
     @property
     def remaining_days(self):
         """남은 일수 계산"""
+        if self.ends_at is None:
+            return self.duration_days or 0
         now = timezone.now()
         if now >= self.ends_at:
             return 0
@@ -293,19 +291,109 @@ class UserChallenge(models.Model):
         self.save()
 
     def _calculate_points(self):
-        """포인트 계산"""
-        # TODO: points_formula 기반 계산 구현
-        return self.base_points
+        """포인트 계산
+        
+        points_formula 지원 변수:
+        - {spent}: 최종 지출 금액
+        - {target}: 목표 금액
+        - {saved}: 절약 금액 (target - spent)
+        - {base}: 기본 포인트
+        
+        """
+        if not self.points_formula:
+            return self.base_points
+        
+        try:
+            target = self.success_conditions.get('target_amount', 0)
+            spent = self.final_spent or 0
+            saved = max(0, target - spent)
+            
+            formula = self.points_formula
+            formula = formula.replace('{spent}', str(spent))
+            formula = formula.replace('{target}', str(target))
+            formula = formula.replace('{saved}', str(saved))
+            formula = formula.replace('{base}', str(self.base_points))
+            
+            result = eval(formula)
+            
+            if self.max_points:
+                result = min(result, self.max_points)
+            
+            return max(0, int(result))
+        except Exception:
+            return self.base_points
 
     def _calculate_penalty(self):
-        """패널티 계산"""
-        # TODO: penalty_formula 기반 계산 구현
-        return 0
+        """패널티 계산
+        
+        penalty_formula 지원 변수:
+        - {spent}: 최종 지출 금액
+        - {target}: 목표 금액
+        - {over}: 초과 금액 (spent - target)
+        
+        """
+        if not self.penalty_formula:
+            return 0
+        
+        try:
+            target = self.success_conditions.get('target_amount', 0)
+            spent = self.final_spent or 0
+            over = max(0, spent - target)
+            
+            formula = self.penalty_formula
+            formula = formula.replace('{spent}', str(spent))
+            formula = formula.replace('{target}', str(target))
+            formula = formula.replace('{over}', str(over))
+            
+            result = eval(formula)
+            
+            if self.max_penalty:
+                result = min(result, self.max_penalty)
+            
+            return max(0, int(result))
+        except Exception:
+            return 0
 
     def _check_bonus_condition(self):
-        """보너스 조건 체크"""
-        # TODO: bonus_condition 기반 체크 구현
-        return False
+        """보너스 조건 체크
+        
+        bonus_condition 지원 타입:
+        - under_target_percent: 목표 대비 일정 % 이하 지출 시 보너스
+        - zero_spend: 무지출 달성 시 보너스
+        - streak: 연속 성공 일수 달성 시 보너스
+        """
+        if not self.bonus_condition:
+            return False
+        
+        try:
+            condition_type = self.bonus_condition.get('type')
+            
+            if condition_type == 'under_target_percent':
+                threshold_percent = self.bonus_condition.get('threshold', 50)
+                target = self.success_conditions.get('target_amount', 0)
+                spent = self.final_spent or 0
+                
+                if target > 0:
+                    spent_percent = (spent / target) * 100
+                    return spent_percent <= threshold_percent
+            
+            elif condition_type == 'zero_spend':
+                return (self.final_spent or 0) == 0
+            
+            elif condition_type == 'streak':
+                required_streak = self.bonus_condition.get('days', 3)
+                logs = self.daily_logs.filter(condition_met=True).order_by('log_date')
+                streak = 0
+                for log in logs:
+                    if log.condition_met:
+                        streak += 1
+                    else:
+                        streak = 0
+                return streak >= required_streak
+            
+            return False
+        except Exception:
+            return False
 
 
 class ChallengeDailyLog(models.Model):

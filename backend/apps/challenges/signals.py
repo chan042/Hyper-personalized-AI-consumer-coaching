@@ -7,6 +7,47 @@ from apps.transactions.models import Transaction
 from .models import UserChallenge, ChallengeDailyLog
 
 
+def _should_track_transaction(user_challenge, transaction):
+    """
+    해당 지출이 챌린지에서 추적해야 하는 지출인지 판단
+    
+    우선순위:
+    1. target_keywords가 있으면 키워드 매칭 우선
+    2. target_categories만 있으면 카테고리 매칭
+    3. 둘 다 없거나 "all"이면 모든 지출 추적
+    """
+    source_type = user_challenge.source_type
+    success_conditions = user_challenge.success_conditions or {}
+    
+    # duduk/event 챌린지
+    if source_type not in ['custom', 'ai']:
+        condition_type = success_conditions.get('type', 'amount_limit')
+        if condition_type == 'zero_spend':
+            target_categories = success_conditions.get('categories', [])
+            if not target_categories or 'all' in target_categories:
+                return True
+            return transaction.category in target_categories
+        return True
+    
+    # custom/ai 챌린지: 키워드 + 카테고리 필터링
+    target_keywords = success_conditions.get('keywords', [])
+    target_categories = success_conditions.get('categories', [])
+    
+    # 키워드가 있으면 키워드 매칭 우선
+    if target_keywords:
+        search_text = f"{transaction.item} {transaction.store} {transaction.memo}".lower()
+        for keyword in target_keywords:
+            if keyword.lower() in search_text:
+                return True
+        return False
+    
+    # 키워드가 없으면 카테고리 매칭
+    if not target_categories or 'all' in target_categories:
+        return True
+    
+    return transaction.category in target_categories
+
+
 @receiver(post_save, sender=Transaction)
 def update_challenge_progress_on_transaction(sender, instance, created, **kwargs):
     """
@@ -33,6 +74,10 @@ def update_challenge_progress_on_transaction(sender, instance, created, **kwargs
         compare_type = success_conditions.get('compare_type', '')
         
         if compare_type == 'fixed_expense' and not instance.is_fixed:
+            continue
+        
+        # 챌린지 관련 지출인지 확인
+        if not _should_track_transaction(uc, instance):
             continue
             
         _update_daily_log(uc, transaction_date, category, amount)
@@ -349,6 +394,15 @@ def _check_auto_judgement(user_challenge, transaction_date=None, category=None, 
             if current > random_budget:
                 user_challenge.complete_challenge(False, current)
                 return
+
+    # AI/커스텀 챌린지 (custom) - target_amount 초과 시 즉시 실패
+    elif condition_type == 'custom':
+        target = int(success_conditions.get('target_amount', 0))
+        current = progress.get('current', 0)
+        if target > 0 and current > target:
+            user_challenge.complete_challenge(False, current)
+            return
+
 
 
 def _check_photo_missing_failure(user_challenge, current_date):

@@ -60,7 +60,7 @@ export default function CoachingPage() {
     const handleStartChallengeFromCoaching = async (coachingData) => {
         try {
             setCurrentCoachingId(coachingData.id);
-            const generated = await generateChallengeFromCoaching(coachingData.id, 'medium');
+            const generated = await generateChallengeFromCoaching(coachingData.id, 'normal');
             setAiGeneratedChallenge(generated);
             setShowAIPreviewModal(true);
         } catch (err) {

@@ -6,6 +6,7 @@
  */
 import { useState } from 'react';
 import { X, Sparkles } from 'lucide-react';
+import { getDifficultyButtonStyle } from '@/lib/challengeUtils';
 
 export default function CustomChallengeModal({ isOpen, onClose, onGenerate, isLoading }) {
     const [details, setDetails] = useState('');
@@ -36,43 +37,6 @@ export default function CustomChallengeModal({ isOpen, onClose, onGenerate, isLo
             return;
         }
         onGenerate('', details.trim(), difficulty);
-    };
-
-    const getDifficultyStyle = (diff) => {
-        const isSelected = difficulty === diff;
-        const baseStyle = {
-            flex: 1,
-            padding: '12px 16px',
-            borderRadius: '12px',
-            border: 'none',
-            fontSize: '0.9rem',
-            fontWeight: '600',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-        };
-
-        if (diff === 'easy') {
-            return {
-                ...baseStyle,
-                backgroundColor: isSelected ? '#DCFCE7' : '#F3F4F6',
-                color: isSelected ? '#16A34A' : 'var(--text-sub)',
-            };
-        }
-        if (diff === 'medium') {
-            return {
-                ...baseStyle,
-                backgroundColor: isSelected ? '#FEF3C7' : '#F3F4F6',
-                color: isSelected ? '#CA8A04' : 'var(--text-sub)',
-            };
-        }
-        if (diff === 'hard') {
-            return {
-                ...baseStyle,
-                backgroundColor: isSelected ? '#FEE2E2' : '#F3F4F6',
-                color: isSelected ? '#DC2626' : 'var(--text-sub)',
-            };
-        }
-        return baseStyle;
     };
 
     return (
@@ -111,21 +75,21 @@ export default function CustomChallengeModal({ isOpen, onClose, onGenerate, isLo
                         <div style={styles.difficultyRow}>
                             <button
                                 type="button"
-                                style={getDifficultyStyle('easy')}
+                                style={getDifficultyButtonStyle('easy', difficulty)}
                                 onClick={() => setDifficulty('easy')}
                             >
                                 Easy
                             </button>
                             <button
                                 type="button"
-                                style={getDifficultyStyle('medium')}
-                                onClick={() => setDifficulty('medium')}
+                                style={getDifficultyButtonStyle('normal', difficulty)}
+                                onClick={() => setDifficulty('normal')}
                             >
-                                Medium
+                                Normal
                             </button>
                             <button
                                 type="button"
-                                style={getDifficultyStyle('hard')}
+                                style={getDifficultyButtonStyle('hard', difficulty)}
                                 onClick={() => setDifficulty('hard')}
                             >
                                 Hard

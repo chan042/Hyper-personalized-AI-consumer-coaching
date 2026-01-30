@@ -7,18 +7,7 @@
 import client from './client';
 
 // 아이콘별 배경색 매핑
-const iconColorMap = {
-    shopping: '#E8F4FD',
-    food: '#FFEDD5',
-    wallet: '#D1FAE5',
-    coffee: '#FCE7F3',
-    walk: '#DBEAFE',
-    document: '#F3E8FF',
-    target: '#FEE2E2',
-    snack: '#FEF3C7',
-    sparkles: '#E0E7FF',
-    default: '#F3F4F6'
-};
+
 
 // 난이도 정렬 순서
 const difficultyOrder = { '쉬움': 1, '보통': 2, '어려움': 3, 'EASY': 1, 'MEDIUM': 2, 'HARD': 3 };
@@ -28,14 +17,9 @@ const difficultyOrder = { '쉬움': 1, '보통': 2, '어려움': 3, 'EASY': 1, '
  */
 const transformTemplate = (template) => ({
     id: template.id,
-    // Template과 UserChallenge는 서로 다른 DB 테이블이므로 id가 겨칠 수 있음
-    // React key로 사용할 고유 식별자 추가
     uniqueId: `template_${template.id}`,
     title: template.name,
     description: template.description,
-    icon: template.icon || 'target',
-    iconColor: template.icon_color || '#4CAF50',
-    color: iconColorMap[template.icon] || iconColorMap.default,
     points: template.base_points || 0,
     basePoints: template.base_points || 0,
     maxPoints: template.max_points,
@@ -79,14 +63,9 @@ const transformUserChallenge = (uc) => {
 
     return {
         id: uc.id,
-        // Template과 UserChallenge는 서로 다른 DB 테이블이므로 id가 겨칠 수 있음
-        // React key로 사용할 고유 식별자 추가
         uniqueId: `uc_${uc.id}`,
         title: uc.name,
         description: uc.description,
-        icon: uc.icon || 'target',
-        iconColor: uc.icon_color || '#4CAF50',
-        color: iconColorMap[uc.icon] || iconColorMap.default,
         points: uc.base_points || uc.earned_points || 0,
         basePoints: uc.base_points || 0,
         maxPoints: uc.max_points,
@@ -112,9 +91,8 @@ const transformUserChallenge = (uc) => {
         bonusEarned: uc.bonus_earned || false,
         // 실패한 경우
         failedDate: uc.status === 'failed' ? new Date(uc.completed_at).toLocaleDateString('ko-KR') : null,
-        // 템플릿 ID (재도전용)
+        // 템플릿 ID
         templateId: uc.template,
-        // 인증 관련
         requiresPhoto: uc.requires_photo || false,
         requiresDailyCheck: uc.requires_daily_check || false,
         photoDescription: uc.photo_description,
@@ -185,6 +163,8 @@ export const getMyChallenges = async (status = null) => {
                 'completed': 'completed',
                 'failed': 'failed',
                 'finished': 'finished', // completed + failed
+                'ready': 'ready',
+                'cancelled': 'cancelled',
             };
             const mappedStatus = statusMap[status] || status;
             url += `?status=${mappedStatus}`;
@@ -236,8 +216,8 @@ export const getUserChallenges = async () => {
 
 /**
  * 템플릿 기반 챌린지 시작
- * @param {number} templateId - 템플릿 ID
- * @param {object} userInputValues - 사용자 입력값
+ * @param {number} templateId
+ * @param {object} userInputValues
  */
 export const startChallenge = async (templateId, userInputValues = {}) => {
     try {
@@ -360,9 +340,8 @@ export const createUserChallenge = async (challengeData) => {
         const response = await client.post('/api/challenges/my/create_custom/', {
             name: challengeData.name,
             description: challengeData.description || '',
-            icon: challengeData.icon || 'target',
-            icon_color: challengeData.icon_color || challengeData.iconColor || '#4CAF50',
-            difficulty: challengeData.difficulty || 'medium',
+
+            difficulty: challengeData.difficulty || 'normal',
             duration_days: challengeData.duration_days || 7,
             target_amount: challengeData.target_amount || null,
             target_categories: challengeData.target_categories || [],
@@ -413,7 +392,7 @@ export const startAIChallenge = async (challengeData) => {
  * @param {number} coachingId
  * @param {string} difficulty
  */
-export const generateChallengeFromCoaching = async (coachingId, difficulty = 'medium') => {
+export const generateChallengeFromCoaching = async (coachingId, difficulty = 'normal') => {
     try {
         const response = await client.post('/api/challenges/my/generate_from_coaching/', {
             coaching_id: coachingId,

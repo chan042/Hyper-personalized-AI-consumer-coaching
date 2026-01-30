@@ -6,107 +6,15 @@
  * - 난이도별 두둑 캐릭터 얼굴 아이콘 표시
  */
 import { useState, useRef, useEffect } from 'react';
-import { X, Sparkles, ShoppingCart, Utensils, Wallet, Coffee, MapPin, FileText, Target, Dumbbell, Zap, Clock, Camera, Image, ChevronDown } from 'lucide-react';
+import { X, Sparkles, Clock, Camera, Image, ChevronDown } from 'lucide-react';
 import { CATEGORIES, getCategoryIcon } from '../common/CategoryIcons';
 import { useAuth } from '@/contexts/AuthContext';
-
-// 아이콘 컴포넌트 매핑 (fallback용)
-const getIcon = (iconName, color) => {
-    const iconProps = { size: 48, color };
-    switch (iconName) {
-        case 'shopping': return <ShoppingCart {...iconProps} />;
-        case 'food': return <Utensils {...iconProps} />;
-        case 'wallet': return <Wallet {...iconProps} />;
-        case 'coffee': return <Coffee {...iconProps} />;
-        case 'walk': return <MapPin {...iconProps} />;
-        case 'document': return <FileText {...iconProps} />;
-        case 'target': return <Target {...iconProps} />;
-        case 'snack': return <Dumbbell {...iconProps} />;
-        case 'sparkles': return <Sparkles {...iconProps} />;
-        default: return <Zap {...iconProps} />;
-    }
-};
-
-// 난이도별 캐릭터 얼굴 이미지 경로 반환
-const getCharacterFace = (difficulty, characterType) => {
-    // characterType은 'char_ham', 'char_cat' 등의 형태로 저장됨
-    const charType = characterType || 'char_ham';
-    const diffLower = difficulty?.toLowerCase();
-
-    let faceName = 'face_happy';
-    switch (diffLower) {
-        case '쉬움':
-        case 'easy':
-            faceName = 'face_basic';
-            break;
-        case '보통':
-        case 'medium':
-            faceName = 'face_happy';
-            break;
-        case '어려움':
-        case 'hard':
-            faceName = 'face_money';
-            break;
-        default:
-            faceName = 'face_happy';
-    }
-
-    return `/images/characters/${charType}/${faceName}.png`;
-};
-
-// 난이도 라벨 매핑
-const getDifficultyLabel = (difficulty) => {
-    const diffLower = difficulty?.toLowerCase();
-    switch (diffLower) {
-        case '쉬움':
-        case 'easy':
-            return 'EASY';
-        case '보통':
-        case 'medium':
-            return 'NORMAL';
-        case '어려움':
-        case 'hard':
-            return 'HARD';
-        default:
-            return 'NORMAL';
-    }
-};
-
-// 난이도 배지 스타일
-const getDifficultyStyle = (difficulty) => {
-    const diffLower = difficulty?.toLowerCase();
-    switch (diffLower) {
-        case '쉬움':
-        case 'easy':
-            return { backgroundColor: '#DCFCE7', color: '#16A34A' };
-        case '보통':
-        case 'medium':
-            return { backgroundColor: '#FEF3C7', color: '#EAB308' };
-        case '어려움':
-        case 'hard':
-            return { backgroundColor: '#FEE2E2', color: '#DC2626' };
-        default:
-            return { backgroundColor: '#F3F4F6', color: '#6B7280' };
-    }
-};
-
-// progress 객체에서 데이터 추출
-const getProgressData = (progress) => {
-    if (!progress) return { percentage: 0, type: null };
-    if (typeof progress === 'number') return { percentage: progress, type: 'amount' };
-    if (typeof progress === 'object') {
-        return {
-            percentage: progress.percentage || 0,
-            type: progress.type || 'amount',
-            current: progress.current,
-            target: progress.target,
-            checkedDays: progress.checked_days,
-            totalDays: progress.total_days,
-            isOnTrack: progress.is_on_track,
-        };
-    }
-    return { percentage: 0, type: null };
-};
+import {
+    getDifficultyLabel,
+    getDifficultyStyle,
+    getCharacterFace,
+} from '@/lib/challengeUtils';
+import { useChallenge } from './useChallenge';
 
 export default function ChallengeDetailModal({ challenge, onClose, onStart, onRetry, onCancel, onDelete, onPhotoUpload }) {
     const { user } = useAuth();
@@ -125,6 +33,14 @@ export default function ChallengeDetailModal({ challenge, onClose, onStart, onRe
             document.body.style.overflow = 'unset';
         };
     }, [challenge]);
+
+    // 공통 훅 사용
+    const {
+        isActive,
+        isFailed,
+        isCompleted,
+        progressData,
+    } = useChallenge(challenge);
 
     if (!challenge) return null;
 
@@ -160,11 +76,6 @@ export default function ChallengeDetailModal({ challenge, onClose, onStart, onRe
             onClose();
         }
     };
-
-    const progressData = getProgressData(challenge.progress || challenge.progressData);
-    const isActive = challenge.status === 'active';
-    const isFailed = challenge.status === 'failed' || challenge.failedDate;
-    const isCompleted = challenge.status === 'completed';
 
     // 진행률 표시 텍스트
     const getProgressText = () => {
@@ -232,19 +143,7 @@ export default function ChallengeDetailModal({ challenge, onClose, onStart, onRe
                                 </div>
                             </>
                         )}
-                        {/* Custom/AI 챌린지일 경우 예상 절약 금액 표시 */}
-                        {(challenge.sourceType === 'custom' || challenge.sourceType === 'ai') &&
-                            (challenge.estimatedSavings || challenge.systemGeneratedValues?.estimated_savings) && (
-                                <>
-                                    <div style={styles.divider}></div>
-                                    <div style={styles.savings}>
-                                        <Wallet size={14} color="var(--text-sub)" />
-                                        <span>
-                                            {(challenge.estimatedSavings || challenge.systemGeneratedValues?.estimated_savings)?.toLocaleString()}원 절약
-                                        </span>
-                                    </div>
-                                </>
-                            )}
+
                     </div>
 
                     {/* AI 추천 이유 */}

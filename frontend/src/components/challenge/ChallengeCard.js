@@ -5,140 +5,29 @@
  * - 새로운 UserChallenge 모델에 맞게 progress 객체 처리
  * - 난이도별 두둑 캐릭터 얼굴 아이콘 표시
  */
-import { ShoppingCart, Utensils, Wallet, Coffee, MapPin, FileText, Target, Dumbbell, Zap, Sparkles, Camera, Edit3 } from 'lucide-react';
+import { Camera, Edit3 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+    getDifficultyLabel,
+    getDifficultyStyle,
+    getCharacterFace,
+} from '@/lib/challengeUtils';
+import { useChallenge } from './useChallenge';
 
-// 아이콘 컴포넌트 매핑 (fallback용)
-const getIcon = (iconName, color) => {
-    const iconProps = { size: 24, color };
-    switch (iconName) {
-        case 'shopping': return <ShoppingCart {...iconProps} />;
-        case 'food': return <Utensils {...iconProps} />;
-        case 'wallet': return <Wallet {...iconProps} />;
-        case 'coffee': return <Coffee {...iconProps} />;
-        case 'walk': return <MapPin {...iconProps} />;
-        case 'document': return <FileText {...iconProps} />;
-        case 'target': return <Target {...iconProps} />;
-        case 'snack': return <Dumbbell {...iconProps} />;
-        case 'sparkles': return <Sparkles {...iconProps} />;
-        default: return <Zap {...iconProps} />;
-    }
-};
-
-// 난이도별 캐릭터 얼굴 이미지 경로 반환
-const getCharacterFace = (difficulty, characterType) => {
-    // characterType은 'char_ham', 'char_cat' 등의 형태로 저장됨
-    const charType = characterType || 'char_ham';
-    const diffLower = difficulty?.toLowerCase();
-
-    let faceName = 'face_happy'; // 기본값
-    switch (diffLower) {
-        case '쉬움':
-        case 'easy':
-            faceName = 'face_basic';
-            break;
-        case '보통':
-        case 'medium':
-            faceName = 'face_happy';
-            break;
-        case '어려움':
-        case 'hard':
-            faceName = 'face_money';
-            break;
-        default:
-            faceName = 'face_happy';
-    }
-
-    return `/images/characters/${charType}/${faceName}.png`;
-};
-
-// 난이도 스타일
-const getDifficultyStyle = (difficulty) => {
-    const diffLower = difficulty?.toLowerCase();
-    switch (diffLower) {
-        case '쉬움':
-        case 'easy':
-            return { color: '#16A34A' };
-        case '보통':
-        case 'medium':
-            return { color: '#EAB308' };
-        case '어려움':
-        case 'hard':
-            return { color: '#DC2626' };
-        default:
-            return { color: '#6B7280' };
-    }
-};
-
-// 난이도 라벨 매핑 (EASY/MEDIUM/HARD로 통일)
-const getDifficultyLabel = (difficulty) => {
-    const diffLower = difficulty?.toLowerCase();
-    switch (diffLower) {
-        case '쉬움':
-        case 'easy':
-            return 'EASY';
-        case '보통':
-        case 'medium':
-            return 'NORMAL';
-        case '어려움':
-        case 'hard':
-            return 'HARD';
-        default:
-            return 'NORMAL';
-    }
-};
-
-// progress 객체에서 percentage 추출
-const getProgressPercent = (progress) => {
-    if (!progress) return 0;
-    if (typeof progress === 'number') return progress;
-    if (typeof progress === 'object') {
-        if (progress.current !== undefined && progress.target > 0) {
-            return (progress.current / progress.target) * 100;
-        }
-        return progress.percentage || 0;
-    }
-    return 0;
-};
-
-// progress 객체에서 실제 수치 텍스트 추출
-const getProgressText = (progress, durationDays) => {
-    if (!progress || typeof progress !== 'object') return null;
-
-    const type = progress.type;
-
-    if (type === 'amount' || type === 'compare' || type === 'random_budget') {
-        // 금액형: 현재 금액 / 목표 금액
-        const current = progress.current || 0;
-        const target = progress.target || 0;
-        return `${current.toLocaleString()}원 / ${target.toLocaleString()}원`;
-    } else if (type === 'daily_check') {
-        // 기간형(일일 체크): 현재 경과일 / 전체 기간
-        const checkedDays = progress.checked_days || progress.checkedDays || 0;
-        const totalDays = progress.total_days || progress.totalDays || durationDays || 0;
-        return `${checkedDays}일 / ${totalDays}일`;
-    } else if (type === 'photo') {
-        // 횟수형(사진 인증): 현재 횟수 / 목표 횟수
-        const photoCount = progress.photo_count || progress.photoCount || 0;
-        const requiredCount = progress.required_count || progress.requiredCount || 1;
-        return `${photoCount}회 / ${requiredCount}회`;
-    } else if (type === 'zero_spend') {
-        // 무지출형: 현재 지출액
-        const current = progress.current || 0;
-        return current === 0 ? '무지출 유지 중!' : `${current.toLocaleString()}원 지출`;
-    } else if (type === 'daily_rule') {
-        // 일별 규칙형: 성공 일수 / 전체 일수
-        const successDays = progress.success_days || 0;
-        const totalDays = progress.total_days || durationDays || 7;
-        return `${successDays}일 / ${totalDays}일 성공`;
-    }
-
-    return null;
-};
 
 export default function ChallengeCard({ challenge, onStart, onRetry, onClick, isOngoing }) {
     const { user } = useAuth();
     const characterType = user?.character_type || 'ham';
+
+    const {
+        isActive,
+        isFailed,
+        progressPercent,
+        getButtonText,
+        getButtonType,
+        getProgressDisplayText,
+        getPointsDisplay,
+    } = useChallenge(challenge, isOngoing);
 
     const handleCardClick = (e) => {
         // 버튼 클릭은 전파하지 않음
@@ -148,48 +37,29 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
 
     const handleButtonClick = (e) => {
         e.stopPropagation();
-        const progressPercent = getProgressPercent(challenge.progress);
-
-        if (isOngoing || progressPercent > 0 || challenge.status === 'active') {
+        if (isActive || progressPercent > 0) {
             onClick?.(challenge);
-        } else if (challenge.failedDate || challenge.status === 'failed') {
+        } else if (isFailed) {
             onRetry?.(challenge);
         } else {
             onClick?.(challenge);
         }
     };
 
-    // 버튼 텍스트 결정
-    const getButtonText = () => {
-        const progressPercent = getProgressPercent(challenge.progress);
-
-        if (isOngoing || challenge.status === 'active') {
-            return '도전중';
-        }
-        if (challenge.failedDate || challenge.status === 'failed') {
-            return '재도전';
-        }
-        if (challenge.status === 'completed') {
-            return '완료';
-        }
-        return '도전하기';
-    };
-
     // 버튼 스타일 결정
     const getButtonStyle = () => {
-        if (isOngoing || challenge.status === 'active') {
-            return styles.statusButton;
+        const buttonType = getButtonType();
+        switch (buttonType) {
+            case 'active':
+                return styles.statusButton;
+            case 'failed':
+                return { ...styles.joinButton, backgroundColor: '#EF4444' };
+            case 'completed':
+                return { ...styles.statusButton, borderColor: 'var(--primary)', color: 'var(--primary)' };
+            default:
+                return styles.joinButton;
         }
-        if (challenge.failedDate || challenge.status === 'failed') {
-            return { ...styles.joinButton, backgroundColor: '#EF4444' };
-        }
-        if (challenge.status === 'completed') {
-            return { ...styles.statusButton, borderColor: 'var(--primary)', color: 'var(--primary)' };
-        }
-        return styles.joinButton;
     };
-
-    const progressPercent = getProgressPercent(challenge.progress);
 
     return (
         <div style={styles.card} onClick={handleCardClick}>
@@ -230,7 +100,7 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                 <div style={styles.title}>{challenge.title}</div>
 
                 {/* 설명 또는 진행률 */}
-                {(isOngoing || challenge.status === 'active') && (
+                {isActive && (
                     <div style={styles.progressInfo}>
                         <div style={styles.progressBarContainer}>
                             <div style={{
@@ -238,9 +108,9 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                                 width: `${Math.min(100, progressPercent)}%`
                             }} />
                         </div>
-                        {getProgressText(challenge.progressData || challenge.progress, challenge.durationDays) && (
+                        {getProgressDisplayText() && (
                             <span style={styles.progressText}>
-                                {getProgressText(challenge.progressData || challenge.progress, challenge.durationDays)}
+                                {getProgressDisplayText()}
                             </span>
                         )}
                         {challenge.daysLeft !== undefined && (
@@ -266,19 +136,9 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
 
             {/* 오른쪽: 포인트 + 버튼 */}
             <div style={styles.rightContainer}>
-                {/* 진행중 표시 */}
-                {(isOngoing || challenge.status === 'active') && (
-                    <span style={styles.ongoingBadge}>ONGOING</span>
-                )}
-
                 {/* 포인트 */}
                 <div style={styles.points}>
-                    {(challenge.progressType === 'random_budget' ||
-                        challenge.displayConfig?.progress_type === 'random_budget' ||
-                        challenge.successConditions?.type === 'random_budget') &&
-                        (challenge.points === 0 || challenge.points === undefined || challenge.points === null)
-                        ? '?P'
-                        : `${challenge.points || challenge.basePoints || 0}P`}
+                    {getPointsDisplay()}
                 </div>
 
                 {/* 액션 버튼 */}

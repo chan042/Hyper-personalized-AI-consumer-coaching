@@ -144,8 +144,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         serializer = AIChallengGenerateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        title = serializer.validated_data['title']
-        details = serializer.validated_data.get('details', '')
+        details = serializer.validated_data['details']
         difficulty = serializer.validated_data['difficulty']
 
         # 사용자 지출 요약 생성
@@ -154,7 +153,6 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         # Gemini로 챌린지 생성
         gemini_client = GeminiClient()
         generated_challenge = gemini_client.generate_challenge(
-            title=title,
             details=details,
             difficulty=difficulty,
             user_spending_summary=user_spending_summary
@@ -253,8 +251,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
             'title': coaching.title,
             'subject': coaching.subject,
             'analysis': coaching.analysis,
-            'coaching_content': coaching.coaching_content,
-            'estimated_savings': coaching.estimated_savings
+            'coaching_content': coaching.coaching_content
         }
 
         # Gemini로 챌린지 생성

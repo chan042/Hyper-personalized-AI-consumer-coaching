@@ -5,78 +5,11 @@
  * - 저장하기 버튼
  */
 import { useState, useEffect } from 'react';
-import { X, Clock, Wallet, Check, ShoppingCart, Utensils, Coffee, MapPin, FileText, Target, Dumbbell, Zap, Sparkles } from 'lucide-react';
-
-// 아이콘 컴포넌트 매핑
-const getIcon = (iconName, color) => {
-    const iconProps = { size: 48, color };
-    switch (iconName) {
-        case 'shopping': return <ShoppingCart {...iconProps} />;
-        case 'shopping-bag': return <ShoppingCart {...iconProps} />;
-        case 'food': return <Utensils {...iconProps} />;
-        case 'utensils': return <Utensils {...iconProps} />;
-        case 'wallet': return <Wallet {...iconProps} />;
-        case 'coffee': return <Coffee {...iconProps} />;
-        case 'walk': return <MapPin {...iconProps} />;
-        case 'document': return <FileText {...iconProps} />;
-        case 'target': return <Target {...iconProps} />;
-        case 'snack': return <Dumbbell {...iconProps} />;
-        case 'sparkles': return <Sparkles {...iconProps} />;
-        default: return <Zap {...iconProps} />;
-    }
-};
-
-// 아이콘별 배경색 매핑
-const iconColorMap = {
-    shopping: '#E8F4FD',
-    'shopping-bag': '#E8F4FD',
-    food: '#FFEDD5',
-    utensils: '#FFEDD5',
-    wallet: '#D1FAE5',
-    coffee: '#FCE7F3',
-    walk: '#DBEAFE',
-    document: '#F3E8FF',
-    target: '#FEE2E2',
-    snack: '#FEF3C7',
-    sparkles: '#E0E7FF',
-    default: '#D1FAE5'
-};
-
-// 난이도 라벨 매핑
-const getDifficultyLabel = (difficulty) => {
-    const diffLower = difficulty?.toLowerCase();
-    switch (diffLower) {
-        case '쉬움':
-        case 'easy':
-            return 'EASY';
-        case '보통':
-        case 'medium':
-            return 'MEDIUM';
-        case '어려움':
-        case 'hard':
-            return 'HARD';
-        default:
-            return 'MEDIUM';
-    }
-};
-
-// 난이도 배지 스타일
-const getDifficultyStyle = (difficulty) => {
-    const diffLower = difficulty?.toLowerCase();
-    switch (diffLower) {
-        case '쉬움':
-        case 'easy':
-            return { backgroundColor: '#DCFCE7', color: '#16A34A' };
-        case '보통':
-        case 'medium':
-            return { backgroundColor: '#FEF3C7', color: '#CA8A04' };
-        case '어려움':
-        case 'hard':
-            return { backgroundColor: '#FEE2E2', color: '#DC2626' };
-        default:
-            return { backgroundColor: '#F3F4F6', color: '#6B7280' };
-    }
-};
+import { X, Clock, Wallet, Check } from 'lucide-react';
+import {
+    getDifficultyLabel,
+    getDifficultyStyle
+} from '@/lib/challengeUtils';
 
 export default function AIGeneratedChallengeModal({
     isOpen,
@@ -84,7 +17,7 @@ export default function AIGeneratedChallengeModal({
     challengeData,
     onSave,
     isSaving,
-    source = 'custom' // 'custom' or 'coaching'
+    source = 'custom'
 }) {
     const [editedData, setEditedData] = useState({});
 
@@ -93,12 +26,9 @@ export default function AIGeneratedChallengeModal({
             setEditedData({
                 name: challengeData.name || '',
                 description: challengeData.description || '',
-                icon: challengeData.icon || 'target',
-                icon_color: challengeData.icon_color || '#4CAF50',
-                difficulty: challengeData.difficulty || 'medium',
+                difficulty: challengeData.difficulty || 'normal',
                 duration_days: challengeData.duration_days || 7,
                 base_points: challengeData.base_points || 100,
-                estimated_savings: challengeData.estimated_savings || 0,
                 success_conditions: challengeData.success_conditions || [],
                 target_amount: challengeData.target_amount,
                 target_categories: challengeData.target_categories || [],
@@ -122,7 +52,7 @@ export default function AIGeneratedChallengeModal({
         setEditedData(prev => ({ ...prev, [field]: value }));
     };
 
-    const iconBgColor = iconColorMap[editedData.icon] || iconColorMap.default;
+
 
     return (
         <div style={styles.overlay} onClick={handleOverlayClick}>
@@ -131,16 +61,6 @@ export default function AIGeneratedChallengeModal({
                 <button style={styles.closeButton} onClick={onClose}>
                     <X size={24} />
                 </button>
-
-                {/* 상단 아이콘 영역 */}
-                <div style={{
-                    ...styles.iconArea,
-                    backgroundColor: iconBgColor,
-                }}>
-                    <div style={styles.iconContainer}>
-                        {getIcon(editedData.icon, editedData.icon_color)}
-                    </div>
-                </div>
 
                 {/* 콘텐츠 영역 */}
                 <div style={styles.content}>
@@ -172,15 +92,7 @@ export default function AIGeneratedChallengeModal({
                             <span style={styles.infoLabel}>기간</span>
                             <span style={styles.infoValue}>{editedData.duration_days}일</span>
                         </div>
-                        {editedData.estimated_savings > 0 && (
-                            <>
-                                <div style={styles.divider}></div>
-                                <div style={styles.infoItem}>
-                                    <span style={styles.infoLabel}>예상 절약</span>
-                                    <span style={styles.infoValue}>₩{editedData.estimated_savings?.toLocaleString()}</span>
-                                </div>
-                            </>
-                        )}
+
                     </div>
 
                     {/* 설명 */}
