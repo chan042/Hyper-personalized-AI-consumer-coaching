@@ -1,18 +1,54 @@
 "use client";
 
-import { CheckCircle2, Cookie, Bus, Music, Smartphone, Coffee, ShoppingBag } from 'lucide-react';
-
-const allCompletedItems = [
-    { id: 1, icon: <Cookie size={20} color="#718096" />, text: "편의점 간식 줄이기", date: "2024.03.15" },
-    { id: 2, icon: <Bus size={20} color="#718096" />, text: "대중교통 이용하기", date: "2024.03.14" },
-    { id: 3, icon: <Music size={20} color="#718096" />, text: "구독 서비스 정리하기", date: "2024.03.12" },
-    { id: 4, icon: <Smartphone size={20} color="#718096" />, text: "통신비 요금제 변경", date: "2024.03.10" },
-    { id: 5, icon: <Coffee size={20} color="#718096" />, text: "카페 대신 텀블러 사용", date: "2024.03.08" },
-    { id: 6, icon: <ShoppingBag size={20} color="#718096" />, text: "충동구매 참기", date: "2024.03.05" },
-    { id: 7, icon: <Cookie size={20} color="#718096" />, text: "야식 배달 줄이기", date: "2024.03.01" },
-];
+import { useState, useEffect } from 'react';
+import { CheckCircle2, ShoppingBag, MapPin, Droplets, Zap, Lightbulb } from 'lucide-react';
+import { getCoachingAdvice } from '@/lib/api/coaching';
 
 export default function HistoryPage() {
+    const [cards, setCards] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const getIconForSubject = (subject) => {
+        switch (subject) {
+            case "행동 변화 제안": return <Zap size={20} color="#718096" />;
+            case "누수 소비": return <Droplets size={20} color="#718096" />;
+            case "위치 기반 대안": return <MapPin size={20} color="#718096" />;
+            case "키워드 기반 대안": return <ShoppingBag size={20} color="#718096" />;
+            default: return <Lightbulb size={20} color="#718096" />;
+        }
+    };
+
+    useEffect(() => {
+        const fetchCoaching = async () => {
+            try {
+                const data = await getCoachingAdvice();
+                // Map backend data to frontend format
+                const mappedCards = data.map(item => ({
+                    id: item.id,
+                    subject: item.subject,
+                    title: item.title,
+                    created_at: item.created_at
+                }));
+                setCards(mappedCards);
+            } catch (error) {
+                console.error("Failed to fetch coaching:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCoaching();
+    }, []);
+
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}.${month}.${day}`;
+    };
+
     return (
         <div style={{ minHeight: '100vh', backgroundColor: 'var(--background-light)' }}>
             <h1 style={{
@@ -21,42 +57,52 @@ export default function HistoryPage() {
                 color: 'var(--text-main)',
                 padding: '1rem 1.5rem'
             }}>
-                실천한 AI 코칭
+                이전 코칭 카드
             </h1>
             <main style={{ padding: '0 1.5rem 2rem 1.5rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {allCompletedItems.map((item) => (
-                        <div key={item.id} style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            backgroundColor: 'var(--card-bg)',
-                            padding: '1rem',
-                            borderRadius: 'var(--radius-md)',
-                            boxShadow: 'var(--shadow-sm)'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                {item.icon}
-                                <div>
-                                    <div style={{
-                                        color: 'var(--text-main)',
-                                        fontSize: '1rem',
-                                        marginBottom: '0.2rem'
-                                    }}>
-                                        {item.text}
-                                    </div>
-                                    <div style={{
-                                        color: 'var(--text-sub)',
-                                        fontSize: '0.8rem'
-                                    }}>
-                                        {item.date}
+                {loading ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-sub)' }}>
+                        로딩 중...
+                    </div>
+                ) : cards.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-sub)' }}>
+                        아직 생성된 코칭 카드가 없습니다.
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {cards.map((card) => (
+                            <div key={card.id} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                backgroundColor: 'var(--card-bg)',
+                                padding: '1rem',
+                                borderRadius: 'var(--radius-md)',
+                                boxShadow: 'var(--shadow-sm)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    {getIconForSubject(card.subject)}
+                                    <div>
+                                        <div style={{
+                                            color: 'var(--text-main)',
+                                            fontSize: '1rem',
+                                            marginBottom: '0.2rem'
+                                        }}>
+                                            {card.title}
+                                        </div>
+                                        <div style={{
+                                            color: 'var(--text-sub)',
+                                            fontSize: '0.8rem'
+                                        }}>
+                                            {formatDate(card.created_at)}
+                                        </div>
                                     </div>
                                 </div>
+                                <CheckCircle2 size={24} color="#2f855a" fill="#e6fffa" />
                             </div>
-                            <CheckCircle2 size={24} color="#2f855a" fill="#e6fffa" />
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </main>
         </div >
     );

@@ -42,11 +42,11 @@ export default function CoachingCardList({ cards, loading, onStartChallenge }) {
 
     const getIconForSubject = (subject) => {
         switch (subject) {
-            case "행동 변화 제안": return <Zap size={20} color="#2f855a" />;
-            case "누수 소비": return <Droplets size={20} color="#2f855a" />;
-            case "위치 기반 대안": return <MapPin size={20} color="#2f855a" />;
-            case "키워드 기반 대안": return <ShoppingBag size={20} color="#2f855a" />;
-            default: return <Lightbulb size={20} color="#2f855a" />;
+            case "행동 변화 제안": return <Zap size={20} color="#14b8a6" />;
+            case "누수 소비": return <Droplets size={20} color="#14b8a6" />;
+            case "위치 기반 대안": return <MapPin size={20} color="#14b8a6" />;
+            case "키워드 기반 대안": return <ShoppingBag size={20} color="#14b8a6" />;
+            default: return <Lightbulb size={20} color="#14b8a6" />;
         }
     };
 
@@ -186,7 +186,7 @@ export default function CoachingCardList({ cards, loading, onStartChallenge }) {
                                         <span style={{
                                             marginLeft: '0.5rem',
                                             backgroundColor: '#e6fffa',
-                                            color: '#2f855a',
+                                            color: '#14b8a6',
                                             padding: '0.25rem 0.75rem',
                                             borderRadius: '999px',
                                             fontSize: '0.8rem',
@@ -258,7 +258,7 @@ export default function CoachingCardList({ cards, loading, onStartChallenge }) {
                                         right: '1.5rem',
                                         background: 'none',
                                         border: 'none',
-                                        color: '#2f855a',
+                                        color: '#14b8a6',
                                         fontWeight: '600',
                                         cursor: 'pointer',
                                         padding: 0,

@@ -1,13 +1,14 @@
 "use client";
 
-import { usePathname } from 'next/navigation';
-import { User, Bell } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { User, Bell, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
 
 export default function GlobalHeader() {
     const pathname = usePathname();
+    const router = useRouter();
     const { user } = useAuth();
     const isHome = pathname === '/';
 
@@ -31,18 +32,33 @@ export default function GlobalHeader() {
                 right: (
                     <Link href="/notification" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
                         <Bell color="var(--text-main)" size={24} />
-                        <div style={styles.notificationBadge} />
+                        {/* Notification badge - hidden when count is 0 */}
+                        {false && <div style={styles.notificationBadge} />}
                     </Link>
                 )
             };
         }
 
         if (pathname === '/profile') {
-            return { title: '프로필' };
+            return {
+                title: '프로필',
+                left: (
+                    <button onClick={() => router.back()} style={styles.backButton}>
+                        <ChevronLeft size={24} />
+                    </button>
+                )
+            };
         }
 
         if (pathname === '/notification') {
-            return { title: '알림' };
+            return {
+                title: '알림',
+                left: (
+                    <button onClick={() => router.back()} style={styles.backButton}>
+                        <ChevronLeft size={24} />
+                    </button>
+                )
+            };
         }
 
         return null;
@@ -143,5 +159,15 @@ const styles = {
         backgroundColor: '#ff4d4f',
         borderRadius: '50%',
         border: '1.5px solid var(--background-light)',
+    },
+    backButton: {
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        color: 'var(--text-main)',
+        padding: '0.25rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
     }
 };

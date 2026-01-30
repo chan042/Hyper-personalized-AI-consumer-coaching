@@ -17,7 +17,7 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
     if (!isOpen || !data) return null;
 
     const getIcon = (subject) => {
-        const props = { size: 48, color: "#2f855a", strokeWidth: 1.5 };
+        const props = { size: 48, color: "#14b8a6", strokeWidth: 1.5 };
         switch (subject) {
             case "행동 변화 제안": return <Zap {...props} />;
             case "누수 소비": return <Droplets {...props} />;
@@ -100,7 +100,7 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                         marginBottom: '2rem'
                     }}>
                         <span style={{
-                            color: '#2f855a',
+                            color: '#14b8a6',
                             fontWeight: '600',
                             fontSize: '0.95rem'
                         }}>
@@ -147,7 +147,7 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                     <button style={{
                         width: '100%',
                         padding: '1rem',
-                        backgroundColor: '#2f855a',
+                        backgroundColor: '#14b8a6',
                         color: 'white',
                         border: 'none',
                         borderRadius: '12px',

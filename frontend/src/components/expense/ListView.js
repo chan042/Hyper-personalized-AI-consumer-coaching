@@ -40,12 +40,12 @@ export default function ListView({ transactions, onTransactionClick, currentYear
                 const dayTotal = dayTransactions.reduce((sum, t) => sum + t.amount, 0);
 
                 return (
-                    <div key={date} className={styles.dateGroup}>
-                        <div className={styles.dateHeaderRow}>
+                    <div key={date} className={styles.dayGroupCard}>
+                        <div className={styles.dayGroupHeader}>
                             <span className={styles.dateText}>{formatDateKorean(date)}</span>
                             <span className={styles.dateTotalAmount}>-{dayTotal.toLocaleString()}원</span>
                         </div>
-                        <div className={styles.dayCard}>
+                        <div className={styles.dayTransactionList}>
                             {dayTransactions.map((transaction, index) => (
                                 <TransactionItem
                                     key={transaction.id}

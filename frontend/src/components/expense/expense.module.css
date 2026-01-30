@@ -13,7 +13,59 @@
   /* Removed height: 100dvh, overflow hidden constraints */
 }
 
-/* Header & Dashboard */
+/* Header & Dashboard - Split Structure */
+
+/* Wrapper for the entire header - Sticky with negative top */
+/* Wrapper for the entire header - Sticky with negative top */
+.headerWrapper {
+  background-color: white;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+  /* Reset negative margin to prevent cutting off top content */
+  margin: 0 -0.25rem 0.5rem -0.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  position: sticky;
+  /* Negative top allows headerTop to scroll out while headerBottom stays at top */
+  /* Increased to 150px to fit all content comfortably without cutting off */
+  top: -150px;
+  z-index: 50;
+  overflow: hidden;
+  /* visual cleanup */
+}
+
+/* Top section - Inside wrapper, scrolls out due to negative top */
+.headerTop {
+  padding: 1.5rem 1rem 0.5rem 1rem;
+  /* More top padding for breathing room */
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 150px;
+  /* Increased height to fit content */
+  box-sizing: border-box;
+  background-color: white;
+  overflow: hidden;
+  /* Clip content so it doesn't bleed into sticky bottom */
+}
+
+/* Bottom section - Stays visible at viewport top */
+.headerBottom {
+  background-color: white;
+  padding: 0 1rem 1rem 1rem;
+  /* Removed top padding to pull it closer to content above if visible */
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+  height: 60px;
+  /* Fixed height for consistency */
+  box-sizing: border-box;
+}
+
+/* Remove old headerCard styles - keeping for backwards compat if needed */
 .headerCard {
   background-color: white;
   border-bottom-left-radius: 20px;
@@ -28,16 +80,55 @@
   z-index: 5;
 }
 
+/* Compact Sticky Header - No longer needed, remove */
+
+/* Expanded Content - Inside main header */
+.expandedContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.collapsedLeft {
+  display: flex;
+  align-items: center;
+}
+
+.collapsedRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.monthNavButtonSmall {
+  background: #f7fafc;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.monthTitleSmall {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
 .monthSelector {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   padding-bottom: 0.25rem;
 }
 
 .monthTitle {
-  font-size: 1rem;
+  font-size: 0.9rem;
+  /* Reduced from 1rem */
   font-weight: 600;
   color: var(--text-main);
 }
@@ -46,12 +137,13 @@
   background: #f7fafc;
   border: none;
   cursor: pointer;
-  padding: 0.35rem;
+  padding: 0.25rem;
+  /* Reduced padding */
   color: var(--text-sub);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: 8px;
   transition: all 0.2s;
 }
 
@@ -65,6 +157,7 @@
   flex-direction: column;
   align-items: center;
   gap: 0;
+  margin-top: 0.5rem;
 }
 
 .totalLabel {
@@ -74,18 +167,20 @@
 }
 
 .totalAmountLarge {
-  font-size: 1.6rem;
+  font-size: 2rem;
+  /* Increased from 1.6rem */
   font-weight: 800;
   color: var(--text-main);
   letter-spacing: -0.03em;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .budgetStatusRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 0.25rem;
+  margin-top: 0.5rem;
+  width: 100%;
 }
 
 .budgetPillNormal {
@@ -589,85 +684,110 @@
   margin: 0 auto 1.5rem auto;
 }
 
-/* Date Group in List/Bottom Sheet */
-.dateGroup {
-  margin-bottom: 2rem;
+/* Date Group Card Style */
+.dayGroupCard {
+  background-color: white;
+  border-radius: 20px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.02);
 }
 
-.dateHeaderRow {
+.bottomSheetCard {
+  background-color: #f7fafc;
+  /* Grey background matching other elements */
+  border-radius: 16px;
+  padding: 1rem;
+  margin-top: 0.5rem;
+}
+
+.dayGroupHeader {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   margin-bottom: 1rem;
-  padding: 0 0.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .dateText {
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text-main);
-  letter-spacing: -0.02em;
 }
 
 .dateTotalAmount {
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #e53e3e;
 }
 
-.dayCard {
-  background-color: transparent;
-  padding: 0;
-  box-shadow: none;
-}
-
-/* Updated Transaction Item Style Override if needed here, 
-   but keeping global transactionRow styles is safer unless we specific ones */
-
-.transactionRow {
-  background-color: white;
-  border-radius: 16px;
-  padding: 1rem;
-  margin-bottom: 0.75rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-  border: 1px solid rgba(0, 0, 0, 0.02);
-  transition: transform 0.1s;
-}
-
-.transactionRow:active {
-  transform: scale(0.98);
-}
-
-.transactionIcon {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background-color: #f7fafc;
-  color: var(--primary);
+.dayTransactionList {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 1rem;
-  font-size: 1.25rem;
+  flex-direction: column;
 }
 
-.merchantName {
-  font-weight: 600;
-  color: var(--text-main);
-  display: block;
-  font-size: 0.95rem;
-  margin-bottom: 0.1rem;
+/* New Transaction Item Styles */
+.transactionItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  /* Changed to flex-start for multi-line text alignment */
+  padding: 0.75rem 0;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
-.categoryName {
+.transactionItemBorder {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.transactionItem:active {
+  background-color: #f8fafc;
+  border-radius: 8px;
+}
+
+.transactionLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  padding-right: 1rem;
+}
+
+.transactionCategory {
   font-size: 0.75rem;
   color: var(--text-guide);
+  font-weight: 500;
+}
+
+.transactionMerchant {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.transactionMemo {
+  font-size: 0.85rem;
+  color: var(--text-sub);
+  font-weight: 400;
+}
+
+.transactionRight {
+  display: flex;
+  align-items: center;
+  padding-top: 0.25rem;
+  /* Align with merchant name roughly */
 }
 
 .transactionAmount {
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text-main);
-  font-size: 1rem;
 }
 
 /* No Spending Confirm */

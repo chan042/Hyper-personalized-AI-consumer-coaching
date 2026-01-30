@@ -90,6 +90,10 @@ export default function CoachingPage() {
     // 예상 절약액 합계 계산
     const totalSavings = cards.reduce((sum, card) => sum + (card.estimated_savings || 0), 0);
 
+    // 최신 4개와 나머지 카드 분리 (최대 5개)
+    const recentCards = cards.slice(0, 4);
+    const olderCards = cards.slice(4, 9); // 5번째부터 9번째까지 (최대 5개)
+
     return (
         <div style={{
             minHeight: '100vh',
@@ -100,13 +104,14 @@ export default function CoachingPage() {
             <main>
                 {/* 계산된 합계를 전달 */}
                 <SavingsSummary totalSavings={totalSavings} />
-                {/* 매핑된 카드 데이터 전달 */}
+                {/* 최신 4개 카드만 전달 */}
                 <CoachingCardList
-                    cards={cards}
+                    cards={recentCards}
                     loading={loading}
                     onStartChallenge={handleStartChallengeFromCoaching}
                 />
-                <CompletedCoachingList />
+                {/* 나머지 카드 전달 (최대 5개) */}
+                <CompletedCoachingList cards={olderCards} />
             </main>
 
             {/* AI 생성 챌린지 미리보기 모달 */}

@@ -101,14 +101,7 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate, 
         return store || location.address;
     };
 
-    // inside return
-    <KakaoLocationPicker
-        isOpen={showLocationPicker}
-        onClose={() => setShowLocationPicker(false)}
-        onConfirm={(newLocation) => setLocation(newLocation)}
-        initialAddress={location.address}
-        initialPlaceName={getInitialSearchQuery()}
-    />
+
 
 
 

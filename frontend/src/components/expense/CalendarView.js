@@ -241,7 +241,7 @@ export default function CalendarView({
                             <span className={styles.dateTotalAmount}>-{selectedDayTotal.toLocaleString()}원</span>
                         </div>
                     </div>
-                    <div className={styles.dayCard} style={{ boxShadow: 'none', padding: 0 }}>
+                    <div className={styles.bottomSheetCard}>
                         {selectedDayTransactions.length > 0 ? (
                             selectedDayTransactions.map((transaction, index) => (
                                 <TransactionItem
@@ -252,7 +252,7 @@ export default function CalendarView({
                                 />
                             ))
                         ) : needsNoSpendingConfirm() ? (
-                            <div className={styles.noSpendingConfirm}>
+                            <div className={styles.noSpendingConfirm} style={{ marginTop: 0, backgroundColor: 'transparent' }}>
                                 <p>이 날은 무지출인가요?</p>
                                 <button
                                     className={styles.noSpendingButton}

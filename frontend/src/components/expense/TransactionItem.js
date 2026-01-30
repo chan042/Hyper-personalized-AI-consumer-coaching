@@ -17,25 +17,22 @@ export default function TransactionItem({ transaction, onClick, isLast }) {
 
     return (
         <div
-            className={`${styles.transactionRow} ${isLast ? '' : styles.transactionRowBorder}`}
+            className={`${styles.transactionItem} ${isLast ? '' : styles.transactionItemBorder}`}
             onClick={() => onClick(transaction)}
         >
-            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                <div className={styles.transactionIcon}>
-                    <IconComponent size={20} color={iconColor} />
+            <div className={styles.transactionLeft}>
+                <div className={styles.transactionCategory}>
+                    {transaction.category}
                 </div>
-                <div className={styles.transactionInfo}>
-                    <span className={styles.merchantName}>{transaction.merchant}</span>
-                    <span className={styles.categoryName}>
-                        {transaction.category}
-                        {displayMemo && (
-                            <> | {truncateMemo(displayMemo)}</>
-                        )}
-                    </span>
+                <div className={styles.transactionMerchant}>
+                    {transaction.merchant}
+                    {displayMemo && <span className={styles.transactionMemo}> | {truncateMemo(displayMemo)}</span>}
                 </div>
             </div>
-            <div className={styles.transactionAmount}>
-                -{transaction.amount.toLocaleString()}원
+            <div className={styles.transactionRight}>
+                <span className={styles.transactionAmount}>
+                    -{transaction.amount.toLocaleString()}원
+                </span>
             </div>
         </div>
     );

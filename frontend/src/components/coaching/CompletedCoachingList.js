@@ -1,16 +1,24 @@
 "use client";
 
-import { CheckCircle2, Cookie, Bus, Music, Smartphone, ChevronRight } from 'lucide-react';
+import { CheckCircle2, ShoppingBag, MapPin, Droplets, Zap, Lightbulb, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
-const completedItems = [
-    { id: 1, icon: <Cookie size={20} color="#718096" />, text: "편의점 간식 줄이기" },
-    { id: 2, icon: <Bus size={20} color="#718096" />, text: "대중교통 이용하기" },
-    { id: 3, icon: <Music size={20} color="#718096" />, text: "구독 서비스 정리하기" },
-    { id: 4, icon: <Smartphone size={20} color="#718096" />, text: "통신비 요금제 변경" },
-];
+export default function CompletedCoachingList({ cards = [] }) {
+    // 카드가 없으면 컴포넌트를 렌더링하지 않음
+    if (cards.length === 0) {
+        return null;
+    }
 
-export default function CompletedCoachingList() {
+    const getIconForSubject = (subject) => {
+        switch (subject) {
+            case "행동 변화 제안": return <Zap size={20} color="#718096" />;
+            case "누수 소비": return <Droplets size={20} color="#718096" />;
+            case "위치 기반 대안": return <MapPin size={20} color="#718096" />;
+            case "키워드 기반 대안": return <ShoppingBag size={20} color="#718096" />;
+            default: return <Lightbulb size={20} color="#718096" />;
+        }
+    };
+
     return (
         <div style={{ padding: '0 1.5rem' }}>
             <div style={{
@@ -24,7 +32,7 @@ export default function CompletedCoachingList() {
                     fontWeight: 'bold',
                     color: 'var(--text-main)'
                 }}>
-                    실천한 AI 코칭
+                    이전 코칭 카드
                 </h3>
                 <Link href="/coaching/history" style={{
                     display: 'flex',
@@ -37,8 +45,8 @@ export default function CompletedCoachingList() {
                 </Link>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {completedItems.map((item) => (
-                    <div key={item.id} style={{
+                {cards.map((card) => (
+                    <div key={card.id} style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -48,15 +56,15 @@ export default function CompletedCoachingList() {
                         boxShadow: 'var(--shadow-sm)'
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            {item.icon}
+                            {getIconForSubject(card.tag)}
                             <span style={{
                                 color: 'var(--text-main)',
                                 fontSize: '1rem'
                             }}>
-                                {item.text}
+                                {card.title}
                             </span>
                         </div>
-                        <CheckCircle2 size={24} color="#2f855a" fill="#e6fffa" />
+                        <CheckCircle2 size={24} color="#14b8a6" fill="#e6fffa" />
                     </div>
                 ))}
             </div>

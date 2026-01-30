@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import ViewToggle from './ViewToggle';
@@ -192,35 +192,79 @@ export default function ExpenseContainer() {
         setSelectedDateForQuickAdd(null); // QuickAdd용 날짜도 초기화
     };
 
+    const headerTopRef = useRef(null);
+    const [isTopScrolledAway, setIsTopScrolledAway] = useState(false);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            if (!headerTopRef.current) return;
+
+            // Check if headerTop is scrolled past (its bottom edge is at or above viewport top)
+            const rect = headerTopRef.current.getBoundingClientRect();
+            // When the bottom of headerTop is at or above 0, it's fully scrolled away
+            const scrolledAway = rect.bottom <= 0;
+
+            if (scrolledAway !== isTopScrolledAway) {
+                setIsTopScrolledAway(scrolledAway);
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        handleScroll();
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+        };
+    }, [isTopScrolledAway]);
+
     return (
         <div className={styles.container}>
-            <div className={styles.headerCard}>
-                <div className={styles.monthSelector}>
-                    <button onClick={goToPrevMonth} className={styles.monthNavButton}>
-                        <ChevronLeft size={24} />
-                    </button>
-                    <span className={styles.monthTitle}>{currentYear}년 {currentMonth}월</span>
-                    <button onClick={goToNextMonth} className={styles.monthNavButton}>
-                        <ChevronRight size={24} />
-                    </button>
+            {/* Header with split structure */}
+            <div className={styles.headerWrapper}>
+                {/* Top Section - Scrolls away */}
+                <div className={styles.headerTop} ref={headerTopRef}>
+                    <div className={styles.monthSelector}>
+                        <button onClick={goToPrevMonth} className={styles.monthNavButton}>
+                            <ChevronLeft size={24} />
+                        </button>
+                        <span className={styles.monthTitle}>{currentYear}년 {currentMonth}월</span>
+                        <button onClick={goToNextMonth} className={styles.monthNavButton}>
+                            <ChevronRight size={24} />
+                        </button>
+                    </div>
+
+                    <div className={styles.dashboardSummary}>
+                        <span className={styles.totalLabel}>이번 달 총 지출</span>
+                        <span className={styles.totalAmountLarge}>{monthlyStats.totalSpent.toLocaleString()}원</span>
+                    </div>
                 </div>
 
-                <div className={styles.dashboardSummary}>
-                    <span className={styles.totalLabel}>이번 달 총 지출</span>
-                    <span className={styles.totalAmountLarge}>{monthlyStats.totalSpent.toLocaleString()}원</span>
-                </div>
+                {/* Bottom Section - Sticky, content swaps */}
+                <div className={styles.headerBottom}>
+                    <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
 
-                <div className={styles.budgetStatusRow}>
-                    {Number(dailyBudget) < 0 ? (
-                        <div className={styles.budgetPillWarning}>
-                            예산 초과 {Math.abs(Number(dailyBudget)).toLocaleString()}원
+                    {isTopScrolledAway ? (
+                        /* Show Month Selector when top is scrolled away */
+                        <div className={styles.collapsedRight}>
+                            <button onClick={goToPrevMonth} className={styles.monthNavButtonSmall}>
+                                <ChevronLeft size={20} />
+                            </button>
+                            <span className={styles.monthTitleSmall}>{currentYear}년 {currentMonth}월</span>
+                            <button onClick={goToNextMonth} className={styles.monthNavButtonSmall}>
+                                <ChevronRight size={20} />
+                            </button>
                         </div>
                     ) : (
-                        <div className={styles.budgetPillNormal}>
-                            일일 예산 {Number(dailyBudget).toLocaleString()}원
-                        </div>
+                        /* Show Budget Info when top is visible */
+                        Number(dailyBudget) < 0 ? (
+                            <div className={styles.budgetPillWarning}>
+                                예산 초과 {Math.abs(Number(dailyBudget)).toLocaleString()}원
+                            </div>
+                        ) : (
+                            <div className={styles.budgetPillNormal}>
+                                일일 권장 예산 {Number(dailyBudget).toLocaleString()}원
+                            </div>
+                        )
                     )}
-                    <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
                 </div>
             </div>
 
