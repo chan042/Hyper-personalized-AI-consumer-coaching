@@ -12,16 +12,52 @@ import KakaoLocationPicker from '../common/KakaoLocationPicker'; // 카카오맵
 import { getCategoryIcon, CATEGORIES, CATEGORY_COLORS, normalizeCategory } from '../common/CategoryIcons'; // 카테고리 아이콘/색상
 
 // ============================================================
-// 메인 컴포넌트
-// Props:
-//   - initialData: AI가 분석한 초기 데이터 (amount, category, item, store, date, address)
-//   - onSave: 저장 버튼 클릭 시 호출되는 콜백 함수
-//   - selectedDate: 캘린더에서 선택된 날짜 (있으면 우선 적용)
+// 헬퍼 함수: 초기 위치 데이터 보정
+// 주소가 없고 원본 입력이 있는 경우, 원본 입력에서 금액/상품명을 제외한 텍스트를 장소명으로 사용
 // ============================================================
-export default function TransactionConfirm({ initialData, onSave, selectedDate }) {
+const getSmartLocation = (data, input) => {
+    const address = (data?.address || '').trim();
+    let placeName = data?.store || '';
 
-    // 고정 지출 여부 토글 상태
-    const [isRecurring, setIsRecurring] = useState(false);
+    // 1. 주소 유무와 관계없이 원본 입력이 있으면 보정 시도
+    if (input) {
+        let cleaned = input;
+
+        // 금액 제거
+        cleaned = cleaned.replace(/(\s|^)(₩?[\d,]+원?)(\s|$)/g, ' ').trim();
+
+        // 상품명(item) 제거 방어 로직
+        const initialItem = (data?.item || '').trim();
+        if (initialItem && cleaned.includes(initialItem)) {
+            const candidate = cleaned.replace(initialItem, '').trim();
+            // 제거 후 빈 문자열이 되면 제거하지 않음 (예: item이 "구로역 할리스커피" 전체인 경우)
+            if (candidate.length > 0) {
+                cleaned = candidate;
+            }
+        }
+
+        // 공백 정리
+        cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+        if (cleaned) {
+            placeName = cleaned;
+        }
+    }
+
+    return {
+        address,
+        placeName,
+        lat: null,
+        lng: null
+    };
+};
+
+
+
+export default function TransactionConfirm({ initialData, onSave, selectedDate, originalInput = '' }) {
+    // --------------------------------------------------------------------------------
+    // 1. State Declarations (Must be at the top to avoid TDZ)
+    // --------------------------------------------------------------------------------
 
     // 폼 입력 상태
     const [amount, setAmount] = useState(initialData?.amount || 0);           // 금액
@@ -33,18 +69,48 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
     );
 
     // 위치 정보 상태
-    const [location, setLocation] = useState({
-        address: initialData?.address || '',      // 주소
-        placeName: initialData?.store || '',      // 장소명
-        lat: null,                                 // 위도
-        lng: null                                  // 경도
-    });
+    const [location, setLocation] = useState(() => getSmartLocation(initialData, originalInput));
+
+    // 고정 지출 여부 토글 상태
+    const [isRecurring, setIsRecurring] = useState(false);
 
     // 모달 표시 상태
     const [showCalculator, setShowCalculator] = useState(false);      // 금액 계산기 모달
     const [showDatePicker, setShowDatePicker] = useState(false);      // 날짜 선택 모달
     const [showCategoryPicker, setShowCategoryPicker] = useState(false); // 카테고리 선택 모달
     const [showLocationPicker, setShowLocationPicker] = useState(false); // 장소 검색 모달
+
+    // --------------------------------------------------------------------------------
+    // 2. Helper Functions & Effects
+    // --------------------------------------------------------------------------------
+
+    // 초기 검색어 결정 로직
+    const getInitialSearchQuery = () => {
+        // 1. 보정된 장소명(placeName)이 있다면 최우선 사용 (화면 표시 텍스트와 검색어 일치)
+        // 예: 사용자가 "구로 할리스" 입력 -> placeName="구로 할리스" -> 검색창에도 "구로 할리스" 표시
+        if (location.placeName) {
+            return location.placeName;
+        }
+
+        // 2. AI가 주소를 추출 + 소비처가 있는 경우: 주소 + 소비처 조합
+        if (location.address && store) {
+            return `${location.address} ${store}`;
+        }
+
+        // 3. 마지막 수단: 소비처 또는 주소
+        return store || location.address;
+    };
+
+    // inside return
+    <KakaoLocationPicker
+        isOpen={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        onConfirm={(newLocation) => setLocation(newLocation)}
+        initialAddress={location.address}
+        initialPlaceName={getInitialSearchQuery()}
+    />
+
+
 
     // useEffect - 초기 데이터 동기화
     // AI 분석이 완료되어 initialData가 변경되면 폼 상태를 업데이트
@@ -57,17 +123,14 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
             setRawDate(
                 selectedDate ? new Date(selectedDate) : (initialData.date ? new Date(initialData.date) : new Date())
             );
-            setLocation({
-                address: initialData.address || '',
-                placeName: initialData.store || '',
-                lat: null,
-                lng: null
-            });
+            setLocation(getSmartLocation(initialData, originalInput));
         }
-    }, [initialData, selectedDate]);
+    }, [initialData, selectedDate, originalInput]);
 
 
-    // 날짜를 "1월 28일" 형식으로 포맷팅
+
+
+    // 날짜 포맷팅
     const formatDateDisplay = () => {
         const month = rawDate.getMonth() + 1;
         const day = rawDate.getDate();
@@ -248,7 +311,7 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
             {/* ----------------------------------------
                 섹션 5: 장소 검색
                 - 지도 썸네일을 클릭해야만 카카오맵 장소 검색 모달이 열림
-                - 오른쪽에 실제 미니맵 표시
+                - 오른쪽에 실제 미니맵 표시 (작은 썸네일 유지 + 실제 지도)
             ---------------------------------------- */}
             <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{
@@ -279,7 +342,10 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                             fontWeight: '500',
                             color: location.placeName || location.address ? 'var(--text-main)' : '#a0aec0',
                             display: 'block',
-                            lineHeight: '1.5'
+                            lineHeight: '1.5',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
                         }}>
                             {location.placeName || location.address || '장소를 검색하세요'}
                         </span>
@@ -296,7 +362,8 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                             flexShrink: 0,
                             cursor: 'pointer',
                             position: 'relative',
-                            border: '1px solid #e2e8f0'
+                            border: '1px solid #e2e8f0',
+                            backgroundColor: '#f1f5f9'
                         }}
                     >
                         {/* 실제 미니맵 또는 기본 아이콘 */}
@@ -440,7 +507,7 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                 onClose={() => setShowLocationPicker(false)}
                 onConfirm={(newLocation) => setLocation(newLocation)}
                 initialAddress={location.address}
-                initialPlaceName={store}
+                initialPlaceName={location.address && store ? `${location.address} ${store}` : (store || location.address)}
             />
 
             {/* 카테고리 선택 모달 (바텀시트 형태) */}

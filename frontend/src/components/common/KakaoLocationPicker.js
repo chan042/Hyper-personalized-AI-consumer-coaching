@@ -96,9 +96,8 @@ export default function KakaoLocationPicker({
 
                 setIsMapLoaded(true);
 
-                // 초기 주소가 있으면 검색
                 if (initialPlaceName || initialAddress) {
-                    searchPlaces(initialPlaceName || initialAddress);
+                    searchPlaces(initialPlaceName || initialAddress, true);
                 }
             });
         });
@@ -128,28 +127,9 @@ export default function KakaoLocationPicker({
         });
     }, []);
 
-    // 장소 검색
-    const searchPlaces = useCallback((query) => {
-        if (!placesRef.current || !query.trim()) {
-            setSearchResults([]);
-            return;
-        }
-
-        setIsSearching(true);
-
-        placesRef.current.keywordSearch(query, (data, status) => {
-            setIsSearching(false);
-
-            if (status === window.kakao.maps.services.Status.OK) {
-                setSearchResults(data.slice(0, 5)); // 최대 5개 결과
-            } else {
-                setSearchResults([]);
-            }
-        });
-    }, []);
-
     // 검색 결과 선택
-    const handleSelectResult = useCallback((place) => {
+    // IMPORTANT: searchPlaces에서 참조하므로 searchPlaces보다 먼저 정의되어야 함
+    const handleSelectResult = useCallback((place, updateQuery = true) => {
         const lat = parseFloat(place.y);
         const lng = parseFloat(place.x);
 
@@ -167,8 +147,38 @@ export default function KakaoLocationPicker({
         });
 
         setSearchResults([]);
-        setSearchQuery(place.place_name);
+        // 초기 자동 선택 시에는 검색어(사용자가 입력한 "구로 스타벅스" 등)를 덮어쓰지 않음
+        if (updateQuery) {
+            setSearchQuery(place.place_name);
+        }
     }, []);
+
+    // 장소 검색
+    const searchPlaces = useCallback((query, isInitial = false) => {
+        if (!placesRef.current || !query.trim()) {
+            setSearchResults([]);
+            return;
+        }
+
+        setIsSearching(true);
+
+        placesRef.current.keywordSearch(query, (data, status) => {
+            setIsSearching(false);
+
+            if (status === window.kakao.maps.services.Status.OK) {
+                setSearchResults(data.slice(0, 5)); // 최대 5개 결과
+
+                // 초기 검색이고 결과가 있다면 첫 번째 장소 자동 선택
+                if (isInitial && data.length > 0) {
+                    const firstPlace = data[0];
+                    // 초기 자동 선택 시 검색어 입력창은 건드리지 않음 (updateQuery = false)
+                    handleSelectResult(firstPlace, false);
+                }
+            } else {
+                setSearchResults([]);
+            }
+        });
+    }, [handleSelectResult]);
 
     // 확인 버튼 클릭
     const handleConfirm = () => {

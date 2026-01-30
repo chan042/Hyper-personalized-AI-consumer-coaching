@@ -156,7 +156,12 @@ export default function QuickAddPopup({ onClose, onTransactionAdded, selectedDat
                         </button>
                     </>
                 ) : (
-                    <TransactionConfirm initialData={parsedData} onSave={handleSave} selectedDate={selectedDate} />
+                    <TransactionConfirm
+                        initialData={parsedData}
+                        onSave={handleSave}
+                        selectedDate={selectedDate}
+                        originalInput={inputText}
+                    />
                 )}
 
                 <style jsx global>{`
