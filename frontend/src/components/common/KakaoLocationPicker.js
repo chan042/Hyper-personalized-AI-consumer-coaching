@@ -166,7 +166,7 @@ export default function KakaoLocationPicker({
             setIsSearching(false);
 
             if (status === window.kakao.maps.services.Status.OK) {
-                setSearchResults(data.slice(0, 5)); // 최대 5개 결과
+                setSearchResults(data); // 모든 결과 표시
 
                 // 초기 검색이고 결과가 있다면 첫 번째 장소 자동 선택
                 if (isInitial && data.length > 0) {

@@ -57,13 +57,15 @@ export default function CalculatorInput({ isOpen, onClose, initialValue = 0, onC
         setExpression('0');
     };
 
-    // 연산자 버튼 클릭 핸들러 - 수식 끝에 연산자 추가
+    // 연산자 버튼 클릭 핸들러 - 기존 수식을 계산한 후 연산자 추가
     const handleOperation = (op) => {
-        // 마지막 문자가 이미 연산자면 교체, 아니면 추가
+        // 마지막 문자가 이미 연산자면 교체
         if (isLastCharOperator()) {
             setExpression(expression.slice(0, -1) + op);
         } else {
-            setExpression(expression + op);
+            // 수식을 먼저 계산한 후 연산자 추가
+            const result = evaluateExpression(expression);
+            setExpression(String(result) + op);
         }
     };
 
@@ -115,10 +117,9 @@ export default function CalculatorInput({ isOpen, onClose, initialValue = 0, onC
         }
     };
 
-    // = 버튼 클릭 핸들러 - 수식 계산 후 결과 표시
-    const handleEquals = () => {
-        const result = evaluateExpression(expression);
-        setExpression(String(result));
+    // + 버튼 클릭 핸들러 - 덧셈 연산
+    const handlePlus = () => {
+        handleOperation('+');
     };
 
     // 수정하기 버튼 클릭 핸들러 - 수식 계산 후 확정
@@ -176,7 +177,7 @@ export default function CalculatorInput({ isOpen, onClose, initialValue = 0, onC
                     <button style={styles.numBtn} onClick={() => handleNumberClick('00')}>00</button>
                     <button style={styles.numBtn} onClick={() => handleNumberClick('0')}>0</button>
                     <button style={styles.numBtn} onClick={handleBackspace}>←</button>
-                    <button style={styles.equalsBtn} onClick={handleEquals}>=</button>
+                    <button style={styles.opBtn} onClick={handlePlus}>+</button>
                 </div>
 
                 {/* Action buttons - 닫기/수정하기 버튼 */}
@@ -290,16 +291,7 @@ const styles = {
         cursor: 'pointer',
         transition: 'background-color 0.1s',
     },
-    equalsBtn: {
-        backgroundColor: '#14b8a6',  // 민트색 배경
-        color: 'white',
-        border: 'none',
-        borderRadius: '12px',
-        padding: '18px',
-        fontSize: '1.5rem',
-        fontWeight: '600',
-        cursor: 'pointer',
-    },
+
     actionRow: {
         display: 'flex',
         gap: '12px',

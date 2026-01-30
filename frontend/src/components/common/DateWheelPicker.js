@@ -282,7 +282,7 @@ const styles = {
     },
     confirmBtn: {
         width: '100%',
-        backgroundColor: '#57C0A1',
+        backgroundColor: '#14b8a6',  // Duduk 브랜드 색상
         color: 'white',
         border: 'none',
         borderRadius: '12px',
