@@ -5,7 +5,7 @@
  * - 새로운 UserChallenge 모델에 맞게 progress 객체 처리
  * - 난이도별 두둑 캐릭터 얼굴 아이콘 표시
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Sparkles, ShoppingCart, Utensils, Wallet, Coffee, MapPin, FileText, Target, Dumbbell, Zap, Clock, Camera, Image, ChevronDown } from 'lucide-react';
 import { CATEGORIES, getCategoryIcon } from '../common/CategoryIcons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -115,6 +115,16 @@ export default function ChallengeDetailModal({ challenge, onClose, onStart, onRe
     const [inputValues, setInputValues] = useState({});
     const [openCategorySelect, setOpenCategorySelect] = useState(null);
     const fileInputRef = useRef(null);
+
+    // 모달이 열릴 때 배경 스크롤 방지
+    useEffect(() => {
+        if (challenge) {
+            document.body.style.overflow = 'hidden';
+        }
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [challenge]);
 
     if (!challenge) return null;
 

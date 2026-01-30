@@ -299,6 +299,7 @@ export default function ChallengePage() {
                 </button>
             </div>
 
+
             {/* 로딩 상태 */}
             {loading && (
                 <div style={styles.loadingState}>
@@ -482,12 +483,11 @@ const styles = {
         gap: '4px',
         padding: '8px 12px',
         border: 'none',
-        backgroundColor: 'transparent', // 배경 제거
+        backgroundColor: 'transparent',
         color: 'var(--primary)',
         fontSize: '0.85rem',
         fontWeight: '600',
         cursor: 'pointer',
-        // 그림자 제거
     },
     section: {
         marginBottom: '1.5rem',

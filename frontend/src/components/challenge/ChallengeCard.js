@@ -212,15 +212,6 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                     }}>
                         {getDifficultyLabel(challenge.difficulty)}
                     </span>
-                    {challenge.category && challenge.category !== 'all' && (
-                        <span style={styles.categoryTag}>#{challenge.category}</span>
-                    )}
-                    {challenge.sourceType && (
-                        <span style={styles.sourceTag}>
-                            {challenge.sourceType === 'ai' ? '🤖 AI' :
-                                challenge.sourceType === 'custom' ? '✨ 커스텀' : ''}
-                        </span>
-                    )}
                     {/* 사진 인증 필요 표시 */}
                     {challenge.requiresPhoto && (
                         <span style={styles.photoTag}>
@@ -342,14 +333,6 @@ const styles = {
     difficultyLabel: {
         fontSize: '0.7rem',
         fontWeight: '700',
-    },
-    categoryTag: {
-        fontSize: '0.7rem',
-        color: '#9CA3AF',
-    },
-    sourceTag: {
-        fontSize: '0.65rem',
-        color: '#6366F1',
     },
     photoTag: {
         display: 'flex',
