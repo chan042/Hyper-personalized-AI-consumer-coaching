@@ -1,51 +1,62 @@
 "use client";
+// Quick Add에서 자연어 분석 후 상세 정보를 입력/수정하는 화면
 
-import { Wallet, Edit2, ChevronRight, Search, MapPin, Calendar, Check, ChevronDown } from 'lucide-react';
+
+// 외부 라이브러리 및 아이콘 임포트
+import { Edit2, ChevronRight, Search, MapPin, Calendar, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import CalculatorInput from '../common/CalculatorInput';
-import DateWheelPicker from '../common/DateWheelPicker';
-import KakaoLocationPicker from '../common/KakaoLocationPicker';
-import { getCategoryIcon, CATEGORIES } from '../common/CategoryIcons';
 
+import CalculatorInput from '../common/CalculatorInput';       // 금액 계산기 모달
+import DateWheelPicker from '../common/DateWheelPicker';       // 날짜 휠 선택 모달
+import KakaoLocationPicker from '../common/KakaoLocationPicker'; // 카카오맵 장소 검색 모달
+import { getCategoryIcon, CATEGORIES, CATEGORY_COLORS, normalizeCategory } from '../common/CategoryIcons'; // 카테고리 아이콘/색상
+
+// ============================================================
+// 메인 컴포넌트
+// Props:
+//   - initialData: AI가 분석한 초기 데이터 (amount, category, item, store, date, address)
+//   - onSave: 저장 버튼 클릭 시 호출되는 콜백 함수
+//   - selectedDate: 캘린더에서 선택된 날짜 (있으면 우선 적용)
+// ============================================================
 export default function TransactionConfirm({ initialData, onSave, selectedDate }) {
-    const [isRecurring, setIsRecurring] = useState(true);
 
-    // Form State
-    const [amount, setAmount] = useState(initialData?.amount || 0);
-    const [category, setCategory] = useState(initialData?.category || '기타');
-    const [item, setItem] = useState(initialData?.item || '');
-    const [store, setStore] = useState(initialData?.store || '');
-    // selectedDate가 있으면 그것을 우선 사용, 없으면 initialData의 date, 그것도 없으면 오늘 날짜
-    const [rawDate, setRawDate] = useState(
+    // 고정 지출 여부 토글 상태
+    const [isRecurring, setIsRecurring] = useState(false);
+
+    // 폼 입력 상태
+    const [amount, setAmount] = useState(initialData?.amount || 0);           // 금액
+    const [category, setCategory] = useState(initialData?.category || '카페/간식'); // 카테고리
+    const [item, setItem] = useState(initialData?.item || '');                 // 상품명
+    const [store, setStore] = useState(initialData?.store || '');              // 소비처
+    const [rawDate, setRawDate] = useState(                                    // 날짜
         selectedDate ? new Date(selectedDate) : (initialData?.date ? new Date(initialData.date) : new Date())
     );
 
-    // Location State
+    // 위치 정보 상태
     const [location, setLocation] = useState({
-        address: initialData?.address || '',
-        placeName: initialData?.store || '',
-        lat: null,
-        lng: null
+        address: initialData?.address || '',      // 주소
+        placeName: initialData?.store || '',      // 장소명
+        lat: null,                                 // 위도
+        lng: null                                  // 경도
     });
 
-    // Modal States
-    const [showCalculator, setShowCalculator] = useState(false);
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-    const [showLocationPicker, setShowLocationPicker] = useState(false);
+    // 모달 표시 상태
+    const [showCalculator, setShowCalculator] = useState(false);      // 금액 계산기 모달
+    const [showDatePicker, setShowDatePicker] = useState(false);      // 날짜 선택 모달
+    const [showCategoryPicker, setShowCategoryPicker] = useState(false); // 카테고리 선택 모달
+    const [showLocationPicker, setShowLocationPicker] = useState(false); // 장소 검색 모달
 
-    // initialData가 변경되면(AI 분석 완료 시) Form 상태 업데이트
+    // useEffect - 초기 데이터 동기화
+    // AI 분석이 완료되어 initialData가 변경되면 폼 상태를 업데이트
     useEffect(() => {
         if (initialData) {
             setAmount(initialData.amount || 0);
-            setCategory(initialData.category || '기타');
+            setCategory(initialData.category || '카페/간식');
             setItem(initialData.item || '');
             setStore(initialData.store || '');
-            // 날짜 처리: selectedDate가 있으면 우선, 없으면 initialData의 date 사용
             setRawDate(
                 selectedDate ? new Date(selectedDate) : (initialData.date ? new Date(initialData.date) : new Date())
             );
-            // 위치 정보 초기화
             setLocation({
                 address: initialData.address || '',
                 placeName: initialData.store || '',
@@ -55,236 +66,337 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
         }
     }, [initialData, selectedDate]);
 
-    const dateDisplay = rawDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 
+    // 날짜를 "1월 28일" 형식으로 포맷팅
+    const formatDateDisplay = () => {
+        const month = rawDate.getMonth() + 1;
+        const day = rawDate.getDate();
+        return `${month}월 ${day}일`;
+    };
+
+    // 카테고리에 해당하는 색상 반환
+    const getCategoryColor = (cat) => {
+        const normalized = normalizeCategory(cat);
+        return CATEGORY_COLORS[normalized] || '#f59e0b';
+    };
+
+    // 렌더링
     return (
         <div style={{ paddingBottom: '1rem' }}>
-            {/* Handle Bar */}
-            <div style={{ width: '40px', height: '4px', backgroundColor: '#e2e8f0', borderRadius: '2px', margin: '0 auto 1.5rem auto' }}></div>
 
-            {/* Amount & Category */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                {/* Amount - 클릭 시 계산기 오픈 */}
-                <div
-                    onClick={() => setShowCalculator(true)}
-                    style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        backgroundColor: '#e6fffa',
-                        padding: '1rem',
-                        borderRadius: '16px',
-                        cursor: 'pointer'
-                    }}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ backgroundColor: '#c6f6d5', padding: '0.5rem', borderRadius: '8px' }}>
-                            <Wallet size={20} color="var(--primary)" />
-                        </div>
-                        <span style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)' }}>₩{amount.toLocaleString()}</span>
-                    </div>
-                    <Edit2 size={18} color="var(--text-sub)" />
-                </div>
+            {/* ----------------------------------------
+                섹션 1: 금액 표시 (헤더)
+                - 클릭하면 계산기 모달이 열림
+            ---------------------------------------- */}
+            <div
+                onClick={() => setShowCalculator(true)}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    marginBottom: '1.5rem',
+                    cursor: 'pointer'
+                }}
+            >
+                <span style={{
+                    fontSize: '1.75rem',
+                    fontWeight: '800',
+                    color: 'var(--text-main)'
+                }}>₩{amount.toLocaleString()}</span>
+                <Edit2 size={18} color="var(--text-sub)" />
+            </div>
 
-                {/* Category - 클릭 시 카테고리 선택 오픈 */}
+            {/* ----------------------------------------
+                섹션 2: 카테고리 & 날짜 선택 버튼 (가로 배치)
+            ---------------------------------------- */}
+            <div style={{
+                display: 'flex',
+                gap: '0.75rem',
+                marginBottom: '1.5rem'
+            }}>
+                {/* 카테고리 선택 버튼 */}
                 <div
                     onClick={() => setShowCategoryPicker(true)}
                     style={{
+                        flex: 1,
                         display: 'flex',
-                        justifyContent: 'space-between',
                         alignItems: 'center',
-                        backgroundColor: '#e6fffa',
-                        padding: '1rem',
-                        borderRadius: '16px',
+                        gap: '0.75rem',
+                        backgroundColor: 'white',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '0.875rem 1rem',
                         cursor: 'pointer'
                     }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ backgroundColor: '#c6f6d5', padding: '0.5rem', borderRadius: '8px' }}>
-                            {getCategoryIcon(category, 20)}
-                        </div>
-                        <span style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-main)' }}>{category}</span>
-                    </div>
-                    <ChevronRight size={20} color="var(--text-sub)" />
-                </div>
-            </div>
-
-            {/* Form Fields */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.5rem' }}>
-                {/* Product Name */}
-                <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.5rem' }}>상품명</label>
+                    {/* 카테고리 아이콘 */}
                     <div style={{
-                        backgroundColor: 'white',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '12px',
-                        padding: '0.85rem 1rem'
+                        backgroundColor: `${getCategoryColor(category)}20`,
+                        padding: '0.5rem',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                     }}>
-                        <input
-                            type="text"
-                            value={item}
-                            onChange={(e) => setItem(e.target.value)}
-                            style={{ width: '100%', border: 'none', outline: 'none', fontSize: '1rem', color: 'var(--text-main)' }}
-                        />
+                        {getCategoryIcon(category, 20)}
+                    </div>
+                    {/* 카테고리 라벨 및 값 */}
+                    <div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginBottom: '0.125rem' }}>카테고리</p>
+                        <p style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-main)' }}>{category}</p>
                     </div>
                 </div>
 
-                {/* Merchant */}
-                <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.5rem' }}>소비처</label>
-                    <div style={{
-                        backgroundColor: 'white',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '12px',
-                        padding: '0.85rem 1rem'
-                    }}>
-                        <input
-                            type="text"
-                            value={store}
-                            onChange={(e) => setStore(e.target.value)}
-                            style={{ width: '100%', border: 'none', outline: 'none', fontSize: '1rem', color: 'var(--text-main)' }}
-                        />
-                    </div>
-                </div>
-
-                {/* Location Search */}
-                <div>
-                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '0.5rem' }}>장소 검색</label>
-                    <div
-                        onClick={() => setShowLocationPicker(true)}
-                        style={{
-                            backgroundColor: '#f8f9fa',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '12px',
-                            padding: '0.85rem 1rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            marginBottom: '0.75rem',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <Search size={18} color="var(--text-sub)" />
-                        <span style={{
-                            flex: 1,
-                            fontSize: '1rem',
-                            color: location.placeName || location.address ? 'var(--text-main)' : '#a0aec0'
-                        }}>
-                            {location.placeName || location.address || '장소를 검색하세요'}
-                        </span>
-                        <ChevronRight size={18} color="var(--text-sub)" />
-                    </div>
-
-                    {/* Map Preview - 클릭 시 위치 선택 모달 오픈 */}
-                    <div
-                        onClick={() => setShowLocationPicker(true)}
-                        style={{
-                            width: '100%',
-                            height: '140px',
-                            backgroundColor: '#e2e8f0',
-                            borderRadius: '16px',
-                            overflow: 'hidden',
-                            position: 'relative',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <div style={{
-                            width: '100%',
-                            height: '100%',
-                            background: 'linear-gradient(120deg, #e0f2f1 0%, #b2dfdb 100%)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px'
-                        }}>
-                            <div style={{ position: 'relative' }}>
-                                <MapPin size={32} color="var(--primary)" fill="white" />
-                                <div style={{
-                                    position: 'absolute',
-                                    bottom: '-4px',
-                                    left: '50%',
-                                    transform: 'translateX(-50%)',
-                                    width: '12px',
-                                    height: '4px',
-                                    backgroundColor: 'rgba(0,0,0,0.2)',
-                                    borderRadius: '50%'
-                                }}></div>
-                            </div>
-                            {location.address ? (
-                                <span style={{
-                                    fontSize: '0.875rem',
-                                    color: 'var(--text-main)',
-                                    fontWeight: '500',
-                                    textAlign: 'center',
-                                    padding: '0 16px'
-                                }}>
-                                    {location.address}
-                                </span>
-                            ) : (
-                                <span style={{ fontSize: '0.875rem', color: '#718096' }}>
-                                    탭하여 위치 선택
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Date - 클릭 시 날짜 휠 피커 오픈 */}
+                {/* 날짜 선택 버튼 */}
                 <div
                     onClick={() => setShowDatePicker(true)}
                     style={{
+                        flex: 1,
                         display: 'flex',
-                        justifyContent: 'space-between',
                         alignItems: 'center',
-                        backgroundColor: '#e6fffa',
-                        padding: '1rem',
-                        borderRadius: '16px',
+                        gap: '0.75rem',
+                        backgroundColor: 'white',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '0.875rem 1rem',
                         cursor: 'pointer'
                     }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ backgroundColor: '#c6f6d5', padding: '0.5rem', borderRadius: '8px' }}>
-                            <Calendar size={20} color="var(--primary)" />
-                        </div>
-                        <span style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-main)' }}>{dateDisplay}</span>
+                    {/* 날짜 아이콘 */}
+                    <div style={{
+                        backgroundColor: '#f0f9ff',
+                        padding: '0.5rem',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <Calendar size={20} color="#3b82f6" />
                     </div>
-                    <ChevronRight size={20} color="var(--text-sub)" />
-                </div>
-
-                {/* Recurring Toggle */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.25rem' }}>
-                    <span style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-main)' }}>고정 지출에 추가</span>
-                    <div
-                        onClick={() => setIsRecurring(!isRecurring)}
-                        style={{
-                            width: '50px',
-                            height: '28px',
-                            backgroundColor: isRecurring ? 'var(--primary)' : '#cbd5e0',
-                            borderRadius: '14px',
-                            position: 'relative',
-                            cursor: 'pointer',
-                            transition: 'background-color 0.2s ease'
-                        }}
-                    >
-                        <div style={{
-                            width: '24px',
-                            height: '24px',
-                            backgroundColor: 'white',
-                            borderRadius: '50%',
-                            position: 'absolute',
-                            top: '2px',
-                            left: isRecurring ? '24px' : '2px',
-                            transition: 'left 0.2s ease',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                        }}></div>
+                    {/* 날짜 라벨 및 값 */}
+                    <div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)', marginBottom: '0.125rem' }}>날짜</p>
+                        <p style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-main)' }}>{formatDateDisplay()}</p>
                     </div>
                 </div>
             </div>
 
-            {/* Save Button */}
+            {/* ----------------------------------------
+                섹션 3: 상품명 입력
+                - 언더라인 스타일 입력 필드
+            ---------------------------------------- */}
+            <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{
+                    display: 'block',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: 'var(--text-main)',
+                    marginBottom: '0.5rem'
+                }}>상품명</label>
+                <input
+                    type="text"
+                    value={item}
+                    onChange={(e) => setItem(e.target.value)}
+                    placeholder="상품명을 입력하세요"
+                    style={{
+                        width: '100%',
+                        padding: '0.5rem 0',        // 좌우 패딩 없음 (라벨과 정렬)
+                        fontSize: '1rem',
+                        fontWeight: '500',
+                        color: 'var(--text-main)',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        borderBottom: '1px solid #e2e8f0',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                    }}
+                />
+            </div>
+
+            {/* ----------------------------------------
+                섹션 4: 소비처 입력
+                - 언더라인 스타일 입력 필드
+            ---------------------------------------- */}
+            <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{
+                    display: 'block',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: 'var(--text-main)',
+                    marginBottom: '0.5rem'
+                }}>소비처</label>
+                <input
+                    type="text"
+                    value={store}
+                    onChange={(e) => setStore(e.target.value)}
+                    placeholder="소비처를 입력하세요"
+                    style={{
+                        width: '100%',
+                        padding: '0.5rem 0',        // 좌우 패딩 없음 (라벨과 정렬)
+                        fontSize: '1rem',
+                        fontWeight: '500',
+                        color: 'var(--text-main)',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        borderBottom: '1px solid #e2e8f0',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                    }}
+                />
+            </div>
+
+            {/* ----------------------------------------
+                섹션 5: 장소 검색
+                - 지도 썸네일을 클릭해야만 카카오맵 장소 검색 모달이 열림
+                - 오른쪽에 실제 미니맵 표시
+            ---------------------------------------- */}
+            <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{
+                    display: 'block',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: 'var(--text-main)',
+                    marginBottom: '0.5rem'
+                }}>장소 검색</label>
+
+                {/* 장소명 + 미니맵 영역 - flex로 하단 정렬 */}
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'flex-end',  /* 하단 정렬 */
+                        justifyContent: 'space-between',
+                        gap: '12px'
+                    }}
+                >
+                    {/* 장소명 텍스트 영역 - 클릭해도 모달 안 열림 */}
+                    <div style={{
+                        flex: 1,
+                        borderBottom: '1px solid #e2e8f0',
+                        paddingBottom: '0.5rem'
+                    }}>
+                        <span style={{
+                            fontSize: '1rem',
+                            fontWeight: '500',
+                            color: location.placeName || location.address ? 'var(--text-main)' : '#a0aec0',
+                            display: 'block',
+                            lineHeight: '1.5'
+                        }}>
+                            {location.placeName || location.address || '장소를 검색하세요'}
+                        </span>
+                    </div>
+
+                    {/* 미니맵 영역 - 클릭 시에만 모달 열림 */}
+                    <div
+                        onClick={() => setShowLocationPicker(true)}
+                        style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            flexShrink: 0,
+                            cursor: 'pointer',
+                            position: 'relative',
+                            border: '1px solid #e2e8f0'
+                        }}
+                    >
+                        {/* 실제 미니맵 또는 기본 아이콘 */}
+                        {location.lat && location.lng ? (
+                            <img
+                                src={`https://dapi.kakao.com/v2/local/map/staticmap.png?appkey=${process.env.NEXT_PUBLIC_KAKAO_JS_KEY}&center=${location.lng},${location.lat}&level=3&w=96&h=96&marker=color:red|pos:${location.lng},${location.lat}`}
+                                alt="위치 미리보기"
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover'
+                                }}
+                                onError={(e) => {
+                                    // 이미지 로드 실패 시 기본 아이콘 표시
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                }}
+                            />
+                        ) : null}
+                        {/* 기본 아이콘 (좌표 없을 때 또는 이미지 로드 실패 시) */}
+                        <div style={{
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: '#e0f2f1',
+                            display: location.lat && location.lng ? 'none' : 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0
+                        }}>
+                            <MapPin size={24} color="var(--primary)" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* 안내 텍스트 */}
+                <p style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--text-sub)',
+                    marginTop: '0.5rem'
+                }}>썸네일을 누르면 지도를 크게 볼 수 있습니다.</p>
+            </div>
+
+            {/* ----------------------------------------
+                섹션 6: 고정 지출 토글
+                - 매월 반복되는 고정 지출로 등록할지 여부
+            ---------------------------------------- */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.5rem 0',
+                marginBottom: '1rem'
+            }}>
+                <span style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-main)' }}>고정 지출에 추가</span>
+                {/* 토글 스위치 */}
+                <div
+                    onClick={() => setIsRecurring(!isRecurring)}
+                    style={{
+                        width: '50px',
+                        height: '28px',
+                        backgroundColor: isRecurring ? 'var(--primary)' : '#cbd5e0',
+                        borderRadius: '14px',
+                        position: 'relative',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s ease'
+                    }}
+                >
+                    {/* 토글 원형 버튼 */}
+                    <div style={{
+                        width: '24px',
+                        height: '24px',
+                        backgroundColor: 'white',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: isRecurring ? '24px' : '2px',
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                    }}></div>
+                </div>
+            </div>
+
+            {/* ----------------------------------------
+                섹션 7: 저장 버튼
+                - 클릭 시 onSave 콜백 호출하여 데이터 저장
+            ---------------------------------------- */}
             <button
-                onClick={() => onSave({ amount, category, item, store, date: rawDate.toISOString(), is_fixed: isRecurring, address: location.placeName && location.address ? `${location.placeName} | ${location.address}` : (location.placeName || location.address) })}
+                onClick={() => onSave({
+                    amount,
+                    category,
+                    item,
+                    store,
+                    date: rawDate.toISOString(),
+                    is_fixed: isRecurring,
+                    address: location.placeName && location.address
+                        ? `${location.placeName} | ${location.address}`
+                        : (location.placeName || location.address)
+                })}
                 style={{
                     width: '100%',
                     padding: '1rem',
@@ -301,7 +413,12 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                 저장
             </button>
 
-            {/* Calculator Modal */}
+            {/* ========================================
+                모달 컴포넌트들
+                - 각 모달은 해당 상태가 true일 때 표시됨
+            ======================================== */}
+
+            {/* 금액 계산기 모달 */}
             <CalculatorInput
                 isOpen={showCalculator}
                 onClose={() => setShowCalculator(false)}
@@ -309,7 +426,7 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                 onConfirm={(newAmount) => setAmount(newAmount)}
             />
 
-            {/* Date Picker Modal */}
+            {/* 날짜 휠 선택 모달 */}
             <DateWheelPicker
                 isOpen={showDatePicker}
                 onClose={() => setShowDatePicker(false)}
@@ -317,7 +434,7 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                 onConfirm={(newDate) => setRawDate(newDate)}
             />
 
-            {/* Location Picker Modal */}
+            {/* 카카오맵 장소 검색 모달 */}
             <KakaoLocationPicker
                 isOpen={showLocationPicker}
                 onClose={() => setShowLocationPicker(false)}
@@ -326,7 +443,7 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                 initialPlaceName={store}
             />
 
-            {/* Category Picker Modal */}
+            {/* 카테고리 선택 모달 (바텀시트 형태) */}
             {showCategoryPicker && (
                 <div
                     style={{
@@ -343,6 +460,7 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                     }}
                     onClick={() => setShowCategoryPicker(false)}
                 >
+                    {/* 카테고리 선택 패널 */}
                     <div
                         style={{
                             backgroundColor: 'white',
@@ -353,9 +471,11 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                             maxWidth: '430px',
                             maxHeight: '60vh',
                             overflowY: 'auto',
+                            animation: 'slideUp 0.3s ease-out'
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
+                        {/* 모달 헤더 */}
                         <div style={{
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -370,6 +490,8 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                                 ✕
                             </button>
                         </div>
+
+                        {/* 카테고리 목록 */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {CATEGORIES.map((cat) => (
                                 <div
@@ -394,6 +516,7 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                                         fontWeight: category === cat ? '600' : '400',
                                         color: 'var(--text-main)'
                                     }}>{cat}</span>
+                                    {/* 선택된 카테고리에 체크 표시 */}
                                     {category === cat && (
                                         <Check size={18} color="var(--primary)" style={{ marginLeft: 'auto' }} />
                                     )}
@@ -403,6 +526,14 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate }
                     </div>
                 </div>
             )}
+
+            {/* 애니메이션 스타일 정의 */}
+            <style jsx global>{`
+                @keyframes slideUp {
+                    from { transform: translateY(100%); }
+                    to { transform: translateY(0); }
+                }
+            `}</style>
         </div>
     );
 }
