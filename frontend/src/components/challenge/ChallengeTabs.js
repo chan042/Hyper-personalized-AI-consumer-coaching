@@ -32,8 +32,13 @@ const styles = {
     tabContainer: {
         display: 'flex',
         gap: '8px',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
+        overflowX: 'auto',              // 가로 스크롤 활성화
+        flexWrap: 'nowrap',             // 줄바꿈 방지
+        justifyContent: 'flex-start',   // 왼쪽 정렬
+        scrollbarWidth: 'none',         // Firefox 스크롤바 숨김
+        msOverflowStyle: 'none',        // IE 스크롤바 숨김
+        WebkitOverflowScrolling: 'touch', // iOS 부드러운 스크롤
+        padding: '4px 8px',             // 좌우 여백 추가
     },
     tabButton: {
         padding: '8px 14px',
@@ -43,5 +48,6 @@ const styles = {
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         whiteSpace: 'nowrap',
+        flexShrink: 0,                  // 버튼 크기 유지 (축소 방지)
     },
 };

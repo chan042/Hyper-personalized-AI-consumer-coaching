@@ -1,19 +1,8 @@
 "use client";
 
-import { useEffect } from 'react';
 import { X, Coffee, ShoppingBag, MapPin, Droplets, Zap, Lightbulb } from 'lucide-react';
 
 export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChallenge }) {
-    // Prevent background scrolling when popup is open
-    useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden';
-        }
-        return () => {
-            document.body.style.overflow = 'unset';
-        };
-    }, [isOpen]);
-
     if (!isOpen || !data) return null;
 
     const getIcon = (subject) => {
@@ -39,8 +28,10 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
             justifyContent: 'center',
             alignItems: 'center',
             zIndex: 1000,
-            padding: '1.5rem'
-        }} onClick={onClose}>
+            padding: '1.5rem',
+            overflowY: 'auto',
+            overscrollBehavior: 'contain'
+        }} onClick={onClose} onTouchMove={(e) => e.target === e.currentTarget && e.preventDefault()}>
             <div style={{
                 backgroundColor: 'white',
                 width: '100%',

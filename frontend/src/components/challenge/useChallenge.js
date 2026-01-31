@@ -68,7 +68,7 @@ export const useChallenge = (challenge, isOngoing = false) => {
         const points = challenge?.points || challenge?.basePoints || 0;
 
         if (isRandomBudget && (points === 0 || points === undefined || points === null)) {
-            return '?P';
+            return '???P';
         }
         return `${points}P`;
     };

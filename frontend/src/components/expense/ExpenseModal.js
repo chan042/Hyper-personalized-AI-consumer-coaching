@@ -118,7 +118,11 @@ export default function ExpenseModal({ isOpen, onClose, transaction, onUpdate, o
     if (!isOpen || !transaction) return null;
 
     return (
-        <div className={styles.modalOverlay} onClick={onClose}>
+        <div
+            className={styles.modalOverlay}
+            onClick={onClose}
+            onTouchMove={(e) => e.target === e.currentTarget && e.preventDefault()}
+        >
             <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
                 <div className={styles.modalHeader}>
                     <button className={styles.closeButton} onClick={onClose}>

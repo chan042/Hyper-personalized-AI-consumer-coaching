@@ -7,7 +7,7 @@
  * - 전체 탭에서 진행중/미참여 섹션 분리
  * - AI Insight 섹션 추가
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Sparkles, Store } from 'lucide-react';
 
 // 컴포넌트
@@ -102,14 +102,40 @@ export default function ChallengePage() {
                     break;
 
                 case 'duduk':
-                    // 두둑 탭: 두둑 템플릿만
-                    data = await getChallengeTemplates('duduk');
+                    // 두둑 탭: 두둑 템플릿 + 진행중인 챌린지
+                    const dudukTemplates = await getChallengeTemplates('duduk');
+                    const dudukOngoing = await getMyChallenges('active');
+                    // 진행중인 챌린지의 템플릿 ID 목록
+                    const dudukOngoingTemplateIds = dudukOngoing
+                        .filter(c => c.sourceType === 'duduk')
+                        .map(c => c.templateId);
+                    // 진행중이 아닌 템플릿만 필터링
+                    const dudukFiltered = dudukTemplates.filter(t => !dudukOngoingTemplateIds.includes(t.id));
+                    // 두둑 진행중 챌린지 + 미참여 템플릿 합치기
+                    data = [
+                        ...dudukOngoing.filter(c => c.sourceType === 'duduk'),
+                        ...dudukFiltered
+                    ];
                     setOngoingChallenges([]);
                     break;
 
                 case 'user':
-                    // 사용자 챌린지 탭: 사용자가 만든 챌린지, AI 맞춤 챌린지
-                    data = await getUserChallenges();
+                    // 사용자 챌린지 탭: 사용자가 만든 챌린지 + AI 맞춤 챌린지
+                    const userTemplates = await getUserChallenges();
+                    const userOngoing = await getMyChallenges('active');
+                    // 진행중인 사용자/AI 챌린지 ID 목록
+                    const userOngoingIds = userOngoing
+                        .filter(c => c.sourceType === 'custom' || c.sourceType === 'ai')
+                        .map(c => c.id);
+                    // 진행중이 아닌 템플릿만 필터링
+                    const userFiltered = userTemplates.filter(t =>
+                        !userOngoingIds.includes(t.id) && t.status !== 'active'
+                    );
+                    // 사용자 진행중 챌린지 + 미참여 템플릿 합치기
+                    data = [
+                        ...userOngoing.filter(c => c.sourceType === 'custom' || c.sourceType === 'ai'),
+                        ...userFiltered
+                    ];
                     setOngoingChallenges([]);
                     break;
 
@@ -269,35 +295,37 @@ export default function ChallengePage() {
         }
     };
 
+    // 스크롤 시 헤더 상단 숨김 처리를 위한 ref
+    const headerTopRef = useRef(null);
+
     return (
         <div style={styles.container}>
-            {/* 헤더 섹션 (Calendar UI 스타일) */}
-            <div style={styles.headerCard}>
-                {/* 우상단: 상점 버튼 */}
-                <button style={styles.storeButton}>
-                    <Store size={22} color="var(--primary)" />
-                </button>
+            {/* 헤더 섹션 (Calendar UI 스타일 - Sticky Header) */}
+            <div style={styles.headerWrapper}>
+                {/* 상단 섹션 - 스크롤 시 사라짐 */}
+                <div style={styles.headerTop} ref={headerTopRef}>
+                    {/* 우상단: 상점 버튼 */}
+                    <button style={styles.storeButton}>
+                        <Store size={22} color="var(--primary)" />
+                    </button>
 
-                {/* 중앙: 포인트 표시 */}
-                <div style={styles.pointsDisplay}>
-                    <span style={styles.pointsText}>{userPoints.toLocaleString()}P</span>
+                    {/* 중앙: 포인트 표시 */}
+                    <div style={styles.pointsDisplay}>
+                        <span style={styles.pointsText}>{userPoints.toLocaleString()}P</span>
+                    </div>
                 </div>
 
-                {/* 하단: 탭 네비게이션 */}
-                <ChallengeTabs
-                    tabs={challengeTabs}
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
-                />
+                {/* 하단 섹션 - Sticky로 고정됨 */}
+                <div style={styles.headerBottom}>
+                    <ChallengeTabs
+                        tabs={challengeTabs}
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                    />
+                </div>
             </div>
 
-            {/* 직접 만들기 버튼 */}
-            <div style={styles.createRow}>
-                <button style={styles.createButton} onClick={handleCreateChallenge}>
-                    <Plus size={16} />
-                    <span>직접 만들기</span>
-                </button>
-            </div>
+
 
 
             {/* 로딩 상태 */}
@@ -382,10 +410,14 @@ export default function ChallengePage() {
                 </>
             )}
 
-
-
             {/* 하단 여백 (BottomNavigation 위) */}
             <div style={{ height: '100px' }}></div>
+
+            {/* 플로팅 직접 만들기 버튼 (Glassmorphism) */}
+            <button style={styles.floatingCreateButton} onClick={handleCreateChallenge}>
+                <Plus size={18} strokeWidth={2.5} />
+                <span>직접 만들기</span>
+            </button>
 
             {/* 챌린지 상세 모달 */}
             {selectedChallenge && (
@@ -430,20 +462,40 @@ const styles = {
         padding: '0.25rem', // Calendar UI와 비슷하게 패딩 축소
         paddingBottom: '6rem',
     },
-    headerCard: {
+    // Sticky Header Wrapper - 음수 top으로 headerTop이 스크롤 아웃되도록 함
+    headerWrapper: {
         backgroundColor: 'white',
         borderBottomLeftRadius: '20px',
         borderBottomRightRadius: '20px',
+        margin: '0 -0.25rem 0.5rem -0.25rem',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)',
+        position: 'sticky',
+        top: '-160px', // headerTop 높이만큼 음수 (스크롤 시 headerTop만 사라짐)
+        zIndex: 50,
+        overflow: 'hidden',
+    },
+    // 상단 섹션 - 스크롤 시 사라지는 부분 (포인트, 상점 버튼)
+    headerTop: {
         padding: '1rem',
         paddingTop: '0.5rem',
-        margin: '-0.25rem -0.25rem 1rem -0.25rem',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        minHeight: '220px', // Calendar 헤더와 높이 맞춤 (권장 예산/총 지출 영역 포함 높이 고려)
-        justifyContent: 'space-between', // 포인트를 중앙에, 탭을 하단에 배치
+        justifyContent: 'center',
+        height: '160px', // sticky top과 동일하게 맞춤
+        boxSizing: 'border-box',
+        backgroundColor: 'white',
         position: 'relative',
+    },
+    // 하단 섹션 - Sticky로 상단에 고정되는 부분 (탭)
+    headerBottom: {
+        backgroundColor: 'white',
+        padding: '0.5rem 1rem 1rem 1rem',
+        borderBottomLeftRadius: '20px',
+        borderBottomRightRadius: '20px',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     pointsDisplay: {
         display: 'flex',
@@ -471,23 +523,29 @@ const styles = {
         justifyContent: 'center',
         transition: 'background-color 0.2s ease',
     },
-    createRow: {
-        display: 'flex',
-        justifyContent: 'flex-end',
-        marginBottom: '0.5rem',
-        paddingRight: '0.5rem',
-    },
-    createButton: {
+    floatingCreateButton: {
+        position: 'fixed',
+        bottom: '85px',
+        left: '50%',
+        transform: 'translateX(-50%)',
         display: 'flex',
         alignItems: 'center',
-        gap: '4px',
-        padding: '8px 12px',
-        border: 'none',
-        backgroundColor: 'transparent',
+        justifyContent: 'center',
+        gap: '6px',
+        padding: '12px 24px',
+        borderRadius: '9999px', // 알약 형태
+        // Glassmorphism 스타일
+        background: 'rgba(255, 255, 255, 0.3)', // 반투명 배경
+        backdropFilter: 'blur(20px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(180%)', // Safari 대응
+        border: '1px solid rgba(255, 255, 255, 0.25)', // 얇은 반투명 테두리
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)', // 유리 질감 그림자
         color: 'var(--primary)',
-        fontSize: '0.85rem',
+        fontSize: '0.9rem',
         fontWeight: '600',
         cursor: 'pointer',
+        zIndex: 100,
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
     },
     section: {
         marginBottom: '1.5rem',

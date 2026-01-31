@@ -5,7 +5,7 @@
  * - AI로 챌린지 생성하기 버튼
  */
 import { useState } from 'react';
-import { X, Sparkles } from 'lucide-react';
+import { X, Sparkles, Trophy } from 'lucide-react';
 import { getDifficultyButtonStyle } from '@/lib/challengeUtils';
 
 export default function CustomChallengeModal({ isOpen, onClose, onGenerate, isLoading }) {
@@ -44,7 +44,10 @@ export default function CustomChallengeModal({ isOpen, onClose, onGenerate, isLo
             <div style={styles.modal}>
                 {/* 헤더 */}
                 <div style={styles.header}>
-                    <h2 style={styles.headerTitle}>나만의 챌린지 만들기</h2>
+                    <div style={styles.headerTitleWrapper}>
+                        <Trophy size={20} color="#F59E0B" fill="#F59E0B" />
+                        <h2 style={styles.headerTitle}>나만의 챌린지 만들기</h2>
+                    </div>
                     <button style={styles.closeButton} onClick={handleClose}>
                         <X size={24} />
                     </button>
@@ -144,13 +147,18 @@ const styles = {
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '1.25rem 1.5rem',
-        borderBottom: '1px solid #E5E7EB',
+        // borderBottom: '1px solid #E5E7EB', // 선 제거
     },
     headerTitle: {
         fontSize: '1.1rem',
         fontWeight: '700',
         color: 'var(--text-main)',
         margin: 0,
+    },
+    headerTitleWrapper: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
     },
     closeButton: {
         background: 'none',
@@ -170,7 +178,7 @@ const styles = {
     label: {
         display: 'block',
         fontSize: '0.75rem',
-        fontWeight: '600',
+        fontWeight: '800',
         color: 'var(--text-sub)',
         marginBottom: '8px',
         letterSpacing: '0.5px',
