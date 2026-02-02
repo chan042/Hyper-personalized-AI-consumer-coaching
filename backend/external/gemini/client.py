@@ -256,7 +256,7 @@ class GeminiClient:
             "title": "코칭 제목 (예: 편의점 간식 줄이기)",
             "coaching_content": "코칭 내용",
             "analysis": "소비 분석 내용",
-            "estimated_savings": 예상 월 절감액(숫자만, 절감액이 없다면 절감액에 대한 내용은 표시하지 마세요.)
+            "estimated_savings": 예상 월 절감액(숫자만, 컴마표시 필수)
         }}
         
         JSON 외에 다른 말은 하지 마세요.
