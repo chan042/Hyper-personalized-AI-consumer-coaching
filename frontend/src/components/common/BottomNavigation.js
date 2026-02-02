@@ -55,20 +55,19 @@ export default function BottomNavigation({ onQuickAddClick }) {
                         <button
                             onClick={onQuickAddClick}
                             style={{
-                                width: '48px',
-                                height: '48px',
+                                width: '40px',
+                                height: '40px',
                                 borderRadius: '50%',
                                 backgroundColor: 'var(--primary)',
                                 color: 'white',
                                 border: 'none',
-                                boxShadow: '0 4px 6px rgba(0,0,0,0.2)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 cursor: 'pointer',
                             }}
                         >
-                            <Plus size={24} />
+                            <Plus size={22} />
                         </button>
                     </div>
                 ) : (

@@ -1,11 +1,46 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Smile, Award, CheckCircle2, TrendingUp, Shield, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function YuntaekIndexPage() {
     const score = 98;
+    const [displayedScore, setDisplayedScore] = useState(0);
     const [isDetailExpanded, setIsDetailExpanded] = useState(false);
+    const [showProgress, setShowProgress] = useState(false);
+
+    // Animate progress bars when expanded
+    useEffect(() => {
+        if (isDetailExpanded) {
+            setShowProgress(false);
+            const timer = setTimeout(() => setShowProgress(true), 100);
+            return () => clearTimeout(timer);
+        } else {
+            setShowProgress(false);
+        }
+    }, [isDetailExpanded]);
+
+    // Count up animation
+    useEffect(() => {
+        let startTimestamp = null;
+        const duration = 2000; // 2 seconds
+
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+
+            // Ease out quart
+            const easeProgress = 1 - Math.pow(1 - progress, 4);
+
+            setDisplayedScore(Math.floor(easeProgress * score));
+
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            }
+        };
+
+        window.requestAnimationFrame(step);
+    }, [score]);
     // Calculate status based on score
     const status = useMemo(() => {
         if (score >= 90) return { label: '상위 1%', color: '#3b82f6' }; // Blue
@@ -75,12 +110,12 @@ export default function YuntaekIndexPage() {
                 .rainbow-border::before {
                     content: "";
                     position: absolute;
-                    inset: -12px;
+                    inset: -4px;
                     border-radius: 30px;
                     background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
                     background-size: 400%;
                     z-index: -2;
-                    filter: blur(15px);
+                    filter: blur(8px);
                     opacity: 0.7;
                     animation: aurora 10s linear infinite;
                 }
@@ -89,7 +124,7 @@ export default function YuntaekIndexPage() {
             {/* Score Section (Hero) */}
             <section className="fade-in" style={{ ...styles.scoreSection, animationDelay: '0.1s' }}>
                 <div style={styles.scoreContainer}>
-                    <span style={styles.scoreValue}>{score}</span>
+                    <span style={styles.scoreValue}>{displayedScore}</span>
                     <span style={styles.scoreLabel}>내 윤택점수</span>
                 </div>
             </section>
@@ -119,8 +154,9 @@ export default function YuntaekIndexPage() {
                                     <div
                                         style={{
                                             ...styles.progressBarFill,
-                                            width: `${(item.score / item.max) * 100}%`,
-                                            backgroundColor: '#14b8a5'
+                                            width: showProgress ? `${(item.score / item.max) * 100}%` : '0%',
+                                            backgroundColor: '#14b8a5',
+                                            transitionDelay: `${index * 0.1}s`
                                         }}
                                     />
                                 </div>
@@ -143,9 +179,19 @@ export default function YuntaekIndexPage() {
                         현재 포트폴리오가 매우 안정적이에요. 기술주 비중을 조금만 조절하면 더 완벽할 것 같아요.
                     </p>
                 </div>
-                <div style={styles.feedbackContainer}>
-                    <button style={styles.feedbackButton}><Smile size={18} /></button>
-                    <button style={styles.feedbackButton}><Award size={18} /></button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                    <button style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-sub)',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                    }}>
+                        더보기 <span style={{ fontSize: '1rem' }}>›</span>
+                    </button>
                 </div>
             </section>
         </div>

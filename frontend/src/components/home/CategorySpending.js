@@ -17,7 +17,6 @@ export default function CategorySpending() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-
     useEffect(() => {
         fetchCategoryStats();
     }, []);
@@ -62,9 +61,6 @@ export default function CategorySpending() {
         const y = Math.sin(2 * Math.PI * percent);
         return [x, y];
     };
-
-    // 카테고리 클릭 핸들러
-
 
     if (loading) {
         return (
@@ -160,11 +156,11 @@ export default function CategorySpending() {
                         );
                     })}
                     {/* Center Hole for Donut Effect */}
-                    <circle cx="0" cy="0" r="0.7" fill="white" />
+                    <circle cx="0" cy="0" r="0.75" fill="white" />
                 </svg>
+
+
             </div>
-
-
 
             {/* Legend */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

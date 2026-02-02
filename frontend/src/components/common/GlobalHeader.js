@@ -17,15 +17,7 @@ export default function GlobalHeader() {
             return {
                 left: (
                     <Link href="/profile" style={{ display: 'flex', alignItems: 'center' }}>
-                        <img
-                            src={`/images/characters/${user?.character_type || 'char_cat'}/face_basic.png`}
-                            alt="Profile"
-                            style={{
-                                width: '40px',
-                                height: '40px',
-                                objectFit: 'contain'
-                            }}
-                        />
+                        <User color="var(--text-main)" size={24} />
                     </Link>
                 ),
                 title: 'Duduk',
