@@ -3,13 +3,21 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { getTransactions } from '../../lib/api/transaction';
 import { getCategoryIconComponent, normalizeCategory, CATEGORY_COLORS } from '@/components/common/CategoryIcons';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function RecentTransactions() {
+    const { isAuthenticated } = useAuth();
     const [transactions, setTransactions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchTransactions = async () => {
+            // 인증되지 않은 경우 API 호출하지 않음
+            if (!isAuthenticated) {
+                setIsLoading(false);
+                return;
+            }
+
             try {
                 const data = await getTransactions();
                 setTransactions(data.transactions);
@@ -21,7 +29,7 @@ export default function RecentTransactions() {
         };
 
         fetchTransactions();
-    }, []);
+    }, [isAuthenticated]);
 
     // 날짜 포맷팅 (예: 2024-11-30 -> 11월 30일)
     const formatDate = (dateString) => {
@@ -33,6 +41,40 @@ export default function RecentTransactions() {
     if (isLoading) {
         return <div style={{ padding: '2rem', textAlign: 'center' }}>로딩 중...</div>;
     }
+
+    // 비로그인 상태일 경우 로그인 유도 UI 표시
+    if (!isAuthenticated) {
+        return (
+            <div style={{
+                backgroundColor: 'white',
+                borderRadius: 'var(--radius-lg)',
+                padding: '1.75rem',
+                boxShadow: 'var(--shadow-md)',
+                marginBottom: '0.75rem',
+                textAlign: 'center'
+            }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '1rem' }}>최근 내역</h2>
+                <p style={{ color: 'var(--text-sub)', marginBottom: '1rem' }}>
+                    로그인하고 최근 거래 내역을 확인하세요
+                </p>
+                <Link
+                    href="/login"
+                    style={{
+                        display: 'inline-block',
+                        padding: '0.75rem 1.5rem',
+                        backgroundColor: 'var(--primary)',
+                        color: 'white',
+                        borderRadius: 'var(--radius-md)',
+                        textDecoration: 'none',
+                        fontWeight: '600'
+                    }}
+                >
+                    로그인하기
+                </Link>
+            </div>
+        );
+    }
+
 
     return (
         <div style={{

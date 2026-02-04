@@ -132,61 +132,63 @@ export default function YuntaekIndexPage() {
                 }
             `}</style>
 
-            {/* Score Section (Hero) */}
-            <section className="fade-in" style={{ ...styles.scoreSection, animationDelay: '0.1s' }}>
-                <div style={styles.scoreContainer}>
-                    <span style={styles.scoreValue}>{displayedScore}</span>
-                    <span style={styles.scoreLabel}>내 윤택점수</span>
-                </div>
-            </section>
-
-            {/* Detail Section (Clean List) - Moved Up & Collapsible */}
-            {/* Detail Section (Clean List) - Collapsible with Center Text */}
+            {/* Unified Score Card */}
             <section
                 className="glass-card fade-in"
                 style={{
-                    ...styles.detailSection,
-                    animationDelay: '0.3s',
+                    ...styles.scoreSection, // Using base card styles
+                    padding: '2rem 1.5rem',
+                    animationDelay: '0.1s',
                     display: 'flex',
                     flexDirection: 'column',
-                    justifyContent: isDetailExpanded ? 'flex-start' : 'center',
-                    alignItems: isDetailExpanded ? 'stretch' : 'center',
-                    minHeight: 'auto',
-                    padding: isDetailExpanded ? '1.5rem' : '1rem',
-                    transition: 'all 0.3s ease',
-                    animation: !isDetailExpanded ? 'pulse 2s infinite' : 'none',
-                    animationDelay: '0.3s' // Maintain delay for fade-in
+                    gap: isDetailExpanded ? '1.5rem' : '0.5rem',
+                    transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                    alignItems: 'stretch', // Fill width
+                    marginBottom: '1rem',
+                    borderRadius: '24px' // Explicitly match AI Report curvature
                 }}
-                onClick={() => setIsDetailExpanded(!isDetailExpanded)}
             >
-                {!isDetailExpanded ? (
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '0.2rem',
-                        width: '100%',
+                {/* Score Header (Row) */}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: isDetailExpanded ? '1rem' : '0'
+                }}>
+                    <span style={{
+                        fontSize: '1.2rem', // Reduced from 1.8rem
+                        fontWeight: '700',
+                        color: 'var(--text-main)',
+                        letterSpacing: '-0.5px'
                     }}>
-                        <span style={{
-                            color: '#1a1a1a',
-                            fontSize: '1.1rem',
-                            fontWeight: '800',
-                            letterSpacing: '-0.5px'
-                        }}>
-                            눌러서 세부 지표 확인하기
-                        </span>
-                        <ChevronDown
-                            size={24}
-                            color="#3b82f6"
-                            style={{
-                                animation: 'bounce 1.5s infinite',
-                                marginTop: '0px'
-                            }}
-                        />
-                    </div>
-                ) : (
-                    <div style={{ ...styles.detailList, marginTop: 0 }}>
-                        <h2 style={{ ...styles.sectionTitle, marginBottom: '1.5rem' }}>세부 지표</h2>
+                        내 윤택점수
+                    </span>
+                    <span style={{
+                        fontSize: '4.5rem', // Increased from 3.5rem
+                        fontWeight: '800', // Bolder
+                        background: 'linear-gradient(135deg, var(--primary-dark), var(--primary-light))',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                        letterSpacing: '-2px',
+                        lineHeight: '1'
+                    }}>
+                        {displayedScore}
+                        <span style={{ fontSize: '1.5rem', marginLeft: '4px', fontWeight: '500', color: 'var(--text-sub)', WebkitTextFillColor: 'var(--text-sub)', letterSpacing: '-0.5px' }}>점</span>
+                    </span>
+                </div>
+
+                {/* Expanded Details List */}
+                <div style={{
+                    maxHeight: isDetailExpanded ? '500px' : '0',
+                    opacity: isDetailExpanded ? 1 : 0,
+                    overflow: 'hidden',
+                    transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                    marginBottom: isDetailExpanded ? '1rem' : '0' // Space for toggle when expanded
+                }}>
+                    <div style={styles.detailList}>
+                        <h2 style={{ ...styles.sectionTitle, marginBottom: '1.5rem', fontSize: '1rem', color: 'var(--text-sub)' }}>세부 항목 분석</h2>
                         {details.map((item, index) => (
                             <div key={index} style={styles.detailItem}>
                                 <div style={styles.detailTextRow}>
@@ -200,7 +202,7 @@ export default function YuntaekIndexPage() {
                                     <div
                                         style={{
                                             ...styles.progressBarFill,
-                                            width: showProgress ? `${(item.score / item.max) * 100}%` : '0%',
+                                            width: isDetailExpanded && showProgress ? `${(item.score / item.max) * 100}%` : '0%',
                                             backgroundColor: '#14b8a5',
                                             transitionDelay: `${index * 0.1}s`
                                         }}
@@ -209,7 +211,47 @@ export default function YuntaekIndexPage() {
                             </div>
                         ))}
                     </div>
-                )}
+                </div>
+
+                {/* Expand Toggle Trigger (Bottom) - Restored Pill Design */}
+                <div
+                    onClick={() => setIsDetailExpanded(!isDetailExpanded)}
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        padding: '0.8rem 1.5rem',
+                        marginTop: '0.5rem',
+                        cursor: 'pointer',
+                        background: isDetailExpanded ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.6)',
+                        borderRadius: '50px',
+                        boxShadow: isDetailExpanded ? 'none' : '0 4px 15px rgba(0,0,0,0.05)',
+                        border: isDetailExpanded ? 'none' : '1px solid rgba(255,255,255,0.8)',
+                        animation: isDetailExpanded ? 'none' : 'pulse 2s infinite',
+                        width: 'fit-content',
+                        alignSelf: 'center', // Center horizontally in column flex
+                        transition: 'all 0.3s ease'
+                    }}
+                >
+                    <span style={{
+                        color: isDetailExpanded ? 'var(--text-sub)' : '#1a1a1a',
+                        fontSize: '0.95rem',
+                        fontWeight: isDetailExpanded ? '600' : '700',
+                    }}>
+                        {isDetailExpanded ? '접기' : '세부 지표 확인하기'}
+                    </span>
+                    {isDetailExpanded ? (
+                        <ChevronUp size={20} color="var(--text-sub)" />
+                    ) : (
+                        <ChevronDown
+                            size={20}
+                            color="#3b82f6"
+                            style={{ animation: 'bounce 1.5s infinite' }}
+                        />
+                    )}
+                </div>
             </section>
 
             {/* Analysis Report (Glassmorphism + Rainbow) */}

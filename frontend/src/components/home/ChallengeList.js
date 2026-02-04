@@ -5,14 +5,22 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import ChallengeCard from '@/components/challenge/ChallengeCard';
 import { getMyChallenges } from '@/lib/api/challenge';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ChallengeList() {
     const router = useRouter();
+    const { isAuthenticated } = useAuth();
     const [challenges, setChallenges] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchChallenges = async () => {
+            // 인증되지 않은 경우 API 호출하지 않음
+            if (!isAuthenticated) {
+                setIsLoading(false);
+                return;
+            }
+
             try {
                 const data = await getMyChallenges('active');
                 setChallenges(data);
@@ -24,7 +32,7 @@ export default function ChallengeList() {
         };
 
         fetchChallenges();
-    }, []);
+    }, [isAuthenticated]);
 
     const handleMoreClick = () => {
         router.push('/challenge');
@@ -34,7 +42,8 @@ export default function ChallengeList() {
         router.push('/challenge');
     };
 
-    if (!isLoading && challenges.length === 0) {
+    // 비로그인 상태이거나 챌린지가 없는 경우
+    if (!isLoading && (!isAuthenticated || challenges.length === 0)) {
         return (
             <div style={{ marginBottom: '0.75rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
@@ -65,8 +74,17 @@ export default function ChallengeList() {
                     margin: '0 0.5rem',
                     border: '1px dashed rgba(0,0,0,0.1)'
                 }}>
-                    도전 중인 챌린지가 없습니다.<br />
-                    <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>새로운 챌린지에 도전해보세요!</span>
+                    {!isAuthenticated ? (
+                        <>
+                            로그인하고 챌린지에 도전해보세요!<br />
+                            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>목표를 달성하고 포인트를 받으세요</span>
+                        </>
+                    ) : (
+                        <>
+                            도전 중인 챌린지가 없습니다.<br />
+                            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>새로운 챌린지에 도전해보세요!</span>
+                        </>
+                    )}
                 </div>
             </div>
         );

@@ -38,32 +38,37 @@ client.interceptors.response.use(
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
 
-            try {
+            if (typeof window !== 'undefined') {
                 const refreshToken = localStorage.getItem('refreshToken');
+
+                // refreshToken이 있는 경우에만 갱신 시도
                 if (refreshToken) {
-                    const response = await axios.post(
-                        'http://localhost:8000/api/users/token/refresh/',
-                        { refresh: refreshToken }
-                    );
+                    try {
+                        const response = await axios.post(
+                            'http://localhost:8000/api/users/token/refresh/',
+                            { refresh: refreshToken }
+                        );
 
-                    const { access } = response.data;
-                    localStorage.setItem('accessToken', access);
+                        const { access } = response.data;
+                        localStorage.setItem('accessToken', access);
 
-                    // 원래 요청 재시도
-                    originalRequest.headers.Authorization = `Bearer ${access}`;
-                    return client(originalRequest);
+                        // 원래 요청 재시도
+                        originalRequest.headers.Authorization = `Bearer ${access}`;
+                        return client(originalRequest);
+                    } catch (refreshError) {
+                        // 토큰 갱신 실패 시 토큰 삭제하고 에러 반환
+                        // (컴포넌트에서 처리하도록 함)
+                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('refreshToken');
+                        return Promise.reject(refreshError);
+                    }
                 }
-            } catch (refreshError) {
-                // 토큰 갱신 실패 시 로그아웃 처리
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('refreshToken');
-                window.location.href = '/login';
-                return Promise.reject(refreshError);
             }
         }
 
         return Promise.reject(error);
     }
 );
+
 
 export default client;
