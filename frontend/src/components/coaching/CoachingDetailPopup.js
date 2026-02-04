@@ -187,20 +187,32 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                     zIndex: 10,
                     pointerEvents: 'none' // Let clicks pass through transparent part
                 }}>
-                    <div className="glow-button-wrapper" style={{ width: '100%', pointerEvents: 'auto' }}>
+                    <div className="glow-button-wrapper" style={{
+                        width: '100%',
+                        pointerEvents: 'auto',
+                        display: 'flex',
+                        justifyContent: 'center'
+                    }}>
                         <button style={{
-                            width: '100%',
-                            padding: '1.1rem',
-                            backgroundColor: '#14b8a6',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            padding: '12px 24px',
+                            borderRadius: '9999px', // 알약 형태
+                            // Glassmorphism 스타일
+                            background: 'rgba(20, 184, 166, 0.85)', // 반투명 teal 배경
+                            backdropFilter: 'blur(20px) saturate(180%)',
+                            WebkitBackdropFilter: 'blur(20px) saturate(180%)', // Safari 대응
+                            border: '1px solid rgba(255, 255, 255, 0.25)', // 얇은 반투명 테두리
+                            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)', // 유리 질감 그림자
                             color: 'white',
-                            border: 'none',
-                            borderRadius: '16px', // Slightly more rounded
-                            fontSize: '1.05rem',
-                            fontWeight: '700',
+                            fontSize: '0.9rem',
+                            fontWeight: '600',
                             cursor: 'pointer',
                             position: 'relative',
                             zIndex: 2,
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
                         }} onClick={() => {
                             if (onStartChallenge) {
                                 onStartChallenge(data);
@@ -230,7 +242,7 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                     content: "";
                     position: absolute;
                     inset: -2px;
-                    border-radius: 16px;
+                    border-radius: 9999px;
                     background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
                     background-size: 400%;
                     z-index: -1;

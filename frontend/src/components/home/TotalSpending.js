@@ -5,16 +5,22 @@ import { getCategoryStats } from '@/lib/api/transaction';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function TotalSpending() {
-    const { user } = useAuth();
+    const { user, isAuthenticated } = useAuth();
     const [totalSpending, setTotalSpending] = useState(0);
     const [loading, setLoading] = useState(true);
     const [isAngry, setIsAngry] = useState(false);
 
     useEffect(() => {
         fetchTotalSpending();
-    }, []);
+    }, [isAuthenticated]);
 
     const fetchTotalSpending = async () => {
+        // 인증되지 않은 경우 API 호출하지 않음
+        if (!isAuthenticated) {
+            setLoading(false);
+            return;
+        }
+
         try {
             setLoading(true);
             const today = new Date();
@@ -59,6 +65,47 @@ export default function TotalSpending() {
     const faceExpression = getFaceExpression(remainingPercent);
     const characterImagePath = `/images/characters/${characterType}/${faceExpression}.png`;
 
+    // 비로그인 상태일 경우 로그인 유도 UI 표시
+    if (!isAuthenticated) {
+        return (
+            <div style={{
+                backgroundColor: 'white',
+                borderRadius: '24px',
+                padding: '24px 28px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+                marginBottom: '16px',
+                textAlign: 'center',
+                border: '1px solid rgba(0,0,0,0.02)'
+            }}>
+                <h2 style={{
+                    fontSize: '1.25rem',
+                    fontWeight: '800',
+                    color: 'var(--text-main)',
+                    marginBottom: '0.75rem'
+                }}>
+                    이번 달 쓴 돈
+                </h2>
+                <p style={{ color: 'var(--text-sub)', marginBottom: '1rem' }}>
+                    로그인하고 지출 현황을 확인하세요
+                </p>
+                <a
+                    href="/login"
+                    style={{
+                        display: 'inline-block',
+                        padding: '0.75rem 1.5rem',
+                        backgroundColor: 'var(--primary)',
+                        color: 'white',
+                        borderRadius: 'var(--radius-md)',
+                        textDecoration: 'none',
+                        fontWeight: '600'
+                    }}
+                >
+                    로그인하기
+                </a>
+            </div>
+        );
+    }
+
     return (
         <div style={{
             backgroundColor: 'white',
@@ -84,15 +131,14 @@ export default function TotalSpending() {
 
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column' }}>
                 {/* 1. 상단: 타이틀 */}
-                <h3 style={{
-                    fontSize: '15px',
-                    color: 'var(--text-sub)',
-                    marginBottom: '8px',
-                    fontWeight: '600',
-                    letterSpacing: '-0.3px'
+                <h2 style={{
+                    fontSize: '1.25rem',
+                    fontWeight: '800',
+                    color: 'var(--text-main)',
+                    marginBottom: '0.25rem'
                 }}>
                     이번 달 쓴 돈
-                </h3>
+                </h2>
 
                 {/* 2. 중단: 금액 (좌측) + 캐릭터 (우측) */}
                 <div style={{

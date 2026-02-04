@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getCategoryStats } from '@/lib/api/transaction';
 import { CATEGORY_COLORS, normalizeCategory } from '@/components/common/CategoryIcons';
+import { useAuth } from '@/contexts/AuthContext';
 
 // 기본 색상 팔레트 (카테고리 매핑 실패시 사용)
 const FALLBACK_COLORS = [
@@ -12,6 +13,7 @@ const FALLBACK_COLORS = [
 ];
 
 export default function CategorySpending() {
+    const { isAuthenticated } = useAuth();
     const [data, setData] = useState([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -19,9 +21,15 @@ export default function CategorySpending() {
 
     useEffect(() => {
         fetchCategoryStats();
-    }, []);
+    }, [isAuthenticated]);
 
     const fetchCategoryStats = async () => {
+        // 인증되지 않은 경우 API 호출하지 않음
+        if (!isAuthenticated) {
+            setLoading(false);
+            return;
+        }
+
         try {
             setLoading(true);
             setError(null);
@@ -108,7 +116,28 @@ export default function CategorySpending() {
                 textAlign: 'center'
             }}>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '0.25rem' }}>카테고리별 소비</h2>
-                <p style={{ color: 'var(--text-sub)', padding: '3rem 0' }}>아직 지출 내역이 없습니다.</p>
+                {!isAuthenticated ? (
+                    <>
+                        <p style={{ color: 'var(--text-sub)', padding: '2rem 0 1rem 0' }}>로그인하고 카테고리별 지출을 확인하세요</p>
+                        <a
+                            href="/login"
+                            style={{
+                                display: 'inline-block',
+                                padding: '0.75rem 1.5rem',
+                                backgroundColor: 'var(--primary)',
+                                color: 'white',
+                                borderRadius: 'var(--radius-md)',
+                                textDecoration: 'none',
+                                fontWeight: '600',
+                                marginBottom: '1rem'
+                            }}
+                        >
+                            로그인하기
+                        </a>
+                    </>
+                ) : (
+                    <p style={{ color: 'var(--text-sub)', padding: '3rem 0' }}>아직 지출 내역이 없습니다.</p>
+                )}
             </div>
         );
     }
