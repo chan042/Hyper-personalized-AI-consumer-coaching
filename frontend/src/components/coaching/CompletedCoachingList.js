@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ShoppingBag, MapPin, Droplets, Zap, Lightbulb, ChevronRight } from 'lucide-react';
+import { CheckCircle2, MapPin, Droplets, Lightbulb, ChevronRight, Sparkles, Tag } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CompletedCoachingList({ cards = [] }) {
@@ -11,10 +11,10 @@ export default function CompletedCoachingList({ cards = [] }) {
 
     const getIconForSubject = (subject) => {
         switch (subject) {
-            case "행동 변화 제안": return <Zap size={20} color="#718096" />;
+            case "행동 변화 제안": return <Sparkles size={20} color="#718096" />;
             case "누수 소비": return <Droplets size={20} color="#718096" />;
             case "위치 기반 대안": return <MapPin size={20} color="#718096" />;
-            case "키워드 기반 대안": return <ShoppingBag size={20} color="#718096" />;
+            case "키워드 기반 대안": return <Tag size={20} color="#718096" />;
             default: return <Lightbulb size={20} color="#718096" />;
         }
     };

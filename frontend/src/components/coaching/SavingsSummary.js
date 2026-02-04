@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 export default function SavingsSummary({ totalSavings = 0 }) {
     // 절약액 범위별 메시지 (각 범위당 5개의 랜덤 텍스트)
     const savingsMessages = {
@@ -371,6 +372,12 @@ export default function SavingsSummary({ totalSavings = 0 }) {
         return getRandomMessage(savingsMessages.max);
     };
 
+    const [message, setMessage] = useState("");
+
+    useEffect(() => {
+        setMessage(getMessage(totalSavings));
+    }, [totalSavings]);
+
     return (
         <div style={{
             padding: '1.5rem',
@@ -397,7 +404,6 @@ export default function SavingsSummary({ totalSavings = 0 }) {
                 position: 'relative',
                 overflow: 'hidden'
             }}>
-                {/* Decorative background glow removed */}
 
                 <div style={{ position: 'relative', zIndex: 1 }}>
                     <span style={{
@@ -450,12 +456,13 @@ export default function SavingsSummary({ totalSavings = 0 }) {
                         lineHeight: '1.6',
                         margin: 0,
                         wordBreak: 'keep-all',
-                        fontStyle: 'italic'
+                        fontStyle: 'italic',
+                        minHeight: '1.6em'
                     }}>
-                        "{getMessage(totalSavings)}"
+                        {message && `"${message}"`}
                     </p>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

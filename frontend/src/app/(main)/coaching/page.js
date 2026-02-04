@@ -8,7 +8,7 @@ import CompletedCoachingList from '@/components/coaching/CompletedCoachingList';
 import AIGeneratedChallengeModal from '@/components/challenge/AIGeneratedChallengeModal';
 import { getCoachingAdvice } from '@/lib/api/coaching';
 import { generateChallengeFromCoaching, startChallengeFromCoaching } from '@/lib/api/challenge';
-import { ShoppingBag, MapPin, Droplets, Zap, Lightbulb } from 'lucide-react';
+import { ShoppingBag, MapPin, Droplets, Zap, Lightbulb, Sparkles, Tag } from 'lucide-react';
 
 export default function CoachingPage() {
     const router = useRouter();
@@ -24,10 +24,10 @@ export default function CoachingPage() {
 
     const getIconForSubject = (subject) => {
         switch (subject) {
-            case "행동 변화 제안": return <Zap size={20} color="#2f855a" />;
+            case "행동 변화 제안": return <Sparkles size={20} color="#2f855a" />;
             case "누수 소비": return <Droplets size={20} color="#2f855a" />;
             case "위치 기반 대안": return <MapPin size={20} color="#2f855a" />;
-            case "키워드 기반 대안": return <ShoppingBag size={20} color="#2f855a" />;
+            case "키워드 기반 대안": return <Tag size={20} color="#2f855a" />;
             default: return <Lightbulb size={20} color="#2f855a" />;
         }
     };

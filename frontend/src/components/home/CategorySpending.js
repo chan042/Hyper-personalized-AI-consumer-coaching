@@ -55,10 +55,13 @@ export default function CategorySpending() {
         }
     };
 
-    // SVG 좌표 계산
-    const getCoordinatesForPercent = (percent) => {
-        const x = Math.cos(2 * Math.PI * percent);
-        const y = Math.sin(2 * Math.PI * percent);
+    // 클릭된 카테고리 인덱스 (null이면 전체 토탈 표시)
+    const [activeIndex, setActiveIndex] = useState(null);
+
+    // SVG 좌표 계산 (반지름 r 추가)
+    const getCoordinatesForPercent = (percent, radius = 1) => {
+        const x = radius * Math.cos(2 * Math.PI * percent);
+        const y = radius * Math.sin(2 * Math.PI * percent);
         return [x, y];
     };
 
@@ -114,6 +117,9 @@ export default function CategorySpending() {
     const totalTop5 = data.reduce((acc, curr) => acc + curr.amount, 0);
     let cumulativePercent = 0;
 
+    // 현재 표시할 중앙 데이터
+    const centerData = activeIndex !== null ? data[activeIndex] : null;
+
     return (
         <div style={{
             backgroundColor: 'white',
@@ -126,7 +132,7 @@ export default function CategorySpending() {
 
             {/* Donut Chart */}
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.25rem', position: 'relative' }}>
-                <svg viewBox="-1.25 -1.25 2.5 2.5" style={{ transform: 'rotate(-90deg)', width: '320px', height: '320px' }}>
+                <svg viewBox="-1.25 -1.25 2.5 2.5" style={{ transform: 'rotate(-90deg)', width: '320px', height: '320px', overflow: 'visible' }}>
                     {data.map((slice, index) => {
                         // 차트에는 Top 5 내에서의 비중을 사용
                         const relativePercent = slice.amount / totalTop5;
@@ -134,16 +140,26 @@ export default function CategorySpending() {
                         cumulativePercent += relativePercent;
                         const end = cumulativePercent;
 
-                        const [startX, startY] = getCoordinatesForPercent(start);
-                        const [endX, endY] = getCoordinatesForPercent(end);
+                        const isActive = activeIndex === index;
+                        const outerRadius = isActive ? 1.1 : 1.0;
+
+                        const [startX, startY] = getCoordinatesForPercent(start, outerRadius);
+                        const [endX, endY] = getCoordinatesForPercent(end, outerRadius);
 
                         const largeArcFlag = relativePercent > 0.5 ? 1 : 0;
 
                         const pathData = [
                             `M ${startX} ${startY}`,
-                            `A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY}`,
-                            `L 0 0`,
+                            `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${endX} ${endY}`, // 외곽 큰 호
+                            `L 0 0`, // 중심으로 선을 긋지만 실제로는 fill-rule로 구멍 뚫기에 영향
                         ].join(' ');
+
+                        // Donut shape trick: L 0 0 is simple for pie, but for donut we rely on overlaying a white circle or using complex path with inner radius.
+                        // The previous implementation utilized overlaying white circle. I keep it that way but handle simple pie slices for now and overlay circle. 
+                        // Wait, previous code was: M start A ... L 0 0. This creates a pie slice.
+                        // And then a white circle r=0.75 on top. This works fine for donut.
+                        // However, if we expand outer radius, the inner "hole" is still covered by the fixed white circle.
+                        // So just expanding the pie slice works perfectly.
 
                         return (
                             <path
@@ -151,7 +167,13 @@ export default function CategorySpending() {
                                 d={pathData}
                                 fill={slice.color}
                                 stroke="white"
-                                strokeWidth="0.08"
+                                strokeWidth="0.02" // 경계선 줄임
+                                style={{
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    opacity: activeIndex !== null && !isActive ? 0.6 : 1
+                                }}
+                                onClick={() => setActiveIndex(isActive ? null : index)}
                             />
                         );
                     })}
@@ -159,7 +181,59 @@ export default function CategorySpending() {
                     <circle cx="0" cy="0" r="0.75" fill="white" />
                 </svg>
 
-
+                {/* Center Text Overlay */}
+                <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    textAlign: 'center',
+                    pointerEvents: 'none', // 클릭 통과
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '160px' // 구멍 크기에 맞게 제한
+                }}>
+                    {centerData ? (
+                        <>
+                            <div style={{
+                                fontSize: '1rem',
+                                fontWeight: '600',
+                                color: centerData.color,
+                                marginBottom: '0.25rem'
+                            }}>
+                                {centerData.name}
+                            </div>
+                            <div style={{
+                                fontSize: '1.25rem',
+                                fontWeight: '800',
+                                color: 'var(--text-main)',
+                                lineHeight: '1.2'
+                            }}>
+                                {centerData.percent.toFixed(1)}%
+                            </div>
+                            <div style={{
+                                fontSize: '0.9rem',
+                                color: 'var(--text-sub)',
+                                marginTop: '0.25rem'
+                            }}>
+                                ₩{centerData.amount.toLocaleString()}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div style={{
+                                fontSize: '1rem',
+                                fontWeight: '600',
+                                color: 'var(--text-sub)',
+                                lineHeight: '1.4',
+                            }}>
+                                선택하여<br />자세히 보기
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Legend */}
