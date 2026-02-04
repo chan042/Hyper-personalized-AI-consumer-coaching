@@ -7,9 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 
 // 기본 색상 팔레트 (카테고리 매핑 실패시 사용)
 const FALLBACK_COLORS = [
-    '#14b8a6', '#f59e0b', '#8b5cf6', '#ec4899',
-    '#3b82f6', '#ef4444', '#10b981', '#6366f1',
-    '#f97316', '#06b6d4', '#84cc16', '#d946ef'
+    '#14B8A6', '#0D9488', '#5EEAD4', '#2DD4BF',
+    '#0F766E', '#99F6E4', '#06B6D4', '#0891B2',
+    '#67E8F9', '#10B981', '#34D399', '#22D3EE'
 ];
 
 export default function CategorySpending() {
@@ -258,7 +258,7 @@ export default function CategorySpending() {
                                 color: 'var(--text-sub)',
                                 lineHeight: '1.4',
                             }}>
-                                선택하여<br />자세히 보기
+                                눌러서<br />자세히보기
                             </div>
                         </>
                     )}

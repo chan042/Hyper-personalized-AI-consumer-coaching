@@ -183,43 +183,27 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                     left: 0,
                     right: 0,
                     padding: '1.5rem',
-                    background: 'linear-gradient(to top, #ffffff 60%, rgba(255,255,255,0))',
+                    background: 'linear-gradient(to top, #ffffff 80%, rgba(255,255,255,0))',
                     zIndex: 10,
-                    pointerEvents: 'none' // Let clicks pass through transparent part
+                    pointerEvents: 'none',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    paddingBottom: '2rem'
                 }}>
-                    <div className="glow-button-wrapper" style={{
-                        width: '100%',
-                        pointerEvents: 'auto',
-                        display: 'flex',
-                        justifyContent: 'center'
-                    }}>
-                        <button style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '6px',
-                            padding: '12px 24px',
-                            borderRadius: '9999px', // 알약 형태
-                            // Glassmorphism 스타일
-                            background: 'rgba(20, 184, 166, 0.85)', // 반투명 teal 배경
-                            backdropFilter: 'blur(20px) saturate(180%)',
-                            WebkitBackdropFilter: 'blur(20px) saturate(180%)', // Safari 대응
-                            border: '1px solid rgba(255, 255, 255, 0.25)', // 얇은 반투명 테두리
-                            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)', // 유리 질감 그림자
-                            color: 'white',
-                            fontSize: '0.9rem',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            zIndex: 2,
-                            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
-                        }} onClick={() => {
-                            if (onStartChallenge) {
-                                onStartChallenge(data);
-                            }
-                            onClose();
-                        }}>
-                            이 코칭으로 챌린지 생성
+                    <div className="glow-container">
+                        <button
+                            className="premium-button"
+                            onClick={() => {
+                                if (onStartChallenge) {
+                                    onStartChallenge(data);
+                                }
+                                onClose();
+                            }}
+                        >
+                            <span className="button-content">
+                                <Sparkles size={18} strokeWidth={2} />
+                                이 코칭으로 챌린지 생성
+                            </span>
                         </button>
                     </div>
                 </div>
@@ -229,16 +213,20 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                     from { transform: translateY(20px); opacity: 0; }
                     to { transform: translateY(0); opacity: 1; }
                 }
-                @keyframes aurora {
+                 @keyframes aurora {
                     0% { background-position: 0% 50%; }
                     50% { background-position: 100% 50%; }
                     100% { background-position: 0% 50%; }
                 }
-                .glow-button-wrapper {
+                .glow-container {
                     position: relative;
                     z-index: 1;
+                    width: 100%;
+                    max-width: 320px;
+                    border-radius: 9999px;
+                    pointer-events: auto;
                 }
-                .glow-button-wrapper::before {
+                .glow-container::before {
                     content: "";
                     position: absolute;
                     inset: -2px;
@@ -249,6 +237,44 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                     filter: blur(4px);
                     opacity: 0.7;
                     animation: aurora 10s linear infinite;
+                    transition: opacity 0.3s ease;
+                }
+                .glow-container:hover::before {
+                    opacity: 0.8;
+                    /* No blur change on hover to stay consistent with input if strictly matching, 
+                       but input doesn't have hover state logic visible in the file viewed.
+                       I will keep the hover opacity change but reset blur to 4px to maintain tightness. */
+                    filter: blur(4px); 
+                }
+                .premium-button {
+                    position: relative;
+                    background-color: var(--primary); /* Solid Mint */
+                    color: white;
+                    padding: 16px 32px;
+                    border-radius: 9999px;
+                    border: none;
+                    font-size: 1rem;
+                    font-weight: 700;
+                    letter-spacing: -0.01em;
+                    cursor: pointer;
+                    width: 100%;
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .premium-button:hover {
+                    transform: scale(0.98);
+                    filter: brightness(1.05);
+                }
+                .premium-button:active {
+                    transform: scale(0.96);
+                }
+                .button-content {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
                 }
             `}</style>
         </div>

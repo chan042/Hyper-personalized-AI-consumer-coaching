@@ -137,11 +137,11 @@ export default function YuntaekIndexPage() {
                 className="glass-card fade-in"
                 style={{
                     ...styles.scoreSection, // Using base card styles
-                    padding: '2rem 1.5rem',
+                    padding: '2rem 1.5rem 1.5rem 1.5rem', // Reduced bottom padding
                     animationDelay: '0.1s',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: isDetailExpanded ? '1.5rem' : '0.5rem',
+                    itemGap: isDetailExpanded ? '1.5rem' : '0.5rem',
                     transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
                     alignItems: 'stretch', // Fill width
                     marginBottom: '1rem',
@@ -154,28 +154,21 @@ export default function YuntaekIndexPage() {
                     flexDirection: 'row',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    marginBottom: isDetailExpanded ? '1rem' : '0'
+                    marginBottom: isDetailExpanded ? '0.5rem' : '0',
+                    padding: '0 0.5rem',
+                    width: '100%'
                 }}>
                     <span style={{
-                        fontSize: '1.2rem', // Reduced from 1.8rem
+                        fontSize: '1.1rem',
                         fontWeight: '700',
                         color: 'var(--text-main)',
                         letterSpacing: '-0.5px'
                     }}>
-                        내 윤택점수
+                        나의 윤택 지수
                     </span>
-                    <span style={{
-                        fontSize: '4.5rem', // Increased from 3.5rem
-                        fontWeight: '800', // Bolder
-                        background: 'linear-gradient(135deg, var(--primary-dark), var(--primary-light))',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-                        letterSpacing: '-2px',
-                        lineHeight: '1'
-                    }}>
+                    <span style={styles.scoreValue}>
                         {displayedScore}
-                        <span style={{ fontSize: '1.5rem', marginLeft: '4px', fontWeight: '500', color: 'var(--text-sub)', WebkitTextFillColor: 'var(--text-sub)', letterSpacing: '-0.5px' }}>점</span>
+                        <span style={{ fontSize: '2rem', marginLeft: '4px', fontWeight: '400', color: '#94a3b8', WebkitTextFillColor: '#94a3b8' }}>점</span>
                     </span>
                 </div>
 
@@ -185,10 +178,10 @@ export default function YuntaekIndexPage() {
                     opacity: isDetailExpanded ? 1 : 0,
                     overflow: 'hidden',
                     transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
-                    marginBottom: isDetailExpanded ? '1rem' : '0' // Space for toggle when expanded
+                    marginBottom: isDetailExpanded ? '1rem' : '0', // Space for toggle when expanded
+                    paddingTop: isDetailExpanded ? '1.5rem' : '0' // Increased space from score
                 }}>
                     <div style={styles.detailList}>
-                        <h2 style={{ ...styles.sectionTitle, marginBottom: '1.5rem', fontSize: '1rem', color: 'var(--text-sub)' }}>세부 항목 분석</h2>
                         {details.map((item, index) => (
                             <div key={index} style={styles.detailItem}>
                                 <div style={styles.detailTextRow}>
@@ -223,9 +216,9 @@ export default function YuntaekIndexPage() {
                         justifyContent: 'center',
                         gap: '0.5rem',
                         padding: '0.8rem 1.5rem',
-                        marginTop: '0.5rem',
+                        marginTop: '2rem', // Increased top margin
                         cursor: 'pointer',
-                        background: isDetailExpanded ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.6)',
+                        background: isDetailExpanded ? 'none' : 'rgba(255,255,255,0.6)',
                         borderRadius: '50px',
                         boxShadow: isDetailExpanded ? 'none' : '0 4px 15px rgba(0,0,0,0.05)',
                         border: isDetailExpanded ? 'none' : '1px solid rgba(255,255,255,0.8)',
@@ -293,8 +286,8 @@ const styles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        paddingTop: '3rem',
-        marginBottom: '1rem',
+        paddingTop: '2.5rem',
+        marginBottom: '0.5rem',
         textAlign: 'center',
     },
     statusCapsule: {
@@ -311,25 +304,26 @@ const styles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        marginBottom: '1rem',
+        marginBottom: '0.5rem',
         position: 'relative',
     },
     scoreValue: {
-        fontSize: '7.5rem',
-        fontWeight: '200',
+        fontSize: '6.5rem',
+        fontWeight: '800',
         lineHeight: '0.9',
-        background: 'linear-gradient(135deg, var(--primary-dark), var(--primary-light))',
+        background: 'linear-gradient(135deg, #10b981, #3b82f6)',
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
-        letterSpacing: '-4px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-        filter: 'drop-shadow(0 10px 20px rgba(20, 184, 166, 0.2))',
+        letterSpacing: '-3px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        filter: 'drop-shadow(0 4px 10px rgba(16, 185, 129, 0.2))',
     },
     scoreLabel: {
-        fontSize: '1rem',
-        fontWeight: '500',
+        fontSize: '0.95rem',
+        fontWeight: '600',
         color: 'var(--text-sub)',
         marginTop: '0.5rem',
+        letterSpacing: '-0.3px',
     },
     scoreDescription: {
         fontSize: '1rem',
@@ -385,7 +379,7 @@ const styles = {
     detailSection: {
         padding: '1.5rem',
         borderRadius: '24px',
-        cursor: 'pointer', // Suggest interactivity
+        cursor: 'pointer',
     },
     detailHeader: {
         display: 'flex',
@@ -393,15 +387,16 @@ const styles = {
         alignItems: 'center',
     },
     detailList: {
-        marginTop: '1.5rem', // Add margin only when list is visible
+        marginTop: '1rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '1.25rem',
+        gap: '1rem',
+        padding: '0 0.5rem',
     },
     detailItem: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.5rem',
+        gap: '0.4rem',
     },
     detailTextRow: {
         display: 'flex',
@@ -410,23 +405,24 @@ const styles = {
         width: '100%',
     },
     detailLabel: {
-        fontSize: '0.95rem',
+        fontSize: '0.9rem',
         fontWeight: '600',
-        color: '#1e293b',
+        color: '#475569',
     },
     detailScoreText: {
-        fontSize: '1rem',
+        fontSize: '0.9rem',
+        fontWeight: '500',
     },
     progressBarBg: {
         width: '100%',
-        height: '8px',
+        height: '6px',
         backgroundColor: '#f1f5f9',
-        borderRadius: '4px',
+        borderRadius: '3px',
         overflow: 'hidden',
     },
     progressBarFill: {
         height: '100%',
-        borderRadius: '4px',
+        borderRadius: '3px',
         transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)',
     },
 };
