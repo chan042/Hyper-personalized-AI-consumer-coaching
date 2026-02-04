@@ -91,17 +91,39 @@ export default function ClosetPage() {
                 {/* Navigation Icons */}
                 <div style={styles.navIcons}>
                     <button onClick={handleBack} style={styles.iconButton}>
-                        <ChevronLeft color="#333" size={24} />
+                        <ChevronLeft color="#333" size={20} />
                     </button>
                     {/* Shop Icon - Using ShoppingBag as 'Store' icon equivalent */}
                     <button onClick={() => router.push('/shop')} style={styles.iconButton}>
-                        <ShoppingBag color="#333" size={24} />
+                        <ShoppingBag color="#333" size={20} />
                     </button>
                     {/* Home Icon */}
                     <button onClick={() => router.push('/home')} style={styles.iconButton}>
-                        <Home color="#333" size={24} />
+                        <Home color="#333" size={20} />
                     </button>
                 </div>
+
+                {/* Save Button (Top Right) */}
+                <button
+                    onClick={handleSaveLook}
+                    style={{
+                        position: 'absolute',
+                        top: '16px',
+                        right: '16px',
+                        zIndex: 50,
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '20px',
+                        fontWeight: 'bold',
+                        color: 'var(--primary)', // Using primary color for text
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                    }}
+                >
+                    상태 저장
+                </button>
 
                 {/* Character Image */}
                 <div style={styles.characterContainer}>
@@ -135,43 +157,39 @@ export default function ClosetPage() {
                     ))}
                 </div>
 
-                {/* Items Grid */}
-                <div style={styles.productsGrid}>
-                    {filteredItems.map((item) => {
-                        const isWearing = wearingItems[item.category] === item.id;
-                        return (
-                            <div
-                                key={item.id}
-                                style={{
-                                    ...styles.productCard,
-                                    // Highlight if wearing
-                                    border: isWearing ? '2px solid var(--primary)' : '1px solid #eee'
-                                }}
-                                onClick={() => handleItemClick(item)}
-                            >
-                                <div style={styles.productImagePlaceholder}>
-                                    {isWearing && <span style={styles.wearingBadge}>Wearing</span>}
-                                    <span style={{ fontSize: '2rem' }}>🎁</span>
+                {/* Items Grid Wrapper for Scrolling */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px' }}>
+                    <div style={styles.productsGrid}>
+                        {filteredItems.map((item) => {
+                            const isWearing = wearingItems[item.category] === item.id;
+                            return (
+                                <div
+                                    key={item.id}
+                                    style={{
+                                        ...styles.productCard,
+                                        // Highlight if wearing
+                                        border: isWearing ? '2px solid var(--primary)' : '1px solid #eee'
+                                    }}
+                                    onClick={() => handleItemClick(item)}
+                                >
+                                    <div style={styles.productImagePlaceholder}>
+                                        {isWearing && <span style={styles.wearingBadge}>Wearing</span>}
+                                        <span style={{ fontSize: '2rem' }}>🎁</span>
+                                    </div>
+                                    <div style={styles.productInfo}>
+                                        <div style={styles.productName}>{item.name}</div>
+                                    </div>
                                 </div>
-                                <div style={styles.productInfo}>
-                                    <div style={styles.productName}>{item.name}</div>
-                                </div>
+                            );
+                        })}
+                        {filteredItems.length === 0 && (
+                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: '#888' }}>
+                                보유한 아이템이 없습니다.
                             </div>
-                        );
-                    })}
-                    {filteredItems.length === 0 && (
-                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: '#888' }}>
-                            보유한 아이템이 없습니다.
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
 
-                {/* Save Look Button */}
-                <div style={styles.footerButtonContainer}>
-                    <button style={styles.saveButton} onClick={handleSaveLook}>
-                        Save Look
-                    </button>
-                </div>
             </div>
 
             {/* Item Detail Popup (Reusing/adapting Shop Page Modal style) */}
@@ -235,15 +253,14 @@ const styles = {
         gap: '8px',
     },
     iconButton: {
-        background: 'rgba(255, 255, 255, 0.9)',
+        background: 'transparent',
         border: 'none',
         padding: '8px',
-        borderRadius: '50%',
         cursor: 'pointer',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        filter: 'drop-shadow(0 0 2px white) drop-shadow(0 0 2px white)',
     },
     characterContainer: {
         position: 'absolute',
@@ -262,16 +279,19 @@ const styles = {
         borderTopRightRadius: '24px',
         marginTop: '-24px',
         zIndex: 40,
-        padding: '30px 20px 0 20px', // Remove bottom padding here, move to grid
+        // Remove padding and scroll from here
+        padding: '0',
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '0 -4px 20px rgba(0,0,0,0.05)',
-        overflowY: 'auto', // Scrollable
+        overflow: 'hidden', // Prevent body scroll
     },
     tabsContainer: {
         display: 'flex',
         gap: '12px',
+        padding: '30px 20px 0 20px', // Top padding moved here
         marginBottom: '24px',
+        flexShrink: 0, // Prevent tabs from shrinking
     },
     tab: {
         flex: 1,
@@ -297,7 +317,7 @@ const styles = {
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
         gap: '12px',
-        paddingBottom: '120px', // Increased to avoid button overlap
+        paddingBottom: '100px', // Increased to avoid overlap with bottom nav
     },
     productCard: {
         display: 'flex',

@@ -23,22 +23,23 @@ const mockProducts = [
 ];
 
 export default function ShopPage() {
-    const router = useRouter();
-    const [activeTab, setActiveTab] = useState('clothing');
-    const [userPoints, setUserPoints] = useState(0);
-    const [selectedProduct, setSelectedProduct] = useState(null);
-    const [showGachaModal, setShowGachaModal] = useState(false);
-    const [speechBubble, setSpeechBubble] = useState(null);
-    const [speechIndex, setSpeechIndex] = useState(0);
-    // Using simple category filtering logic
-    const [filteredProducts, setFilteredProducts] = useState([]);
-
     // Shopkeeper messages
     const shopkeeperMessages = [
         '한번 천천히 둘러보시게.',
         '가차를 통해 희귀한 상품을 얻을 수 있다네',
         '좋은 소비가 되길 바라네'
     ];
+
+    const router = useRouter();
+    const [activeTab, setActiveTab] = useState('clothing');
+    const [userPoints, setUserPoints] = useState(0);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [showGachaModal, setShowGachaModal] = useState(false);
+    const [speechBubble, setSpeechBubble] = useState(shopkeeperMessages[0]);
+    const [isVisible, setIsVisible] = useState(true); // Control opacity for fade effect
+    const [speechIndex, setSpeechIndex] = useState(0);
+    // Using simple category filtering logic
+    const [filteredProducts, setFilteredProducts] = useState([]);
 
 
     // Fetch user points on mount
@@ -63,6 +64,17 @@ export default function ShopPage() {
         const filtered = mockProducts.filter(p => p.category === activeTab);
         setFilteredProducts(filtered);
     }, [activeTab]);
+
+    // Handle speech bubble fade out
+    useEffect(() => {
+        if (speechBubble) {
+            setIsVisible(true);
+            const timer = setTimeout(() => {
+                setIsVisible(false);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [speechBubble]);
 
     const handleBack = () => {
         router.push('/challenge');
@@ -99,9 +111,9 @@ export default function ShopPage() {
         setSpeechBubble(shopkeeperMessages[speechIndex]);
         setSpeechIndex((prev) => (prev + 1) % shopkeeperMessages.length);
         // Auto hide after 3 seconds
-        setTimeout(() => {
-            setSpeechBubble(null);
-        }, 3000);
+        // setTimeout(() => {
+        //     setSpeechBubble(null);
+        // }, 3000);
     };
 
     return (
@@ -111,13 +123,13 @@ export default function ShopPage() {
                 {/* Navigation Icons */}
                 <div style={styles.navIcons}>
                     <button onClick={handleBack} style={styles.iconButton}>
-                        <ChevronLeft color="#333" size={24} />
+                        <ChevronLeft color="#333" size={20} />
                     </button>
                     <button onClick={() => router.push('/closet')} style={styles.iconButton}>
-                        <Shirt color="#333" size={24} />
+                        <Shirt color="#333" size={20} />
                     </button>
                     <button onClick={() => router.push('/home')} style={styles.iconButton}>
-                        <Home color="#333" size={24} />
+                        <Home color="#333" size={20} />
                     </button>
                 </div>
 
@@ -139,7 +151,11 @@ export default function ShopPage() {
                     />
                     {/* Speech Bubble */}
                     {speechBubble && (
-                        <div style={styles.speechBubble}>
+                        <div style={{
+                            ...styles.speechBubble,
+                            opacity: isVisible ? 1 : 0,
+                        }}>
+                            <div style={styles.nameTag}>상점 주인</div>
                             {speechBubble}
                         </div>
                     )}
@@ -178,31 +194,33 @@ export default function ShopPage() {
                 </div>
 
                 {/* Products Grid */}
-                <div style={styles.productsGrid}>
-                    {filteredProducts.map((product) => (
-                        <div
-                            key={product.id}
-                            style={styles.productCard}
-                            onClick={() => handleProductClick(product)}
-                        >
-                            <div style={styles.productImagePlaceholder}>
-                                {/* Placeholder since we don't have item images yet */}
-                                <span style={{ fontSize: '2rem' }}>🎁</span>
-                            </div>
-                            <div style={styles.productInfo}>
-                                <div style={styles.productName}>{product.name}</div>
-                                <div style={styles.productPrice}>
-                                    <span style={styles.coinSymbol}>🪙</span>
-                                    {product.price.toLocaleString()}
+                {/* Products Grid Wrapper for Scrolling */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px' }}>
+                    <div style={styles.productsGrid}>
+                        {filteredProducts.map((product) => (
+                            <div
+                                key={product.id}
+                                style={styles.productCard}
+                                onClick={() => handleProductClick(product)}
+                            >
+                                <div style={styles.productImagePlaceholder}>
+                                    {/* Placeholder since we don't have item images yet */}
+                                    <span style={{ fontSize: '2rem' }}>🎁</span>
+                                </div>
+                                <div style={styles.productInfo}>
+                                    <div style={styles.productName}>{product.name}</div>
+                                    <div style={styles.productPrice}>
+                                        {product.price.toLocaleString()}p
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
-                    {filteredProducts.length === 0 && (
-                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: '#888' }}>
-                            상품이 없습니다.
-                        </div>
-                    )}
+                        ))}
+                        {filteredProducts.length === 0 && (
+                            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: '#888' }}>
+                                상품이 없습니다.
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -306,15 +324,14 @@ const styles = {
         gap: '8px',
     },
     iconButton: {
-        background: 'rgba(255, 255, 255, 0.9)',
+        background: 'transparent',
         border: 'none',
         padding: '8px',
-        borderRadius: '50%',
         cursor: 'pointer',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        filter: 'drop-shadow(0 0 2px white) drop-shadow(0 0 2px white)',
     },
     pointsBadge: {
         position: 'absolute',
@@ -357,11 +374,11 @@ const styles = {
     speechBubble: {
         position: 'absolute',
         bottom: '60px',
-        right: '140px',
+        right: '200px', // Moved further left
         backgroundColor: 'white',
-        padding: '12px 20px',
+        padding: '16px 20px 12px 20px',
         borderRadius: '16px',
-        borderBottomRightRadius: '4px', // Add tail capability visual or just style preference
+        borderTopRightRadius: '0px', // Sharp corner at top-right (tail)
         boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
         fontSize: '0.9rem',
         fontWeight: '500',
@@ -369,7 +386,22 @@ const styles = {
         maxWidth: '200px',
         textAlign: 'center',
         zIndex: 20,
-        animation: 'fadeIn 0.3s ease',
+        // Animation
+        transition: 'opacity 0.5s ease-in-out',
+        overflow: 'visible',
+    },
+    nameTag: {
+        position: 'absolute',
+        top: '-12px',
+        left: '12px',
+        backgroundColor: '#6b7280', // Gray color for name tag
+        color: 'white',
+        padding: '2px 8px',
+        borderRadius: '8px',
+        fontSize: '0.7rem',
+        fontWeight: 'bold',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        whiteSpace: 'nowrap',
     },
     gachaButton: {
         position: 'absolute',
@@ -413,16 +445,18 @@ const styles = {
         borderTopRightRadius: '24px',
         marginTop: '-24px', // Pull up to overlap
         zIndex: 40,
-        padding: '30px 20px 0 20px', // Remove bottom padding, assume content handles it
+        padding: '0', // Remove internal padding
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '0 -4px 20px rgba(0,0,0,0.05)',
-        overflowY: 'auto',
+        overflow: 'hidden', // Prevent body scroll
     },
     tabsContainer: {
         display: 'flex',
         gap: '12px',
+        padding: '30px 20px 0 20px', // Top padding moved here
         marginBottom: '24px',
+        flexShrink: 0,
     },
     tab: {
         flex: 1,
@@ -448,7 +482,7 @@ const styles = {
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
         gap: '12px',
-        paddingBottom: '20px',
+        paddingBottom: '100px',
     },
     productCard: {
         display: 'flex',
@@ -487,12 +521,12 @@ const styles = {
     },
     productPrice: {
         fontSize: '0.8rem',
-        color: '#666',
+        color: 'var(--primary)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '4px',
-        fontWeight: '500',
+        fontWeight: '700',
     },
     coinSymbol: {
         fontSize: '0.8rem',
@@ -552,11 +586,12 @@ const styles = {
     },
     popupProductPrice: {
         fontSize: '1rem',
-        color: '#666',
+        color: 'var(--primary)',
         display: 'flex',
         alignItems: 'center',
         gap: '4px',
         marginBottom: '20px',
+        fontWeight: '700',
     },
     purchaseButton: {
         width: '100%',
