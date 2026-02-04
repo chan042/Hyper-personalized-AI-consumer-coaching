@@ -9,6 +9,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Sparkles, Store } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 // 컴포넌트
 import ChallengeTabs from '@/components/challenge/ChallengeTabs';
@@ -46,6 +47,7 @@ const challengeTabs = [
 ];
 
 export default function ChallengePage() {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState('all');
     const [userPoints, setUserPoints] = useState(0);
     const [selectedChallenge, setSelectedChallenge] = useState(null);
@@ -350,7 +352,7 @@ export default function ChallengePage() {
                 {/* 상단 섹션 - 스크롤 시 사라짐 */}
                 <div style={styles.headerTop} ref={headerTopRef}>
                     {/* 우상단: 상점 버튼 */}
-                    <button style={styles.storeButton}>
+                    <button style={styles.storeButton} onClick={() => router.push('/shop')}>
                         <Store size={22} color="var(--primary)" />
                     </button>
 
