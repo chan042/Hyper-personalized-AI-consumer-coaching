@@ -10,12 +10,12 @@ class Command(BaseCommand):
         items = [
             # 의류 (Clothing)
             {
-                'name': '정장',
+                'name': '교복',
                 'category': 'CLOTHING',
                 'price': 400,
                 'is_rare': False,
-                'image_url': '/images/items/suit.png',
-                'description': '고풍스러운 느낌의 정장입니다.'
+                'image_url': '/images/items/school_uniform.png',
+                'description': '엘리트처럼 보이는 교복입니다.'
             },
             {
                 'name': '회색 후드티',
@@ -26,25 +26,17 @@ class Command(BaseCommand):
                 'description': '편안한 회색 후드티입니다.'
             },
             {
-                'name': '하와이안 셔츠',
+                'name': '휴양지룩',
                 'category': 'CLOTHING',
                 'price': 500,
                 'is_rare': False,
-                'image_url': '/images/items/hat_captain.png',
-                'description': '휴양지에 온 듯한 느낌을 주는 하와이안 셔츠입니다.'
-            },
-             {
-                'name': '해적 코트',
-                'category': 'CLOTHING',
-                'price': 500,
-                'is_rare': False,
-                'image_url': '/images/items/coat_pirate.png',
-                'description': '멋진 해적 코트입니다.'
+                'image_url': '/images/items/summer.png',
+                'description': '휴양지에 온 듯한 느낌을 주는 하와이안 셔츠와 오리 튜브입니다.'
             },
              {
                 'name': '황제 가운',
                 'category': 'CLOTHING',
-                'price': 1500,
+                'price': 2500,
                 'is_rare': True,
                 'image_url': '/images/items/crown_gold.png',
                 'description': '왕의 권위를 상징하는 금이 박힌 붉은 가운입니다.'
@@ -61,12 +53,12 @@ class Command(BaseCommand):
                 'description': '지적인 이미지를 주는 검은 안경입니다.'
             },
              {
-                'name': '구식 여행 가방',
+                'name': '선글라스',
                 'category': 'ITEM',
                 'price': 400,
                 'is_rare': False,
-                'image_url': '/images/items/bag.png',
-                'description': '오래된 느낌의 여행 가방입니다.'
+                'image_url': '/images/items/sunglasses.png',
+                'description': '멋진 느낌을 주는 선글라스입니다.'
             },
 
 
