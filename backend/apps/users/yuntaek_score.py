@@ -8,10 +8,12 @@
 - 챌린지 성공: 3점
 """
 
+from datetime import date, datetime
 from decimal import Decimal
-from datetime import date, timedelta
-from django.db.models import Sum, Avg
 import statistics
+
+from django.db.models import Sum, Count
+from django.utils import timezone
 
 
 class YuntaekScoreCalculator:
@@ -23,7 +25,7 @@ class YuntaekScoreCalculator:
     MAX_CONSISTENCY_SCORE = 7
     MAX_CHALLENGE_SCORE = 3
     
-    # 챌린지 생성 최소 횟수 (대안 행동 실현도 점수 반영 조건)
+    # 챌린지 생성 최소 횟수
     MIN_CHALLENGE_COUNT_FOR_SCORE = 3
     
     def __init__(self, user, year: int, month: int):
@@ -36,23 +38,12 @@ class YuntaekScoreCalculator:
         self.user = user
         self.year = year
         self.month = month
+        # 날짜 범위 캐싱
+        self._date_range = None
+        self._monthly_budget = None
         
     def calculate(self) -> dict:
-        """
-        윤택지수 전체 계산
-        
-        Returns:
-            dict: {
-                'total_score': 총점,
-                'max_score': 65,
-                'breakdown': {
-                    'budget_achievement': {'score': 점수, 'max': 35, 'details': {...}},
-                    'alternative_action': {'score': 점수, 'max': 20, 'details': {...}},
-                    'spending_consistency': {'score': 점수, 'max': 7, 'details': {...}},
-                    'challenge_success': {'score': 점수, 'max': 3, 'details': {...}},
-                }
-            }
-        """
+        """윤택지수 전체 계산"""
         budget_result = self._calculate_budget_achievement()
         alternative_result = self._calculate_alternative_action()
         consistency_result = self._calculate_spending_consistency()
@@ -66,7 +57,7 @@ class YuntaekScoreCalculator:
         )
         
         return {
-            'total_score': round(total_score, 2),
+            'total_score': int(total_score),
             'max_score': 65,
             'year': self.year,
             'month': self.month,
@@ -88,9 +79,8 @@ class YuntaekScoreCalculator:
         - 10% ~ 20% 초과: 14점
         - 20% 이상 초과: 0점
         """
-        from apps.transactions.models import Transaction, MonthlyLog
+        from apps.transactions.models import Transaction
         
-        # 월예산 가져오기 (MonthlyLog 우선, 없으면 현재 user.monthly_budget)
         monthly_budget = self._get_monthly_budget()
         
         if not monthly_budget or monthly_budget <= 0:
@@ -105,7 +95,6 @@ class YuntaekScoreCalculator:
                 }
             }
         
-        # 해당 월 총 지출 계산
         start_date, end_date = self._get_month_date_range()
         total_spent = Transaction.objects.filter(
             user=self.user,
@@ -113,22 +102,23 @@ class YuntaekScoreCalculator:
             date__lt=end_date
         ).aggregate(total=Sum('amount'))['total'] or 0
         
-        # 초과율 계산
-        if total_spent <= monthly_budget:
+        monthly_budget_float = float(monthly_budget)
+        
+        if total_spent <= monthly_budget_float:
             exceeded_percent = 0
-            score = self.MAX_BUDGET_SCORE  # 35점
+            score = self.MAX_BUDGET_SCORE
         else:
-            exceeded_percent = ((total_spent - monthly_budget) / monthly_budget) * 100
+            exceeded_percent = ((total_spent - monthly_budget_float) / monthly_budget_float) * 100
             score = self._get_budget_score_by_exceeded_percent(exceeded_percent)
         
         return {
             'score': score,
             'max': self.MAX_BUDGET_SCORE,
             'details': {
-                'monthly_budget': float(monthly_budget),
-                'total_spent': float(total_spent),
-                'exceeded_percent': round(exceeded_percent, 2),
-                'within_budget': total_spent <= monthly_budget
+                'monthly_budget': int(monthly_budget_float),
+                'total_spent': int(total_spent),
+                'exceeded_percent': round(exceeded_percent, 1),
+                'within_budget': total_spent <= monthly_budget_float
             }
         }
     
@@ -142,8 +132,7 @@ class YuntaekScoreCalculator:
             return 21
         elif exceeded_percent <= 20:
             return 14
-        else:
-            return 0
+        return 0
     
     def _calculate_alternative_action(self) -> dict:
         """
@@ -156,64 +145,56 @@ class YuntaekScoreCalculator:
         
         start_date, end_date = self._get_month_date_range()
         
-        # 코칭 기반 챌린지 생성 건수
-        challenges_created = UserChallenge.objects.filter(
+        # 생성 건수와 성공 건수 조회
+        ai_challenges = UserChallenge.objects.filter(
             user=self.user,
             source_type='ai',
             created_at__gte=start_date,
             created_at__lt=end_date
-        ).count()
+        )
         
-        # 3회 미만 챌린지 생성 시 0점
+        challenges_created = ai_challenges.count()
+        
         if challenges_created < self.MIN_CHALLENGE_COUNT_FOR_SCORE:
             return {
                 'score': 0,
                 'max': self.MAX_ALTERNATIVE_ACTION_SCORE,
                 'details': {
-                    'total_suggestions': 0,
-                    'completed_actions': 0,
                     'challenges_created': challenges_created,
+                    'successful_challenges': 0,
                     'completion_rate': 0,
                     'message': f'챌린지 생성이 {self.MIN_CHALLENGE_COUNT_FOR_SCORE}회 미만입니다.'
                 }
             }
         
-        # 성공한 챌린지 수
-        successful_challenges = UserChallenge.objects.filter(
-            user=self.user,
-            source_type='ai',
-            created_at__gte=start_date,
-            created_at__lt=end_date,
-            status='succeeded'
-        ).count()
+        successful_challenges = ai_challenges.filter(status='completed').count()
         
-        # 점수 계산: (성공한 챌린지 건수 / 생성된 챌린지 건수) * 20
         completion_rate = (successful_challenges / challenges_created) * 100
-        score = (successful_challenges / challenges_created) * self.MAX_ALTERNATIVE_ACTION_SCORE
+        score = int((successful_challenges / challenges_created) * self.MAX_ALTERNATIVE_ACTION_SCORE)
         
         return {
-            'score': round(score, 2),
+            'score': score,
             'max': self.MAX_ALTERNATIVE_ACTION_SCORE,
             'details': {
                 'challenges_created': challenges_created,
                 'successful_challenges': successful_challenges,
-                'completion_rate': round(completion_rate, 2)
+                'completion_rate': round(completion_rate, 1)
             }
         }
     
     def _calculate_spending_consistency(self) -> dict:
         """
         3. 소비 일관성 (7점)
-        
+
         기준치: (월간 총 예산 / 30) * 2
         공식: Max(0, (1 - (일일 지출 표준편차 / 기준치)) * 7)
-        
-        표준편차가 낮을수록 점수가 높음
+
+        무지출인 날은 계산에서 제외
         """
         from apps.transactions.models import Transaction
-        
+
         monthly_budget = self._get_monthly_budget()
-        
+
         if not monthly_budget or monthly_budget <= 0:
             return {
                 'score': 0,
@@ -222,63 +203,62 @@ class YuntaekScoreCalculator:
                     'monthly_budget': 0,
                     'threshold': 0,
                     'std_deviation': 0,
-                    'daily_spending': [],
+                    'days_with_spending': 0,
                     'message': '예산이 설정되지 않았습니다.'
                 }
             }
-        
-        # 기준치 계산: (월예산 / 30) * 2
-        threshold = (float(monthly_budget) / 30) * 2
-        
-        # 일일 지출 데이터 가져오기
+
+        monthly_budget_float = float(monthly_budget)
+        threshold = (monthly_budget_float / 30) * 2
+
         start_date, end_date = self._get_month_date_range()
-        
-        # 일별 지출 합계
+
+        # 일별 지출 합계 (무지출 제외)
         daily_spending = Transaction.objects.filter(
             user=self.user,
             date__gte=start_date,
             date__lt=end_date
         ).values('date__date').annotate(
             daily_total=Sum('amount')
-        ).order_by('date__date')
-        
-        daily_amounts = [float(d['daily_total']) for d in daily_spending]
-        
-        # 지출 데이터가 없으면
+        ).filter(daily_total__gt=0)
+
+        daily_amounts = [d['daily_total'] for d in daily_spending]
+
         if not daily_amounts:
             return {
-                'score': self.MAX_CONSISTENCY_SCORE,  # 소비가 없으면 일관성 만점
+                'score': self.MAX_CONSISTENCY_SCORE,
                 'max': self.MAX_CONSISTENCY_SCORE,
                 'details': {
-                    'monthly_budget': float(monthly_budget),
-                    'threshold': round(threshold, 2),
+                    'monthly_budget': int(monthly_budget_float),
+                    'threshold': int(threshold),
                     'std_deviation': 0,
                     'days_with_spending': 0,
                     'message': '지출 데이터가 없어 만점 처리됩니다.'
                 }
             }
         
-        # 표준편차 계산 (데이터가 1개면 0)
+        # 표준편차 계산
         if len(daily_amounts) == 1:
-            std_deviation = 0
+            std_deviation = 0.0
         else:
-            std_deviation = statistics.stdev(daily_amounts)
+            std_deviation = statistics.stdev([float(x) for x in daily_amounts])
         
-        # 점수 계산: Max(0, (1 - (표준편차 / 기준치)) * 7)
+        # 점수 계산
         if threshold == 0:
             score = 0
         else:
-            score = max(0, (1 - (std_deviation / threshold)) * self.MAX_CONSISTENCY_SCORE)
+            raw_score = (1 - (std_deviation / threshold)) * self.MAX_CONSISTENCY_SCORE
+            score = int(max(0, raw_score))
         
         return {
-            'score': round(score, 2),
+            'score': score,
             'max': self.MAX_CONSISTENCY_SCORE,
             'details': {
-                'monthly_budget': float(monthly_budget),
-                'threshold': round(threshold, 2),
-                'std_deviation': round(std_deviation, 2),
+                'monthly_budget': int(monthly_budget_float),
+                'threshold': int(threshold),
+                'std_deviation': int(std_deviation),
                 'days_with_spending': len(daily_amounts),
-                'avg_daily_spending': round(sum(daily_amounts) / len(daily_amounts), 2)
+                'avg_daily_spending': int(sum(daily_amounts) / len(daily_amounts))
             }
         }
     
@@ -294,15 +274,13 @@ class YuntaekScoreCalculator:
         
         start_date, end_date = self._get_month_date_range()
         
-        # 해당 월에 성공한 챌린지 수
         success_count = UserChallenge.objects.filter(
             user=self.user,
-            status='succeeded',
+            status='completed',
             completed_at__gte=start_date,
             completed_at__lt=end_date
         ).count()
         
-        # 점수 계산
         if success_count >= 2:
             score = 3
         elif success_count == 1:
@@ -321,35 +299,38 @@ class YuntaekScoreCalculator:
     
     def _get_monthly_budget(self):
         """해당 월의 예산 가져오기"""
+        if self._monthly_budget is not None:
+            return self._monthly_budget
+            
         from apps.transactions.models import MonthlyLog
         
-        # MonthlyLog에서 해당 월의 예산 스냅샷 확인
         monthly_log = MonthlyLog.objects.filter(
             user=self.user,
             year=self.year,
             month=self.month
-        ).first()
+        ).values_list('monthly_budget', flat=True).first()
         
-        if monthly_log and monthly_log.monthly_budget:
-            return Decimal(monthly_log.monthly_budget)
-        
-        # 없으면 현재 사용자의 월예산 사용
-        return self.user.monthly_budget or Decimal(0)
+        if monthly_log:
+            self._monthly_budget = Decimal(monthly_log)
+        else:
+            self._monthly_budget = self.user.monthly_budget or Decimal(0)
+            
+        return self._monthly_budget
     
     def _get_month_date_range(self) -> tuple:
-        """해당 월의 시작일과 종료일(다음달 1일) 반환"""
-        from datetime import datetime
-        from django.utils import timezone
-        
+        """해당 월의 시작일과 종료일 반환"""
+        if self._date_range is not None:
+            return self._date_range
+            
         start_date = timezone.make_aware(datetime(self.year, self.month, 1))
         
-        # 다음 달의 1일
         if self.month == 12:
             end_date = timezone.make_aware(datetime(self.year + 1, 1, 1))
         else:
             end_date = timezone.make_aware(datetime(self.year, self.month + 1, 1))
         
-        return start_date, end_date
+        self._date_range = (start_date, end_date)
+        return self._date_range
 
 
 def get_yuntaek_score(user, year: int = None, month: int = None) -> dict:
@@ -364,12 +345,12 @@ def get_yuntaek_score(user, year: int = None, month: int = None) -> dict:
     Returns:
         dict: 윤택지수 결과
     """
-    from datetime import date
+    today = date.today()
     
     if year is None:
-        year = date.today().year
+        year = today.year
     if month is None:
-        month = date.today().month
+        month = today.month
     
     calculator = YuntaekScoreCalculator(user, year, month)
     return calculator.calculate()
