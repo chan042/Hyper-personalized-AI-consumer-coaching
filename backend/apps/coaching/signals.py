@@ -32,7 +32,7 @@ def generate_coaching_if_needed(sender, instance, created, **kwargs):
             for t in context_transactions:
                 transaction_list_str += f"- {t.date.strftime('%Y-%m-%d')} {t.category} / {t.item} ({t.store}) / {t.amount}원\n"
 
-            client = GeminiClient()
+            client = GeminiClient(purpose="coaching")
             advice_data = client.get_advice(transaction_list_str)
             
             if advice_data:

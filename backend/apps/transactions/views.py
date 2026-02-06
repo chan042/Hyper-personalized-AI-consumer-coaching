@@ -32,7 +32,7 @@ class ParseTransactionView(APIView):
             return Response({"error": "No text provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Gemini AI 클라이언트를 사용하여 텍스트 분석
-        client = GeminiClient()
+        client = GeminiClient(purpose="analysis")
         parsed_data = client.analyze_text(text)
         
         if not parsed_data:

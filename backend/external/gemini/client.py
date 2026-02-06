@@ -79,8 +79,18 @@ def calculate_points(difficulty: str) -> int:
 # ============================================================
 
 class GeminiClient:
-    def __init__(self):
-        self.api_key = os.environ.get("GEMINI_API_KEY")
+    def __init__(self, purpose: str = "analysis"):
+        """
+        Args:
+            purpose: API 키 선택 용도
+                - "coaching": 코칭 카드 + 챌린지 생성 (GEMINI_API_KEY_COACHING)
+                - "analysis": 지출 분석 - 자연어, OCR, 이미지 매칭 (GEMINI_API_KEY_ANALYSIS)
+        """
+        if purpose == "coaching":
+            self.api_key = os.environ.get("GEMINI_API_KEY_COACHING")
+        else:  # "analysis" 또는 기타
+            self.api_key = os.environ.get("GEMINI_API_KEY_ANALYSIS")
+        
         if self.api_key:
             genai.configure(api_key=self.api_key)
             # 기본 모델 사용 (Google Search는 프롬프트에서 지시)

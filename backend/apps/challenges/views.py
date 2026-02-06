@@ -151,7 +151,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         user_spending_summary = self._get_user_spending_summary(request.user)
 
         # Gemini로 챌린지 생성
-        gemini_client = GeminiClient()
+        gemini_client = GeminiClient(purpose="coaching")
         generated_challenge = gemini_client.generate_challenge(
             details=details,
             difficulty=difficulty,
@@ -255,7 +255,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         }
 
         # Gemini로 챌린지 생성
-        gemini_client = GeminiClient()
+        gemini_client = GeminiClient(purpose="coaching")
         generated_challenge = gemini_client.generate_challenge_from_coaching(
             coaching_data=coaching_data,
             difficulty=difficulty
