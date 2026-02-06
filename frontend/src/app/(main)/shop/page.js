@@ -150,7 +150,7 @@ export default function ShopPage() {
                     <button onClick={() => router.push('/closet')} style={styles.iconButton}>
                         <Shirt color="#333" size={20} />
                     </button>
-                    <button onClick={() => router.push('/home')} style={styles.iconButton}>
+                    <button onClick={() => router.push('/room')} style={styles.iconButton}>
                         <Home color="#333" size={20} />
                     </button>
                 </div>
@@ -191,6 +191,10 @@ export default function ShopPage() {
                     @keyframes sparkleRotate {
                         0% { transform: rotate(0deg); }
                         100% { transform: rotate(360deg); }
+                    }
+                    @keyframes floating {
+                        0%, 100% { transform: translateY(0px); }
+                        50% { transform: translateY(-6px); }
                     }
                 `}</style>
                 <button onClick={handleGachaClick} style={styles.gachaButton}>
@@ -603,33 +607,31 @@ const styles = {
     speechBubble: {
         position: 'absolute',
         bottom: '60px',
-        right: '200px', // Moved further left
-        backgroundColor: 'white',
-        padding: '16px 20px 12px 20px',
-        borderRadius: '16px',
-        borderTopRightRadius: '0px', // Sharp corner at top-right (tail)
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        right: '200px',
+        backgroundColor: '#fdf6e3', // Cream/beige like the image
+        padding: '20px 28px 16px 28px',
+        borderRadius: '30px', // Fully rounded like the image
+        border: 'none',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
         fontSize: '0.9rem',
         fontWeight: '500',
-        color: '#333',
-        maxWidth: '200px',
+        color: '#5c4a3a',
+        maxWidth: '220px',
         textAlign: 'center',
         zIndex: 20,
-        // Animation
-        transition: 'opacity 0.5s ease-in-out',
+        animation: 'floating 3s ease-in-out infinite',
         overflow: 'visible',
     },
     nameTag: {
         position: 'absolute',
-        top: '-12px',
-        left: '12px',
-        backgroundColor: '#6b7280', // Gray color for name tag
+        top: '-8px',
+        left: '16px',
+        backgroundColor: '#7a3e48', // Dark burgundy like the image
         color: 'white',
-        padding: '2px 8px',
-        borderRadius: '8px',
+        padding: '4px 12px',
+        borderRadius: '12px', // More rounded
         fontSize: '0.7rem',
         fontWeight: 'bold',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         whiteSpace: 'nowrap',
     },
     gachaButton: {
@@ -709,7 +711,6 @@ const styles = {
     activeTab: {
         backgroundColor: 'var(--primary)',
         color: 'white',
-        boxShadow: '0 4px 12px rgba(20, 184, 166, 0.3)',
     },
     inactiveTab: {
         backgroundColor: 'transparent',
@@ -878,7 +879,6 @@ const styles = {
         fontSize: '1.1rem',
         fontWeight: 'bold',
         cursor: 'pointer',
-        boxShadow: '0 4px 12px rgba(20, 184, 166, 0.4)',
         transition: 'all 0.2s',
     },
 };

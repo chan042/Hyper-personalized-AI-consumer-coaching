@@ -353,7 +353,7 @@ export default function ChallengePage() {
                 <div style={styles.headerTop} ref={headerTopRef}>
                     {/* 우상단: 홈, 옷장, 상점 버튼 */}
                     <div style={styles.headerIcons}>
-                        <button style={styles.iconButton} onClick={() => router.push('/')}>
+                        <button style={styles.iconButton} onClick={() => router.push('/room')}>
                             <Home size={22} color="var(--primary)" />
                         </button>
                         <button style={styles.iconButton} onClick={() => router.push('/closet')}>

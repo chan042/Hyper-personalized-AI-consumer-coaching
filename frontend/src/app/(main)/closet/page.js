@@ -98,7 +98,7 @@ export default function ClosetPage() {
                         <ShoppingBag color="#333" size={20} />
                     </button>
                     {/* Home Icon */}
-                    <button onClick={() => router.push('/home')} style={styles.iconButton}>
+                    <button onClick={() => router.push('/room')} style={styles.iconButton}>
                         <Home color="#333" size={20} />
                     </button>
                 </div>
