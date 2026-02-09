@@ -43,8 +43,8 @@ class UserInventoryView(APIView):
     def get(self, request):
         # 현재 로그인한 사용자의 인벤토리 조회
         inventory = UserInventory.objects.filter(user=request.user)
-        serializer = UserInventorySerializer(inventory, many=True)
-        return Response(serializer.data)
+        serializer = UserInventorySerializer(inventory, many=True, context={'request': request})
+        return Response({'items': serializer.data})
 
 class UserPointView(APIView):
     """

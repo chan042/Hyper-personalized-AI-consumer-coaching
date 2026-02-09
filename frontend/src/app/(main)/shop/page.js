@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Home, Shirt, X, ChevronLeft } from 'lucide-react';
+import { Home, Shirt, X, ChevronLeft, DoorClosed } from 'lucide-react';
 import { getShopItems, getShopUserPoints, purchaseItem, playGacha } from '@/lib/api/shop';
 
 export default function ShopPage() {
@@ -151,7 +151,7 @@ export default function ShopPage() {
                         <Shirt color="#333" size={20} />
                     </button>
                     <button onClick={() => router.push('/room')} style={styles.iconButton}>
-                        <Home color="#333" size={20} />
+                        <DoorClosed color="#333" size={20} />
                     </button>
                 </div>
 

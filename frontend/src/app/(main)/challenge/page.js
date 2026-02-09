@@ -8,7 +8,7 @@
  * - AI Insight 섹션 추가
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Sparkles, Store, Home, Shirt } from 'lucide-react';
+import { Plus, Sparkles, Store, Home, Shirt, DoorOpen } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 // 컴포넌트
@@ -354,7 +354,7 @@ export default function ChallengePage() {
                     {/* 우상단: 홈, 옷장, 상점 버튼 */}
                     <div style={styles.headerIcons}>
                         <button style={styles.iconButton} onClick={() => router.push('/room')}>
-                            <Home size={22} color="var(--primary)" />
+                            <DoorOpen size={22} color="var(--primary)" />
                         </button>
                         <button style={styles.iconButton} onClick={() => router.push('/closet')}>
                             <Shirt size={22} color="var(--primary)" />

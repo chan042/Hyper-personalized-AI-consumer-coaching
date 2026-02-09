@@ -84,3 +84,37 @@ export const playGacha = async () => {
         throw error;
     }
 };
+
+const EQUIPPED_STORAGE_KEY = 'duduk_equipped_items';
+
+/**
+ * 착장 상태 조회 (localStorage)
+ */
+export const getEquippedItems = () => {
+    try {
+        const stored = localStorage.getItem(EQUIPPED_STORAGE_KEY);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+        return { clothing: null, item: null, background: null };
+    } catch (error) {
+        console.error('Get Equipped Items Error:', error);
+        return { clothing: null, item: null, background: null };
+    }
+};
+
+/**
+ * 착장 상태 저장 (localStorage)
+ * @param {object} equippedItems - { clothing: {...}, item: {...}, background: {...} }
+ */
+export const saveEquippedItems = (equippedItems) => {
+    try {
+        localStorage.setItem(EQUIPPED_STORAGE_KEY, JSON.stringify(equippedItems));
+        return true;
+    } catch (error) {
+        console.error('Save Equipped Items Error:', error);
+        return false;
+    }
+};
+
+

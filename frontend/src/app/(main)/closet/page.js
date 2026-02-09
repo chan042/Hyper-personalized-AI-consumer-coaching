@@ -3,41 +3,30 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Home, ShoppingBag, ChevronLeft } from 'lucide-react';
+import { Home, ShoppingBag, ChevronLeft, DoorClosed } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-
-// Mock data - In a real app, this would come from an API (e.g., user's inventory)
-const mockInventory = [
-    { id: 1, name: '탐정 모자', price: 2500, category: 'clothing', image: '/images/items/hat.png' },
-    { id: 2, name: '빈티지 정장', price: 2500, category: 'clothing', image: '/images/items/suit.png' },
-    { id: 4, name: '나비 넥타이', price: 2500, category: 'clothing', image: '/images/items/bowtie.png' },
-    // Duplicates for scroll testing
-    { id: 11, name: '빨간 목도리', price: 1500, category: 'clothing', image: '/images/items/hat.png' },
-    { id: 12, name: '파란 조끼', price: 2000, category: 'clothing', image: '/images/items/suit.png' },
-    { id: 13, name: '검은 안경', price: 1200, category: 'clothing', image: '/images/items/monocle.png' },
-    { id: 14, name: '선장 모자', price: 3000, category: 'clothing', image: '/images/items/hat.png' },
-    { id: 15, name: '해적 코트', price: 3500, category: 'clothing', image: '/images/items/suit.png' },
-    { id: 16, name: '황금 왕관', price: 9900, category: 'clothing', image: '/images/items/hat.png' },
-];
+import { getUserInventory, getEquippedItems, saveEquippedItems } from '@/lib/api/shop';
 
 export default function ClosetPage() {
     const router = useRouter();
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('clothing');
+    const [inventory, setInventory] = useState([]);
     const [wearingItems, setWearingItems] = useState({
         clothing: null,
         item: null,
         background: null
     });
-    // Add selectedItem for popup
     const [selectedItem, setSelectedItem] = useState(null);
     const [filteredItems, setFilteredItems] = useState([]);
     const [characterType, setCharacterType] = useState('char_dog');
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
 
+    // 사용자 캐릭터 타입 설정
     useEffect(() => {
         if (user && user.character_type) {
             let type = user.character_type.toLowerCase();
-            // Ensure prefix
             if (!type.startsWith('char_')) {
                 type = `char_${type}`;
             }
@@ -45,17 +34,63 @@ export default function ClosetPage() {
         }
     }, [user]);
 
+    // 인벤토리 및 착장 상태 로드
     useEffect(() => {
-        const filtered = mockInventory.filter(p => p.category === activeTab);
+        const loadData = async () => {
+            try {
+                setIsLoading(true);
+
+                // 인벤토리는 API에서 가져옴
+                const inventoryData = await getUserInventory();
+
+                // 인벤토리 데이터 변환 (중복 제거 및 카테고리 매핑)
+                const seenIds = new Set();
+                const formattedInventory = [];
+
+                (inventoryData.items || []).forEach(inv => {
+                    const shopItem = inv.shop_item;
+                    if (!seenIds.has(shopItem.id)) {
+                        seenIds.add(shopItem.id);
+                        formattedInventory.push({
+                            id: shopItem.id,
+                            name: shopItem.name,
+                            category: shopItem.category.toLowerCase(), // CLOTHING -> clothing
+                            image: shopItem.image_url,
+                            image_key: shopItem.image_key,
+                            price: shopItem.price
+                        });
+                    }
+                });
+                setInventory(formattedInventory);
+
+                // 착장 상태는 localStorage에서 가져옴
+                const equippedData = getEquippedItems();
+                setWearingItems({
+                    clothing: equippedData.clothing?.id || null,
+                    item: equippedData.item?.id || null,
+                    background: equippedData.background?.id || null
+                });
+            } catch (error) {
+                console.error('Failed to load closet data:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadData();
+    }, []);
+
+    // 탭 변경 시 필터링
+    useEffect(() => {
+        const filtered = inventory.filter(p => p.category === activeTab);
         setFilteredItems(filtered);
-    }, [activeTab]);
+    }, [activeTab, inventory]);
 
     const handleBack = () => {
         router.push('/challenge');
     };
 
     const handleItemClick = (item) => {
-        // Open popup instead of immediate toggle
         setSelectedItem(item);
     };
 
@@ -79,7 +114,23 @@ export default function ClosetPage() {
     };
 
     const handleSaveLook = () => {
-        alert('착장이 저장되었습니다!');
+        setIsSaving(true);
+
+        // 현재 착장 중인 아이템 정보 수집
+        const equippedData = {
+            clothing: inventory.find(i => i.id === wearingItems.clothing) || null,
+            item: inventory.find(i => i.id === wearingItems.item) || null,
+            background: inventory.find(i => i.id === wearingItems.background) || null
+        };
+
+        const success = saveEquippedItems(equippedData);
+        setIsSaving(false);
+
+        if (success) {
+            alert('착장이 저장되었습니다!');
+        } else {
+            alert('저장에 실패했습니다. 다시 시도해주세요.');
+        }
     };
 
     const isWearingSelected = selectedItem && wearingItems[selectedItem.category] === selectedItem.id;
@@ -99,7 +150,7 @@ export default function ClosetPage() {
                     </button>
                     {/* Home Icon */}
                     <button onClick={() => router.push('/room')} style={styles.iconButton}>
-                        <Home color="#333" size={20} />
+                        <DoorClosed color="#333" size={20} />
                     </button>
                 </div>
 
@@ -174,7 +225,13 @@ export default function ClosetPage() {
                                 >
                                     <div style={styles.productImagePlaceholder}>
                                         {isWearing && <span style={styles.wearingBadge}>Wearing</span>}
-                                        <span style={{ fontSize: '2rem' }}>🎁</span>
+                                        <Image
+                                            src={item.image}
+                                            alt={item.name}
+                                            width={60}
+                                            height={60}
+                                            style={{ objectFit: 'contain' }}
+                                        />
                                     </div>
                                     <div style={styles.productInfo}>
                                         <div style={styles.productName}>{item.name}</div>
@@ -198,7 +255,13 @@ export default function ClosetPage() {
                     <div style={styles.popupContent} onClick={(e) => e.stopPropagation()}>
                         {/* Selected Item Image */}
                         <div style={styles.popupImageContainer}>
-                            <span style={{ fontSize: '4rem' }}>🎁</span>
+                            <Image
+                                src={selectedItem.image}
+                                alt={selectedItem.name}
+                                width={120}
+                                height={120}
+                                style={{ objectFit: 'contain' }}
+                            />
                         </div>
 
                         {/* Item Name */}

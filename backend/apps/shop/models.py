@@ -15,7 +15,8 @@ class ShopItem(models.Model):
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, verbose_name='카테고리')
     price = models.IntegerField(verbose_name='가격')
     is_rare = models.BooleanField(default=False, verbose_name='레어템 여부')
-    image_url = models.CharField(max_length=255, verbose_name='이미지 경로') # static 파일 경로 등을 저장
+    image_url = models.CharField(max_length=255, verbose_name='이미지 경로')
+    image_key = models.CharField(max_length=50, blank=True, verbose_name='이미지 조합 키')
     description = models.TextField(blank=True, verbose_name='상품 설명')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='등록일')
     is_active = models.BooleanField(default=True, verbose_name='판매 중 여부')

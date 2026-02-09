@@ -11,7 +11,7 @@ class ShopItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopItem
-        fields = ['id', 'name', 'category', 'price', 'is_rare', 'image_url', 'description', 'is_owned']
+        fields = ['id', 'name', 'category', 'price', 'is_rare', 'image_url', 'image_key', 'description', 'is_owned']
 
     def get_is_owned(self, obj):
         """
@@ -42,13 +42,12 @@ class PurchaseRequestSerializer(serializers.Serializer):
     def validate_shop_item_id(self, value):
         """
         상품이 실제로 존재하는지, 구매 가능한 상태인지 확인합니다.
+        레어 아이템도 직접 구매 가능합니다.
         """
         try:
             item = ShopItem.objects.get(id=value)
             if not item.is_active:
                 raise serializers.ValidationError("판매 중인 상품이 아닙니다.")
-            if item.is_rare:
-                raise serializers.ValidationError("레어 아이템은 직접 구매할 수 없습니다. 가챠를 이용해주세요.")
         except ShopItem.DoesNotExist:
             raise serializers.ValidationError("존재하지 않는 상품입니다.")
         return value
