@@ -82,3 +82,24 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+
+class MonthlyReport(models.Model):
+    """
+    AI 월간 분석 리포트 캐싱 모델.
+    사용자별, 연월별로 하나의 리포트만 저장됩니다.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='monthly_reports')
+    year = models.IntegerField(verbose_name='연도')
+    month = models.IntegerField(verbose_name='월')
+    report_content = models.JSONField(verbose_name='리포트 내용', default=dict)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일시')
+
+    class Meta:
+        unique_together = ('user', 'year', 'month')
+        ordering = ['-year', '-month']
+        verbose_name = '월간 리포트'
+        verbose_name_plural = '월간 리포트들'
+
+    def __str__(self):
+        return f"{self.user.username} - {self.year}년 {self.month}월 리포트"

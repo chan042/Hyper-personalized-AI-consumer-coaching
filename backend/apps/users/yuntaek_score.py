@@ -50,9 +50,17 @@ class YuntaekScoreCalculator:
         self.user = user
         self.year = year
         self.month = month
-        # 날짜 범위 캐싱
+        # 캐싱
         self._date_range = None
         self._monthly_budget = None
+        self._gemini_client = None
+
+    @property
+    def gemini_client(self):
+        """GeminiClient lazy initialization — AI 분석 메서드에서 공유"""
+        if self._gemini_client is None:
+            self._gemini_client = GeminiClient(purpose="analysis")
+        return self._gemini_client
         
     def calculate(self) -> dict:
         """윤택지수 전체 계산"""
@@ -249,8 +257,7 @@ class YuntaekScoreCalculator:
         
         client.py에서 사용자의 거래 내역을 분석하여 건강 점수 반환
         """
-        client = GeminiClient(purpose="analysis")
-        health_score = client.analyze_health_score(self.user.id, self.year, self.month)
+        health_score = self.gemini_client.analyze_health_score(self.user.id, self.year, self.month)
         
         # AI가 반환한 점수를 최대값으로 제한
         score = min(int(health_score or 0), self.MAX_HEALTH_SCORE)
@@ -267,18 +274,16 @@ class YuntaekScoreCalculator:
         - 감소율 50%: 5점
         - 오히려 증가 시: 0점
         """
-        client = GeminiClient(purpose="analysis")
-        
         # 이번 달 누수 지출액
-        current_leakage = client.analyze_leakage_spending(self.user.id, self.year, self.month) or 0
-        
+        current_leakage = self.gemini_client.analyze_leakage_spending(self.user.id, self.year, self.month) or 0
+
         # 지난 달 누수 지출액
         if self.month == 1:
             prev_year, prev_month = self.year - 1, 12
         else:
             prev_year, prev_month = self.year, self.month - 1
-        
-        prev_leakage = client.analyze_leakage_spending(self.user.id, prev_year, prev_month) or 0
+
+        prev_leakage = self.gemini_client.analyze_leakage_spending(self.user.id, prev_year, prev_month) or 0
         
         # 점수 계산
         if prev_leakage == 0:
@@ -317,8 +322,7 @@ class YuntaekScoreCalculator:
         if total_spent == 0:
             return 0
         
-        client = GeminiClient(purpose="analysis")
-        growth_amount = client.analyze_growth_spending(self.user.id, self.year, self.month) or 0
+        growth_amount = self.gemini_client.analyze_growth_spending(self.user.id, self.year, self.month) or 0
         
         # 권장 금액: 월 총 지출의 7%
         recommended_amount = total_spent * 0.07

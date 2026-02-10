@@ -71,3 +71,25 @@ class RegisterSerializer(serializers.ModelSerializer):
             character_name=character_name
         )
         return user
+
+
+class YuntaekScoreSerializer(serializers.Serializer):
+    """
+    윤택지수 점수 응답 Serializer.
+    """
+    total_score = serializers.IntegerField()
+    max_score = serializers.IntegerField()
+    year = serializers.IntegerField()
+    month = serializers.IntegerField()
+    breakdown = serializers.DictField(child=serializers.IntegerField())
+
+
+class MonthlyReportSerializer(serializers.Serializer):
+    """
+    월간 AI 분석 리포트 응답 Serializer.
+    """
+    year = serializers.IntegerField()
+    month = serializers.IntegerField()
+    report = serializers.DictField()
+    generated_at = serializers.DateTimeField()
+    cached = serializers.BooleanField()

@@ -6,7 +6,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .views import ProfileView
+from .views import ProfileView, YuntaekScoreView, MonthlyReportView
 from .oauth_views import GoogleLoginView
 
 urlpatterns = [
@@ -18,4 +18,8 @@ urlpatterns = [
     
     # 프로필 조회/수정/삭제
     path('profile/', ProfileView.as_view(), name='profile'),
+
+    # 윤택지수 API
+    path('yuntaek-score/', YuntaekScoreView.as_view(), name='yuntaek_score'),
+    path('yuntaek-report/', MonthlyReportView.as_view(), name='yuntaek_report'),
 ]

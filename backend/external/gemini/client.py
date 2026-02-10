@@ -1,8 +1,11 @@
 import os
 import json
 import datetime
+import logging
 import google.generativeai as genai
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # 상수 정의
@@ -106,9 +109,7 @@ class GeminiClient:
             response = self.model.generate_content(prompt)
             return parse_json_response(response.text)
         except Exception as e:
-            print(f"Gemini API Error: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Gemini API Error: {e}", exc_info=True)
             return None
 
     def analyze_text(self, text: str) -> Optional[dict]:
@@ -653,3 +654,302 @@ class GeminiClient:
             return int(result['total_growth'])
         
         return 0
+
+    # ============================================================
+    # 월간 리포트 생성
+    # ============================================================
+
+    def generate_monthly_report(self, report_data: dict) -> Optional[dict]:
+        """
+        월간 소비 분석 리포트 생성 (JSON 형식)
+
+        Args:
+            report_data: 리포트 생성에 필요한 데이터
+
+        Returns:
+            구조화된 리포트 딕셔너리
+        """
+        year = report_data.get('year')
+        month = report_data.get('month')
+        monthly_budget = report_data.get('monthly_budget', 0)
+        total_spending = report_data.get('total_spending', 0)
+        prev_total_spending = report_data.get('prev_total_spending', 0)
+        category_spending = report_data.get('category_spending', [])
+        yuntaek_score = report_data.get('yuntaek_score', 0)
+        prev_yuntaek_score = report_data.get('prev_yuntaek_score', 0)
+        score_breakdown = report_data.get('score_breakdown', {})
+        challenge_count = report_data.get('challenge_count', 0)
+        challenge_success_count = report_data.get('challenge_success_count', 0)
+
+        # 카테고리별 지출 문자열 생성
+        category_lines = []
+        for cat in category_spending[:5]:
+            category_lines.append(f"- {cat['category']}: {cat['total']:,}원")
+        category_str = "\n".join(category_lines) if category_lines else "- 데이터 없음"
+
+        # 변화율 계산
+        has_prev_data = prev_total_spending > 0
+        if has_prev_data:
+            change_rate = ((total_spending - prev_total_spending) / prev_total_spending) * 100
+            change_str = f"{change_rate:+.1f}%"
+        else:
+            change_str = None
+
+        prompt = f"""
+        [역할]
+        당신은 '두둑' 서비스의 AI 재무 분석가입니다.
+        사용자의 월간 소비 데이터를 분석하여 구조화된 JSON 리포트를 작성합니다.
+
+        [분석 데이터]
+        - 기간: {year}년 {month}월
+        - 월 예산: {monthly_budget:,.0f}원
+        - 총 지출: {total_spending:,.0f}원
+        - 전월 지출: {prev_total_spending:,.0f}원 (변화율: {change_str if change_str else '비교 데이터 없음'})
+        - 카테고리별 지출:
+        {category_str}
+        - 윤택지수: {yuntaek_score}점 (전월: {prev_yuntaek_score}점)
+        - 챌린지 참여: {challenge_count}개 (성공: {challenge_success_count}개)
+
+        [세부 점수]
+        - 예산 달성률: {score_breakdown.get('budget_achievement', 0)}/35점
+        - 대체 행동 실현: {score_breakdown.get('alternative_action', 0)}/20점
+        - 성장 점수: {score_breakdown.get('growth_consumption', 0)}/10점
+        - 건강 점수: {score_breakdown.get('health_score', 0)}/15점
+        - 꾸준함: {score_breakdown.get('spending_consistency', 0)}/7점
+        - 누수지출 개선: {score_breakdown.get('leakage_improvement', 0)}/10점
+        - 챌린지 참여: {score_breakdown.get('challenge_success', 0)}/3점
+
+        [핵심 원칙]
+        1. 단순 통계 나열이 아닌 '왜 그런 소비를 했는지' 지출 패턴을 분석
+        2. 전문가적 관점에서 객관적으로 정확한 진단 제공
+        3. 숫자와 데이터 기반의 논리적 분석
+        4. 개선이 필요한 부분은 명확히 지적하되, 실현 가능한 솔루션을 제시
+        5. 전월 데이터가 없을 경우({has_prev_data=}), 전월 관련 필드는 null로 설정
+
+        [출력 형식]
+        반드시 아래 JSON 스키마를 정확히 따라 응답하세요.
+        JSON 외의 텍스트(설명, 마크다운 코드블록 등)는 절대 포함하지 마세요.
+
+    {{
+      "summary": {{
+        "period": "{year}년 {month}월",
+        "overview": "300자 이내 전체 소비 현황 요약",
+        "budget_status": {{
+          "budget": {monthly_budget},
+          "spent": {total_spending},
+          "remaining": {monthly_budget - total_spending},
+          "status": "under_budget | over_budget | on_track",
+          "message": "예산 대비 상황을 긍정적 또는 개선 필요 톤으로 표현"
+        }},
+        "top_categories": [
+          {{
+            "category": "카테고리명",
+            "amount": 금액,
+            "percentage": 전체대비비율
+          }}
+        ]
+      }},
+
+      "weakness_analysis": {{
+        "impulse_spending": {{
+          "items": [
+            {{
+              "description": "충동 소비 내역",
+              "amount": 금액,
+              "reason": "발생 이유/상황/감정 상태 추론",
+              "date": "발생일 (알 수 있는 경우)"
+            }}
+          ],
+          "total_amount": 총액,
+          "percentage_of_total": 전체지출대비비율
+        }},
+        "leakage_areas": [
+          {{
+            "pattern": "반복적 불필요 소비 패턴 설명",
+            "frequency": "주 N회 또는 월 N회",
+            "monthly_total": 월누적금액,
+            "potential_savings": "줄였을 때 절약 가능 금액"
+          }}
+        ]
+      }},
+
+      "coaching_performance": {{
+        "total_coaching_count": 제공된코칭수,
+        "success_rate": 성공률퍼센트,
+        "estimated_savings": 코칭으로절약한추정금액,
+        "best_cases": [
+          {{
+            "situation": "코칭 상황",
+            "action": "사용자 행동",
+            "result": "결과/절약 금액"
+          }}
+        ]
+      }},
+
+      "monthly_comparison": {{
+        "has_previous_data": {str(has_prev_data).lower()},
+        "spending_change": {{
+          "amount": {total_spending - prev_total_spending if has_prev_data else 'null'},
+          "percentage": {f'{change_rate:.1f}' if has_prev_data else 'null'},
+          "direction": "increase | decrease | same"
+        }},
+        "improvements": [
+          "개선된 점 1",
+          "개선된 점 2"
+        ],
+        "areas_to_improve": [
+          "악화된 점 (개선 기회로 프레이밍)"
+        ],
+        "category_changes": [
+          {{
+            "category": "카테고리명",
+            "change_amount": 변동금액,
+            "change_percentage": 변동비율,
+            "note": "변동 원인 분석"
+          }}
+        ]
+      }},
+
+      "yuntaek_analysis": {{
+        "current_score": {yuntaek_score},
+        "previous_score": {prev_yuntaek_score if prev_yuntaek_score else 'null'},
+        "score_level": "excellent | good | caution | warning",
+        "score_message": "점수 수준에 맞는 메시지",
+        "factors": [
+          {{
+            "name": "예산 준수도",
+            "key": "budget_achievement",
+            "current_score": {score_breakdown.get('budget_achievement', 0)},
+            "max_score": 35,
+            "change": "up | down | same",
+            "change_amount": 전월대비변동점수,
+            "influencing_transactions": [
+              "영향을 준 주요 소비 내역 1",
+              "영향을 준 주요 소비 내역 2"
+            ],
+            "improvement_tip": "개선을 위한 구체적 팁"
+          }},
+          {{
+            "name": "대체 행동 실현",
+            "key": "alternative_action",
+            "current_score": {score_breakdown.get('alternative_action', 0)},
+            "max_score": 20,
+            "change": "up | down | same",
+            "change_amount": null,
+            "influencing_transactions": [],
+            "improvement_tip": "개선을 위한 구체적 팁"
+          }},
+          {{
+            "name": "성장 소비",
+            "key": "growth_consumption",
+            "current_score": {score_breakdown.get('growth_consumption', 0)},
+            "max_score": 10,
+            "change": "up | down | same",
+            "change_amount": null,
+            "influencing_transactions": [],
+            "improvement_tip": "개선을 위한 구체적 팁"
+          }},
+          {{
+            "name": "건강 점수",
+            "key": "health_score",
+            "current_score": {score_breakdown.get('health_score', 0)},
+            "max_score": 15,
+            "change": "up | down | same",
+            "change_amount": null,
+            "influencing_transactions": [],
+            "improvement_tip": "개선을 위한 구체적 팁"
+          }},
+          {{
+            "name": "소비 일관성",
+            "key": "spending_consistency",
+            "current_score": {score_breakdown.get('spending_consistency', 0)},
+            "max_score": 7,
+            "change": "up | down | same",
+            "change_amount": null,
+            "influencing_transactions": [],
+            "improvement_tip": "개선을 위한 구체적 팁"
+          }},
+          {{
+            "name": "누수지출 개선",
+            "key": "leakage_improvement",
+            "current_score": {score_breakdown.get('leakage_improvement', 0)},
+            "max_score": 10,
+            "change": "up | down | same",
+            "change_amount": null,
+            "influencing_transactions": [],
+            "improvement_tip": "개선을 위한 구체적 팁"
+          }},
+          {{
+            "name": "챌린지 참여",
+            "key": "challenge_success",
+            "current_score": {score_breakdown.get('challenge_success', 0)},
+            "max_score": 3,
+            "change": "up | down | same",
+            "change_amount": null,
+            "influencing_transactions": [],
+            "improvement_tip": "개선을 위한 구체적 팁"
+          }}
+        ]
+      }},
+
+      "next_month_strategy": {{
+        "priority_tasks": [
+          {{
+            "rank": 1,
+            "title": "가장 시급한 개선 과제",
+            "current_state": "현재 상황",
+            "target_state": "목표 상태",
+            "action_steps": [
+              "구체적 실행 방법 1",
+              "구체적 실행 방법 2",
+              "구체적 실행 방법 3"
+            ],
+            "expected_savings": 예상절약금액
+          }}
+        ],
+        "recommended_challenges": [
+          {{
+            "name": "추천 챌린지명",
+            "description": "챌린지 설명",
+            "target_weakness": "이 챌린지가 해결하는 문제",
+            "expected_benefit": "기대 효과"
+          }}
+        ],
+        "suggested_budget": {{
+          "total": 권장총예산,
+          "categories": [
+            {{
+              "category": "카테고리명",
+              "amount": 권장금액,
+              "reason": "이 금액을 권장하는 이유"
+            }}
+          ]
+        }}
+      }},
+
+      "expert_summary": {{
+        "overall_assessment": "3-4문장의 전문가적 종합 의견",
+        "key_achievement": "이번 달 핵심 성과",
+        "key_improvement_area": "핵심 개선점",
+        "professional_advice": "다음 달 재무 계획을 위한 전문적 조언"
+      }}
+    }}
+
+        [작성 가이드라인]
+        1. 톤앤매너: 전문 재무 상담가의 객관적이고 정중한 어조
+        2. 구체성: 모든 금액은 숫자로, 모호한 표현 대신 정확한 수치
+        3. 패턴 분석:
+        - 충동 소비: 같은 카테고리 내 평균 대비 고액 지출
+        - 소비 누수: 주 2회 이상 반복되는 소형 지출 패턴
+        4. 윤택지수 해석:
+        - 70점 이상: "excellent" → "훌륭한 소비 습관"
+        - 50-69점: "good" → "안정적인 관리"
+        - 30-49점: "caution" → "개선 여지가 있어요"
+        - 30점 미만: "warning" → "함께 개선해봐요"
+        5. 금지 사항:
+        - 과도한 부정적 표현 지양
+        - 일반적인 재테크 조언 나열 금지 (사용자 데이터 기반 분석만)
+        - 불가능한 목표 제시 금지
+      """
+
+        return self._generate(prompt)

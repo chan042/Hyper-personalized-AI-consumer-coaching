@@ -10,3 +10,5 @@ djangorestframework-simplejwt
 Pillow
 django-allauth==0.61.1
 google-auth==2.28.0
+celery==5.3.4
+redis==5.0.1
