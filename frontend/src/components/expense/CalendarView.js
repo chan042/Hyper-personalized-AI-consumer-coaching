@@ -202,25 +202,26 @@ export default function CalendarView({
                 })}
             </div>
 
-            {/* Insight 카드: 성공/실패 일수만 표시 */}
+            {/* Insight 카드: 성공/실패 일수만 표시 - 통합된 디자인 */}
             <div className={styles.insightRow}>
                 <div className={styles.insightCard}>
-                    <div className={styles.insightLeft}>
+                    <div className={styles.insightItem}>
                         <div className={styles.insightIcon} style={{ backgroundColor: '#e6fffa', color: '#2f855a' }}>
-                            <CheckCircle size={24} />
+                            <CheckCircle size={20} />
                         </div>
                         <h4 className={styles.insightTitle}>목표 달성</h4>
+                        <span className={styles.insightHighlight}>{successDays}일</span>
                     </div>
-                    <span className={styles.insightHighlight}>{successDays}일</span>
-                </div>
-                <div className={styles.insightCard}>
-                    <div className={styles.insightLeft}>
+
+                    <div className={styles.insightSeparator}></div>
+
+                    <div className={styles.insightItem}>
                         <div className={styles.insightIcon} style={{ backgroundColor: '#fff5f5', color: '#c53030' }}>
-                            <XCircle size={24} />
+                            <XCircle size={20} />
                         </div>
                         <h4 className={styles.insightTitle}>권장 예산 초과</h4>
+                        <span className={styles.insightWarning}>{failDays}일</span>
                     </div>
-                    <span className={styles.insightWarning}>{failDays}일</span>
                 </div>
             </div>
 

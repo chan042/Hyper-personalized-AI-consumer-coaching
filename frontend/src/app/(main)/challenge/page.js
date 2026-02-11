@@ -513,7 +513,7 @@ const styles = {
     container: {
         background: 'var(--background-light)',
         minHeight: '100vh',
-        padding: '0.25rem', // Calendar UI와 비슷하게 패딩 축소
+        padding: '1rem', // Calendar UI와 비슷하게 패딩 축소
         paddingBottom: '6rem',
     },
     // Sticky Header Wrapper - 음수 top으로 headerTop이 스크롤 아웃되도록 함
@@ -521,7 +521,7 @@ const styles = {
         backgroundColor: 'white',
         borderBottomLeftRadius: '20px',
         borderBottomRightRadius: '20px',
-        margin: '0 -0.25rem 0.5rem -0.25rem',
+        margin: '0 -1rem 0.5rem -1rem',
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)',
         position: 'sticky',
         top: '-160px', // headerTop 높이만큼 음수 (스크롤 시 headerTop만 사라짐)
@@ -530,7 +530,7 @@ const styles = {
     },
     // 상단 섹션 - 스크롤 시 사라지는 부분 (포인트, 상점 버튼)
     headerTop: {
-        padding: '1rem',
+        padding: '1.5rem 1rem 0.5rem 1rem',
         paddingTop: '0.5rem',
         display: 'flex',
         flexDirection: 'column',
@@ -619,7 +619,7 @@ const styles = {
     },
     section: {
         marginBottom: '1.5rem',
-        padding: '0 1rem',
+        padding: '0',
     },
     sectionTitle: {
         fontSize: '1rem',
@@ -664,5 +664,4 @@ const styles = {
         color: 'white',
         cursor: 'pointer',
     },
-
 };

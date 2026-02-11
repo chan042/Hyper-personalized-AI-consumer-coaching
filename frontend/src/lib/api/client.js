@@ -1,10 +1,16 @@
 import axios from 'axios';
 
-// Use environment variable for backend URL, fallback to localhost for local development
-const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// 환경변수 기반으로 API URL 선택 (.env.local에서 관리)
+function getBaseURL() {
+    if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') {
+        return process.env.NEXT_PUBLIC_API_URL_127;
+    }
+    return process.env.NEXT_PUBLIC_API_URL;
+}
+
+const baseURL = getBaseURL();
 
 console.log('[API Client] baseURL:', baseURL);
-console.log('[API Client] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
 
 const client = axios.create({
     baseURL: baseURL,
@@ -51,7 +57,7 @@ client.interceptors.response.use(
                 if (refreshToken) {
                     try {
                         const response = await axios.post(
-                            'http://localhost:8000/api/users/token/refresh/',
+                            `${baseURL}/api/users/token/refresh/`,
                             { refresh: refreshToken }
                         );
 

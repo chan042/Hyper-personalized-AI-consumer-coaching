@@ -4,11 +4,6 @@ import { CheckCircle2, MapPin, Droplets, Lightbulb, ChevronRight, Sparkles, Tag 
 import Link from 'next/link';
 
 export default function CompletedCoachingList({ cards = [] }) {
-    // 카드가 없으면 컴포넌트를 렌더링하지 않음
-    if (cards.length === 0) {
-        return null;
-    }
-
     const getIconForSubject = (subject) => {
         switch (subject) {
             case "행동 변화 제안": return <Sparkles size={20} color="#718096" />;
@@ -34,40 +29,53 @@ export default function CompletedCoachingList({ cards = [] }) {
                 }}>
                     이전 코칭 카드
                 </h3>
-                <Link href="/coaching/history" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    color: 'var(--text-sub)',
-                    fontSize: '0.9rem',
-                    textDecoration: 'none'
-                }}>
-                    더보기 <ChevronRight size={16} />
-                </Link>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {cards.map((card) => (
-                    <div key={card.id} style={{
+                {cards.length > 0 && (
+                    <Link href="/coaching/history" style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        backgroundColor: 'var(--card-bg)',
-                        padding: '1rem',
-                        borderRadius: 'var(--radius-md)',
-                        boxShadow: 'var(--shadow-sm)'
+                        color: 'var(--text-sub)',
+                        fontSize: '0.9rem',
+                        textDecoration: 'none'
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            {getIconForSubject(card.tag)}
-                            <span style={{
-                                color: 'var(--text-main)',
-                                fontSize: '1rem'
-                            }}>
-                                {card.title}
-                            </span>
-                        </div>
-                        <CheckCircle2 size={24} color="#14b8a6" fill="#e6fffa" />
-                    </div>
-                ))}
+                        더보기 <ChevronRight size={16} />
+                    </Link>
+                )}
             </div>
+            {cards.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {cards.map((card) => (
+                        <div key={card.id} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            backgroundColor: 'var(--card-bg)',
+                            padding: '1rem',
+                            borderRadius: 'var(--radius-md)',
+                            boxShadow: 'var(--shadow-sm)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                {getIconForSubject(card.tag)}
+                                <span style={{
+                                    color: 'var(--text-main)',
+                                    fontSize: '1rem'
+                                }}>
+                                    {card.title}
+                                </span>
+                            </div>
+                            <CheckCircle2 size={24} color="#14b8a6" fill="#e6fffa" />
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div style={{
+                    color: 'var(--text-sub)',
+                    fontSize: '0.9rem',
+                    textAlign: 'center',
+                    padding: '2rem 0'
+                }}>
+                    코칭 카드를 더 모아보세요!
+                </div>
+            )}
         </div>
     );
 }

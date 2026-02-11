@@ -23,7 +23,8 @@ export default function HistoryPage() {
             try {
                 const data = await getCoachingAdvice();
                 // Map backend data to frontend format
-                const mappedCards = data.map(item => ({
+                // 최신 4개는 메인 페이지 상단에 노출되므로 제외
+                const mappedCards = data.slice(4).map(item => ({
                     id: item.id,
                     subject: item.subject,
                     title: item.title,

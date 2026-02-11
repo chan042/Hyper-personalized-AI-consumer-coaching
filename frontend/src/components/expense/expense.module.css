@@ -6,7 +6,7 @@
   min-height: 100vh;
   /* Allow growth */
   max-width: 100%;
-  padding: 0.25rem;
+  padding: 1rem;
   /* 하단 패딩 제거 (바텀 네비와 거의 맞닿게) */
   padding-bottom: 0;
   position: relative;
@@ -22,7 +22,7 @@
   border-bottom-left-radius: 20px;
   border-bottom-right-radius: 20px;
   /* Reset negative margin to prevent cutting off top content */
-  margin: 0 -0.25rem 0.5rem -0.25rem;
+  margin: 0 -1rem 0.5rem -1rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
   position: sticky;
   /* Negative top allows headerTop to scroll out while headerBottom stays at top */
@@ -242,7 +242,7 @@
   flex-direction: column;
   /* Removed flex: 1, height constraints */
   width: 100%;
-  padding: 0 0.5rem;
+  padding: 0;
 }
 
 /* List View Wrapper */
@@ -355,11 +355,9 @@
 /* Insight Cards */
 .insightRow {
   display: flex;
-  gap: 0.75rem;
-  padding: 0 0.5rem;
-  /* Keep very small bottom spacing */
+  padding: 0;
   margin-bottom: 0.5rem;
-  flex-shrink: 0;
+  width: 100%;
 }
 
 .insightCard {
@@ -368,47 +366,37 @@
   padding: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   display: flex;
-  flex-direction: column;
-  /* Vertical stack for safety */
-  align-items: flex-start;
-  justify-content: center;
-  gap: 0.5rem;
-  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
   border: 1px solid rgba(0, 0, 0, 0.02);
-  min-height: auto;
+}
+
+.insightItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.insightSeparator {
+  width: 1px;
+  height: 40px;
+  background-color: #f1f5f9;
+  margin: 0 1rem;
 }
 
 .insightIcon {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  font-size: 1.2rem;
-  margin-bottom: 0.25rem;
-}
-
-.insightLeft {
-  display: flex;
-  flex-direction: row;
-  /* Keep icon and text together if possible, or just remove this wrapper in logic if not needed, but keeping for now */
-  align-items: center;
-  width: 100%;
-  gap: 0.5rem;
-  display: none;
-  /* Actually, let's hide the old wrapper structure and rely on flat */
-}
-
-/* We need to restructure the Insight Card HTML slightly or use different CSS selection */
-/* Assuming current HTML structure: .insightCard > .insightLeft > .insightIcon + h4.insightTitle ... span.insightHighlight */
-
-/* Let's redefine based on probable structure */
-.insightCard .insightLeft {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  font-size: 1rem;
   margin-bottom: 0.25rem;
 }
 
@@ -416,21 +404,19 @@
   font-size: 0.8rem;
   margin: 0;
   color: var(--text-sub);
-  font-weight: 600;
-  white-space: nowrap;
-  /* Prevent wrapping for title */
+  font-weight: 500;
 }
 
 .insightHighlight {
   color: var(--primary);
-  font-weight: 800;
-  font-size: 1.25rem;
+  font-weight: 700;
+  font-size: 1.1rem;
 }
 
 .insightWarning {
   color: #e53e3e;
-  font-weight: 800;
-  font-size: 1.25rem;
+  font-weight: 700;
+  font-size: 1.1rem;
 }
 
 /* Modal */
@@ -741,7 +727,7 @@
 }
 
 .transactionItemBorder {
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px dashed #f1f5f9;
 }
 
 .transactionItem:active {
