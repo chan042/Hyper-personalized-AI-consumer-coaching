@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Shirt, Store, ShoppingBag } from 'lucide-react';
+import { ChevronLeft, Shirt, Store, DoorClosed } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getEquippedItems } from '@/lib/api/shop';
 
@@ -83,28 +83,25 @@ export default function RoomPage() {
 
     return (
         <div style={styles.container}>
-            {/* 배경 이미지 */}
-            <div style={styles.backgroundContainer}>
-                <Image
-                    src={getBackgroundPath()}
-                    alt="Room Background"
-                    fill
-                    style={{ objectFit: 'cover' }}
-                    priority
-                />
-            </div>
+            {/* 배경 이미지 - CSS background */}
+            <div style={{
+                ...styles.backgroundContainer,
+                backgroundImage: `url("${getBackgroundPath()}")`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+            }} />
 
             {/* 상단 네비게이션 */}
             <div style={styles.header}>
-                <button onClick={() => router.back()} style={styles.iconButton}>
-                    <ChevronLeft color="#333" size={24} />
+                <button onClick={() => router.push('/challenge')} style={styles.iconButton}>
+                    <ChevronLeft color="#333" size={20} />
                 </button>
                 <div style={styles.headerIcons}>
                     <button onClick={() => router.push('/closet')} style={styles.iconButton}>
-                        <Shirt color="#333" size={22} />
+                        <Shirt color="#333" size={20} />
                     </button>
                     <button onClick={() => router.push('/shop')} style={styles.iconButton}>
-                        <ShoppingBag color="#333" size={22} />
+                        <Store color="#333" size={20} />
                     </button>
                 </div>
             </div>
@@ -128,12 +125,15 @@ export default function RoomPage() {
 
 const styles = {
     container: {
+        position: 'fixed',
+        top: 0,
+        left: '50%',
+        transform: 'translateX(-50%)',
         width: '100%',
         maxWidth: '430px',
-        margin: '0 auto',
-        minHeight: '100vh',
-        position: 'relative',
+        height: '100vh',
         overflow: 'hidden',
+        zIndex: 50,
     },
     backgroundContainer: {
         position: 'absolute',
