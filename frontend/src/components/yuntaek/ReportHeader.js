@@ -20,6 +20,17 @@ export default function ReportHeader({ onBack, onDownload }) {
     );
 }
 
+const iconButton = {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '0.5rem',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+};
+
 const styles = {
     header: {
         display: 'flex',
@@ -30,27 +41,8 @@ const styles = {
         zIndex: 10,
         position: 'relative',
     },
-    backButton: {
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        padding: '0.5rem',
-        borderRadius: '50%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    downloadButton: {
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        padding: '0.5rem',
-        borderRadius: '50%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#475569',
-    },
+    backButton: iconButton,
+    downloadButton: { ...iconButton, color: '#475569' },
     headerTitle: {
         fontSize: '1.2rem',
         fontWeight: '600',

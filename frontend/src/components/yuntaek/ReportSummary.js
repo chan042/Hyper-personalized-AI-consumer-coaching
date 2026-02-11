@@ -1,6 +1,8 @@
 "use client";
 
-export default function ReportSummary({ summary, year, month, isNewUser, onViewMore }) {
+import NewUserGuide from './NewUserGuide';
+
+export default function ReportSummary({ summary, guideData, year, month, isNewUser, onViewMore }) {
     return (
         <section className="rainbow-border fade-in" style={{ ...styles.reportSection, animationDelay: '0.5s' }}>
             <div style={styles.reportHeader}>
@@ -10,9 +12,13 @@ export default function ReportSummary({ summary, year, month, isNewUser, onViewM
             </div>
 
             <div style={styles.reportContent}>
-                <p style={styles.reportText}>
-                    {summary || '리포트를 불러오는 중...'}
-                </p>
+                {isNewUser && guideData ? (
+                    <NewUserGuide guide={guideData} />
+                ) : (
+                    <p style={styles.reportText}>
+                        {summary || '리포트를 불러오는 중...'}
+                    </p>
+                )}
             </div>
 
             {/* 신규 사용자가 아닌 경우에만 더보기 버튼 표시 */}

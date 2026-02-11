@@ -6,6 +6,7 @@ import ReportHeader from '@/components/yuntaek/ReportHeader';
 import JsonReportRenderer from '@/components/yuntaek/JsonReportRenderer';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 
+
 export default function YuntaekReportPage() {
     const router = useRouter();
     const { reportData, loading, error, fromCache } = useYuntaekReport();
@@ -29,11 +30,7 @@ export default function YuntaekReportPage() {
     }
 
     if (error) {
-        return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-                <p style={{ color: '#ef4444' }}>{error}</p>
-            </div>
-        );
+        return <p style={{ color: '#ef4444', textAlign: 'center', marginTop: '2rem' }}>{error}</p>;
     }
 
     return (

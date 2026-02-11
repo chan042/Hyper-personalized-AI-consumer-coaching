@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getYuntaekScore, getYuntaekReport } from '@/lib/api/yuntaek';
 
 const SCORE_DETAILS_MAP = [
@@ -13,19 +13,18 @@ const SCORE_DETAILS_MAP = [
     { key: 'challenge_success', label: '챌린지 참여', max: 3 },
 ];
 
-function extractSummary(reportData) {
-    if (!reportData) return '요약 정보를 불러올 수 없습니다.';
-    if (typeof reportData === 'object' && reportData.summary) {
-        return reportData.summary.overview || '요약 정보를 불러올 수 없습니다.';
-    }
-    return '요약 정보를 불러올 수 없습니다.';
+// ─── 공통 헬퍼 함수 ───
+
+/** 조회 대상 연/월 (전월) 계산 */
+function getTargetYearMonth() {
+    const now = new Date();
+    const month = now.getMonth() === 0 ? 12 : now.getMonth();
+    const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    return { year, month };
 }
 
-function buildGuideText(guide) {
-    return `${guide.title}\n\n${guide.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n💡 팁:\n${guide.tips.map(t => `• ${t}`).join('\n')}`;
-}
+// ─── localStorage 캐싱 ───
 
-// localStorage 캐싱 헬퍼 함수
 function getCacheKey(type, year, month) {
     return `yuntaek_${type}_${year}_${month}`;
 }
@@ -39,7 +38,6 @@ function getFromCache(type, year, month) {
         if (!cached) return null;
 
         const data = JSON.parse(cached);
-        // 캐시 데이터의 year/month가 요청한 것과 일치하는지 확인
         if (data.year === year && data.month === month) {
             return data;
         }
@@ -62,6 +60,32 @@ function saveToCache(type, data) {
     }
 }
 
+// ─── 리포트 데이터 처리 (중복 제거) ───
+
+function extractSummary(reportData) {
+    if (!reportData) return '요약 정보를 불러올 수 없습니다.';
+    if (typeof reportData === 'object' && reportData.summary) {
+        return reportData.summary.overview || '요약 정보를 불러올 수 없습니다.';
+    }
+    return '요약 정보를 불러올 수 없습니다.';
+}
+
+/** 리포트 응답에서 isNewUser, guideData, reportSummary를 추출 */
+function processReportResponse(data) {
+    if (data.is_new_user) {
+        if (data.report?.guide) {
+            return { isNewUser: true, guideData: data.report.guide, reportSummary: '' };
+        }
+        if (data.report?.summary) {
+            return { isNewUser: true, guideData: null, reportSummary: data.report.summary.overview };
+        }
+        return { isNewUser: true, guideData: null, reportSummary: '리포트를 불러올 수 없습니다.' };
+    }
+    return { isNewUser: false, guideData: null, reportSummary: extractSummary(data.report) };
+}
+
+// ─── Hooks ───
+
 export function useYuntaekScore() {
     const [scoreData, setScoreData] = useState(null);
     const [isNewUser, setIsNewUser] = useState(false);
@@ -72,15 +96,10 @@ export function useYuntaekScore() {
     useEffect(() => {
         const fetchScore = async () => {
             try {
-                // 1. localStorage에서 캐시 확인
-                const now = new Date();
-                const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
-                const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-
-                const cached = getFromCache('score', prevYear, prevMonth);
+                const { year, month } = getTargetYearMonth();
+                const cached = getFromCache('score', year, month);
 
                 if (cached) {
-                    // 캐시가 있으면 즉시 표시
                     if (cached.is_new_user) {
                         setIsNewUser(true);
                         setScoreData(null);
@@ -91,7 +110,6 @@ export function useYuntaekScore() {
                     setLoading(false);
                 }
 
-                // 2. 백그라운드에서 API 재검증
                 const data = await getYuntaekScore();
 
                 if (data.is_new_user) {
@@ -101,7 +119,6 @@ export function useYuntaekScore() {
                     setScoreData(data);
                 }
 
-                // 3. 새 데이터를 캐시에 저장
                 saveToCache('score', data);
                 setFromCache(false);
             } catch (err) {
@@ -130,61 +147,35 @@ export function useYuntaekScore() {
 export function useYuntaekReport() {
     const [reportData, setReportData] = useState(null);
     const [reportSummary, setReportSummary] = useState('');
+    const [guideData, setGuideData] = useState(null);
     const [isNewUser, setIsNewUser] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [fromCache, setFromCache] = useState(false);
 
+    const applyReportData = useCallback((data) => {
+        setReportData(data);
+        const processed = processReportResponse(data);
+        setIsNewUser(processed.isNewUser);
+        setGuideData(processed.guideData);
+        setReportSummary(processed.reportSummary);
+    }, []);
+
     useEffect(() => {
         const fetchReport = async () => {
             try {
-                // 1. localStorage에서 캐시 확인
-                const now = new Date();
-                const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
-                const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-
-                const cached = getFromCache('report', prevYear, prevMonth);
+                const { year, month } = getTargetYearMonth();
+                const cached = getFromCache('report', year, month);
 
                 if (cached) {
-                    // 캐시가 있으면 즉시 표시
-                    setReportData(cached);
-
-                    if (cached.is_new_user) {
-                        setIsNewUser(true);
-                        if (cached.report?.guide) {
-                            setReportSummary(buildGuideText(cached.report.guide));
-                        } else if (cached.report?.summary) {
-                            setReportSummary(cached.report.summary.overview);
-                        } else {
-                            setReportSummary('리포트를 불러올 수 없습니다.');
-                        }
-                    } else {
-                        setReportSummary(extractSummary(cached.report));
-                    }
-
+                    applyReportData(cached);
                     setFromCache(true);
                     setLoading(false);
                 }
 
-                // 2. 백그라운드에서 API 재검증
                 const data = await getYuntaekReport();
-                setReportData(data);
+                applyReportData(data);
 
-                if (data.is_new_user) {
-                    setIsNewUser(true);
-
-                    if (data.report?.guide) {
-                        setReportSummary(buildGuideText(data.report.guide));
-                    } else if (data.report?.summary) {
-                        setReportSummary(data.report.summary.overview);
-                    } else {
-                        setReportSummary('리포트를 불러올 수 없습니다.');
-                    }
-                } else {
-                    setReportSummary(extractSummary(data.report));
-                }
-
-                // 3. 새 데이터를 캐시에 저장
                 saveToCache('report', data);
                 setFromCache(false);
             } catch (err) {
@@ -195,7 +186,7 @@ export function useYuntaekReport() {
             }
         };
         fetchReport();
-    }, []);
+    }, [applyReportData]);
 
-    return { reportData, reportSummary, isNewUser, loading, error, fromCache };
+    return { reportData, reportSummary, guideData, isNewUser, loading, error, fromCache };
 }

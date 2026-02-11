@@ -1,6 +1,8 @@
 "use client";
 
-export default function ScoreDetail({ details, isExpanded, showProgress }) {
+import { memo } from 'react';
+
+export default memo(function ScoreDetail({ details, isExpanded, showProgress }) {
     return (
         <div style={{
             maxHeight: isExpanded ? '500px' : '0',
@@ -35,7 +37,7 @@ export default function ScoreDetail({ details, isExpanded, showProgress }) {
             </div>
         </div>
     );
-}
+});
 
 const styles = {
     detailList: {

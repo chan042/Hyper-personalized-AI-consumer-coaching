@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import ScoreDetail from './ScoreDetail';
 
 export default function YuntaekScoreCard({ score, year, month, isNewUser, details }) {
@@ -50,7 +50,7 @@ export default function YuntaekScoreCard({ score, year, month, isNewUser, detail
                 animationDelay: '0.1s',
                 display: 'flex',
                 flexDirection: 'column',
-                itemGap: isDetailExpanded ? '1.5rem' : '0.5rem',
+                gap: isDetailExpanded ? '1.5rem' : '0.5rem',
                 transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
                 alignItems: 'stretch',
                 marginBottom: '1rem',
@@ -99,18 +99,7 @@ export default function YuntaekScoreCard({ score, year, month, isNewUser, detail
                 </span>
 
                 {isNewUser ? (
-                    <div style={{
-                        width: '80px',
-                        height: '80px',
-                        borderRadius: '50%',
-                        border: '3px dashed #e2e8f0',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        animation: 'pulse 3s infinite'
-                    }}>
-                        <Search size={28} color="#cbd5e1" />
-                    </div>
+                    <div />
                 ) : (
                     <span style={styles.scoreValue}>
                         {displayedScore}

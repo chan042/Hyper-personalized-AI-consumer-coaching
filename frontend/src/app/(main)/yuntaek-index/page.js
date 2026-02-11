@@ -6,10 +6,11 @@ import YuntaekScoreCard from '@/components/yuntaek/YuntaekScoreCard';
 import ReportSummary from '@/components/yuntaek/ReportSummary';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 
+
 export default function YuntaekIndexPage() {
     const router = useRouter();
     const { score, details, scoreData, isNewUser: scoreNewUser, loading: scoreLoading, error: scoreError, fromCache: scoreFromCache } = useYuntaekScore();
-    const { reportSummary, isNewUser: reportNewUser, loading: reportLoading, error: reportError, fromCache: reportFromCache } = useYuntaekReport();
+    const { reportSummary, guideData, isNewUser: reportNewUser, loading: reportLoading, error: reportError, fromCache: reportFromCache } = useYuntaekReport();
 
     // 캐시에서 데이터를 가져온 경우 로딩 표시 안 함
     const loading = (scoreLoading || reportLoading) && !(scoreFromCache || reportFromCache);
@@ -17,11 +18,7 @@ export default function YuntaekIndexPage() {
     const isNewUser = scoreNewUser || reportNewUser;
 
     if (error) {
-        return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-                <p style={{ color: '#ef4444' }}>{error}</p>
-            </div>
-        );
+        return <p style={{ color: '#ef4444', textAlign: 'center', marginTop: '2rem' }}>{error}</p>;
     }
 
     return (
@@ -38,6 +35,7 @@ export default function YuntaekIndexPage() {
 
             <ReportSummary
                 summary={reportSummary}
+                guideData={guideData}
                 year={scoreData?.year}
                 month={scoreData?.month}
                 isNewUser={isNewUser}
