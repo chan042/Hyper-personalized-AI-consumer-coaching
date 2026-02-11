@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Home, ShoppingBag, ChevronLeft, DoorClosed } from 'lucide-react';
+import { DoorClosed, Store } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserInventory, getEquippedItems, saveEquippedItems } from '@/lib/api/shop';
 
@@ -86,10 +86,6 @@ export default function ClosetPage() {
         setFilteredItems(filtered);
     }, [activeTab, inventory]);
 
-    const handleBack = () => {
-        router.push('/challenge');
-    };
-
     const handleItemClick = (item) => {
         setSelectedItem(item);
     };
@@ -135,22 +131,58 @@ export default function ClosetPage() {
 
     const isWearingSelected = selectedItem && wearingItems[selectedItem.category] === selectedItem.id;
 
+    // 캐릭터 이미지 경로 생성 (image_key 사용) - Room 페이지 로직 재사용
+    const getCharacterImagePath = () => {
+        const clothingItem = inventory.find(i => i.id === wearingItems.clothing);
+        const accessoryItem = inventory.find(i => i.id === wearingItems.item);
+
+        // 기본 이미지
+        if (!clothingItem && !accessoryItem) {
+            return `/images/characters/${characterType}/body.png`;
+        }
+
+        // 의상만 착용
+        if (clothingItem && !accessoryItem) {
+            return `/images/characters/${characterType}/${clothingItem.image_key}.png`;
+        }
+
+        // 아이템만 착용
+        if (!clothingItem && accessoryItem) {
+            return `/images/characters/${characterType}/${accessoryItem.image_key}.png`;
+        }
+
+        // 둘 다 착용
+        return `/images/characters/${characterType}/${clothingItem.image_key}_${accessoryItem.image_key}.png`;
+    };
+
+    // 배경 이미지 경로
+    const getBackgroundStyle = () => {
+        const bgItem = inventory.find(i => i.id === wearingItems.background);
+        if (bgItem && bgItem.image) {
+            return {
+                backgroundImage: `url("${bgItem.image}")`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+            };
+        }
+        return {
+            backgroundImage: 'url("/images/room_background.png")',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+        };
+    };
+
     return (
         <div style={styles.container}>
             {/* Top Section */}
-            <div style={styles.topSection}>
+            <div style={{ ...styles.topSection, ...getBackgroundStyle() }}>
                 {/* Navigation Icons */}
                 <div style={styles.navIcons}>
-                    <button onClick={handleBack} style={styles.iconButton}>
-                        <ChevronLeft color="#333" size={20} />
-                    </button>
-                    {/* Shop Icon - Using ShoppingBag as 'Store' icon equivalent */}
-                    <button onClick={() => router.push('/shop')} style={styles.iconButton}>
-                        <ShoppingBag color="#333" size={20} />
-                    </button>
-                    {/* Home Icon */}
                     <button onClick={() => router.push('/room')} style={styles.iconButton}>
                         <DoorClosed color="#333" size={20} />
+                    </button>
+                    <button onClick={() => router.push('/shop')} style={styles.iconButton}>
+                        <Store color="#333" size={20} />
                     </button>
                 </div>
 
@@ -179,7 +211,7 @@ export default function ClosetPage() {
                 {/* Character Image */}
                 <div style={styles.characterContainer}>
                     <Image
-                        src={`/images/characters/${characterType}/body.png`}
+                        src={getCharacterImagePath()}
                         alt="Character"
                         fill
                         style={{ objectFit: 'contain', objectPosition: 'center bottom', paddingBottom: '40px' }}
