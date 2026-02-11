@@ -4,6 +4,7 @@ import { useState } from 'react';
 import GlobalHeader from '@/components/common/GlobalHeader';
 import BottomNavigation from '@/components/common/BottomNavigation';
 import QuickAddPopup from '@/components/home/QuickAddPopup';
+import { NotificationProvider } from '@/contexts/NotificationContext';
 
 export default function ClientLayout({ children }) {
     const [isPopupOpen, setIsPopupOpen] = useState(false);
@@ -21,39 +22,41 @@ export default function ClientLayout({ children }) {
     };
 
     return (
-        <div style={{
-            backgroundColor: '#e0e0e0',
-            minHeight: '100vh',
-            display: 'flex',
-            justifyContent: 'center'
-        }}>
+        <NotificationProvider>
             <div style={{
-                width: '100%',
-                maxWidth: '430px',
-                backgroundColor: 'var(--background-light)',
+                backgroundColor: '#e0e0e0',
                 minHeight: '100vh',
-                boxShadow: '0 0 20px rgba(0,0,0,0.1)',
-                position: 'relative',
                 display: 'flex',
-                flexDirection: 'column'
+                justifyContent: 'center'
             }}>
-                <GlobalHeader />
+                <div style={{
+                    width: '100%',
+                    maxWidth: '430px',
+                    backgroundColor: 'var(--background-light)',
+                    minHeight: '100vh',
+                    boxShadow: '0 0 20px rgba(0,0,0,0.1)',
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}>
+                    <GlobalHeader />
 
-                <div style={{ flex: 1, paddingBottom: '80px' }}>
-                    {children}
+                    <div style={{ flex: 1, paddingBottom: '80px' }}>
+                        {children}
+                    </div>
+
+                    {!isPopupOpen && (
+                        <BottomNavigation onQuickAddClick={() => setIsPopupOpen(true)} />
+                    )}
+
+                    {isPopupOpen && (
+                        <QuickAddPopup
+                            onClose={() => setIsPopupOpen(false)}
+                            onTransactionAdded={handleTransactionAdded}
+                        />
+                    )}
                 </div>
-
-                {!isPopupOpen && (
-                    <BottomNavigation onQuickAddClick={() => setIsPopupOpen(true)} />
-                )}
-
-                {isPopupOpen && (
-                    <QuickAddPopup
-                        onClose={() => setIsPopupOpen(false)}
-                        onTransactionAdded={handleTransactionAdded}
-                    />
-                )}
             </div>
-        </div>
+        </NotificationProvider>
     );
 }

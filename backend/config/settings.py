@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'apps.coaching',
     'apps.challenges',
     'apps.shop',
+    'apps.notifications',
 ]
 
 AUTH_USER_MODEL = 'users.User'

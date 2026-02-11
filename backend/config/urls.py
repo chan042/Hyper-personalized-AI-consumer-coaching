@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/coaching/', include('apps.coaching.urls')),
     path('api/challenges/', include('apps.challenges.urls')),
     path('api/shop/', include('apps.shop.urls')),
+    path('api/notifications/', include('apps.notifications.urls')),
 ]
 
 from django.conf import settings

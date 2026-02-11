@@ -14,10 +14,12 @@ User = get_user_model()
 @shared_task
 def generate_monthly_reports_for_all_users():
     """
-    매월 1일 00시에 실행되어 모든 사용자의 전월 리포트를 생성합니다.
+    매월 1일 00시에 실행되어 모든 사용자의 전월 윤택지수 및 AI 리포트를 생성합니다.
+    윤택지수와 AI 리포트 생성 후 통합 알림을 발송합니다.
     이 작업은 Celery Beat 스케줄러에 의해 자동으로 실행됩니다.
     """
     from apps.users.models import MonthlyReport
+    from apps.users.yuntaek_score import get_yuntaek_score
     from external.gemini.client import GeminiClient
     from apps.users.services import (
         get_previous_month,
@@ -25,6 +27,7 @@ def generate_monthly_reports_for_all_users():
         collect_report_data,
         save_report_cache,
     )
+    from apps.notifications.services import create_monthly_report_notification
 
     now = timezone.localdate()
     year, month = get_previous_month(now.year, now.month)
@@ -37,14 +40,21 @@ def generate_monthly_reports_for_all_users():
 
     for user in users:
         try:
-            # 이미 해당 월의 리포트가 있으면 스킵
-            if MonthlyReport.objects.filter(user=user, year=year, month=month).exists():
-                logger.info(f"사용자 {user.id}의 {year}년 {month}월 리포트는 이미 존재합니다.")
-                continue
-
             # 신규 사용자 스킵
             if is_new_user_for_month(user, year, month):
                 logger.info(f"사용자 {user.id}는 {year}년 {month}월 신규 사용자입니다. 리포트 생성 스킵.")
+                continue
+
+            # 윤택지수 계산 (알림은 AI 리포트와 함께 생성)
+            try:
+                yuntaek_score = get_yuntaek_score(user, year, month)
+                logger.info(f"사용자 {user.id}의 윤택지수 계산 완료")
+            except Exception as e:
+                logger.error(f"사용자 {user.id}의 윤택지수 계산 실패: {e}")
+
+            # 이미 해당 월의 AI 리포트가 있으면 스킵
+            if MonthlyReport.objects.filter(user=user, year=year, month=month).exists():
+                logger.info(f"사용자 {user.id}의 {year}년 {month}월 AI 리포트는 이미 존재합니다.")
                 continue
 
             # 데이터 수집 + AI 리포트 생성
@@ -58,7 +68,11 @@ def generate_monthly_reports_for_all_users():
                 continue
 
             save_report_cache(user, year, month, report_content)
-            logger.info(f"사용자 {user.id}의 {year}년 {month}월 리포트 생성 완료")
+            
+            # 월간 리포트 생성 알림 (윤택지수 + AI 리포트 통합)
+            create_monthly_report_notification(user, year, month)
+            
+            logger.info(f"사용자 {user.id}의 {year}년 {month}월 윤택지수 및 AI 리포트 생성 완료")
             success_count += 1
 
         except Exception as e:

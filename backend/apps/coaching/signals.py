@@ -36,7 +36,7 @@ def generate_coaching_if_needed(sender, instance, created, **kwargs):
             advice_data = client.get_advice(transaction_list_str)
             
             if advice_data:
-                Coaching.objects.create(
+                coaching = Coaching.objects.create(
                     user=user,
                     subject=advice_data.get('subject', '소비 분석'),
                     title=advice_data.get('title', '소비 코칭'),
@@ -44,6 +44,10 @@ def generate_coaching_if_needed(sender, instance, created, **kwargs):
                     coaching_content=advice_data.get('coaching_content', ''),
                     estimated_savings=advice_data.get('estimated_savings', 0)
                 )
+                
+                # 알림 생성
+                from apps.notifications.services import create_coaching_notification
+                create_coaching_notification(user, coaching)
                 
                 # 코칭 카드 최대 4개 유지 (오래된 것 삭제)
                 coachings = Coaching.objects.filter(user=user).order_by('-created_at')
