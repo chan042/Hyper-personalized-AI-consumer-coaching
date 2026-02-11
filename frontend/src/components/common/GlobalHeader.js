@@ -3,13 +3,13 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { User, Bell, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
+import { useNotification } from '@/contexts/NotificationContext';
 
 
 export default function GlobalHeader() {
     const pathname = usePathname();
     const router = useRouter();
-    const { user } = useAuth();
+    const { unreadCount } = useNotification();
     const isHome = pathname === '/';
 
     const getHeaderContent = () => {
@@ -24,8 +24,7 @@ export default function GlobalHeader() {
                 right: (
                     <Link href="/notification" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
                         <Bell color="var(--text-main)" size={24} />
-                        {/* Notification badge - hidden when count is 0 */}
-                        {false && <div style={styles.notificationBadge} />}
+                        {unreadCount > 0 && <div style={styles.notificationBadge} />}
                     </Link>
                 )
             };
