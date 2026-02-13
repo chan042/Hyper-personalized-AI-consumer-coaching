@@ -2,19 +2,13 @@
  * [파일 역할]
  * - 챌린지 상세 모달 컴포넌트
  * - 챌린지 카드 클릭 시 표시되는 팝업
- * - 새로운 UserChallenge 모델에 맞게 progress 객체 처리
- * - 난이도별 두둑 캐릭터 얼굴 아이콘 표시
- * - 히어로 섹션(난이도별 그라데이션) + 글래스 모피즘 + 카드형 레이아웃
+ * - UserChallenge 모델에 맞게 progress 객체 처리
  */
 import { useState, useRef } from 'react';
 import { X, Camera, Image, ChevronDown, Star, Calendar, TrendingUp, CheckCircle, Sparkles } from 'lucide-react';
 import { CATEGORIES, getCategoryIcon } from '../common/CategoryIcons';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-    getCharacterFace,
-} from '@/lib/challengeUtils';
 import { useChallenge } from './useChallenge';
-import { getDifficultyStyle } from '@/lib/challengeUtils';
 
 
 
@@ -103,30 +97,13 @@ export default function ChallengeDetailModal({
                     <X size={24} color="#374151" />
                 </button>
 
-                {/* 히어로 섹션 - 배경 고정 */}
-                <div style={{
-                    ...styles.heroSection,
-                    backgroundColor: getDifficultyStyle(challenge.difficulty)?.backgroundColor || '#F3F4F6',
-                }}>
-                    {/* 캐릭터 - 글래스 모피즘 원형 */}
-                    <div style={styles.characterCircle}>
-                        <div style={styles.characterInner}>
-                            <img
-                                src={getCharacterFace(challenge.difficulty, characterType)}
-                                alt="character"
-                                style={styles.characterImage}
-                            />
-                        </div>
-                    </div>
-                </div>
-
                 {/* 스크롤 가능한 콘텐츠 영역 */}
                 <div style={styles.scrollContent}>
                     {/* 흰색 콘텐츠 카드 */}
                     <div style={styles.contentCard}>
 
                         {/* 타이틀 */}
-                        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                        <div style={{ textAlign: 'center', marginBottom: '20px', marginTop: '40px' }}>
                             {isEditing ? (
                                 <input
                                     type="text"
@@ -644,7 +621,7 @@ const styles = {
         overflowY: 'auto',
         overflowX: 'hidden',
         padding: 0,
-        paddingTop: '200px',
+        paddingTop: '0',
         position: 'relative',
         zIndex: 1,
     },
@@ -666,9 +643,7 @@ const styles = {
         position: 'absolute',
         top: '16px',
         right: '16px',
-        background: 'rgba(255, 255, 255, 0.5)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        background: 'transparent',
         border: 'none',
         borderRadius: '50%',
         width: '36px',
@@ -715,10 +690,8 @@ const styles = {
     contentCard: {
         position: 'relative',
         backgroundColor: '#FFFFFF',
-        borderRadius: '32px 32px 0 0',
-        padding: '32px 24px 24px 24px',
+        padding: '24px',
         minHeight: '100%',
-        boxShadow: '0 -4px 20px rgba(0,0,0,0.05)',
     },
 
     // ── 타이틀 ──
