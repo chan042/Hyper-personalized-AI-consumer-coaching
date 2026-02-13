@@ -21,13 +21,14 @@ export default function FlappyGame({ onClose }) {
     const [earnedPoints, setEarnedPoints] = useState(null);
     const rewardSubmittedRef = useRef(false);
     const gameLoopRef = useRef(null);
+    const audioRef = useRef(null);
     const gameDataRef = useRef({
         bird: {
             x: 100,
             y: 200,
             velocity: 0,
-            width: 130,
-            height: 130
+            width: 120,
+            height: 120
         },
         obstacles: [],
         lastObstacleTime: 0,
@@ -35,7 +36,9 @@ export default function FlappyGame({ onClose }) {
         isInvincible: false,
         invincibleUntil: 0,
         isGrayscale: false,
-        currentSpeed: 3
+        currentSpeed: 3,
+        lastHitTime: 0,
+        bgScrollX: 0
     });
 
     // 게임 상수
@@ -63,6 +66,24 @@ export default function FlappyGame({ onClose }) {
         fetchCharacterType();
     }, []);
 
+    // 배경음악 초기화
+    useEffect(() => {
+        // Audio 객체 생성 (브라우저 환경에서만)
+        if (typeof window !== 'undefined') {
+            audioRef.current = new Audio('/sounds/game_sound.mp3');
+            audioRef.current.loop = true; // 반복 재생
+            audioRef.current.volume = 0.5; // 볼륨 50%
+        }
+
+        return () => {
+            // 컴포넌트 언마운트 시 음악 정지
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+            }
+        };
+    }, []);
+
     // 캐릭터 타입에 따라 이미지 로드
     useEffect(() => {
         const images = {
@@ -75,7 +96,7 @@ export default function FlappyGame({ onClose }) {
 
         images.startBg.src = '/images/start_game.png';
         images.startButton.src = '/images/text_game_start.png';
-        images.gameBg.src = '/images/game.png';
+        images.gameBg.src = '/images/game_background.png';
         images.bird.src = `/images/characters/${characterType}/fly.png`;
         images.obstacle.src = '/images/obstacle.png';
 
@@ -94,8 +115,8 @@ export default function FlappyGame({ onClose }) {
                 x: 100,
                 y: 200,
                 velocity: 0,
-                width: 160,
-                height: 160
+                width: 110,
+                height: 110
             },
             obstacles: [],
             lastObstacleTime: Date.now(),
@@ -103,8 +124,16 @@ export default function FlappyGame({ onClose }) {
             isInvincible: false,
             invincibleUntil: 0,
             isGrayscale: false,
-            currentSpeed: FIRST_SPEED
+            currentSpeed: FIRST_SPEED,
+            bgScrollX: 0,
+            lastHitTime: 0
         };
+
+        // 게임 시작 시 음악 재생
+        if (audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+        }
     };
 
     const jump = () => {
@@ -156,6 +185,9 @@ export default function FlappyGame({ onClose }) {
                     const speedIncrease = Math.floor(secondsSurvived / 15) * 1.0;
                     data.currentSpeed = FIRST_SPEED + speedIncrease;
                 }
+
+                // 배경 스크롤 업데이트
+                data.bgScrollX += data.currentSpeed * 0.5;
 
                 // 새 위치 업데이트
                 data.bird.velocity += GRAVITY;
@@ -211,8 +243,13 @@ export default function FlappyGame({ onClose }) {
                                 setLives(prev => {
                                     const newLives = prev - 1;
                                     if (newLives <= 0) {
-                                        data.isGrayscale = true;
                                         setGameState(GAME_STATES.DYING);
+                                        // 게임 오버 시 음악 정지
+                                        if (audioRef.current) {
+                                            audioRef.current.pause();
+                                            audioRef.current.currentTime = 0;
+                                        }
+
                                         // 포인트 적립 API 호출
                                         if (!rewardSubmittedRef.current) {
                                             rewardSubmittedRef.current = true;
@@ -235,6 +272,7 @@ export default function FlappyGame({ onClose }) {
 
                                 data.isInvincible = true;
                                 data.invincibleUntil = currentTime + 1000;
+                                data.lastHitTime = currentTime;
                                 break;
                             }
                         }
@@ -269,9 +307,22 @@ export default function FlappyGame({ onClose }) {
             ctx.filter = 'none';
         }
 
-        // 배경 그리기
-        if (images.gameBg.complete) {
-            ctx.drawImage(images.gameBg, 0, 0, canvas.width, canvas.height);
+        // 배경 그리기 (스크롤 루프)
+        if (images.gameBg.complete && images.gameBg.naturalWidth > 0) {
+            const imgNatW = images.gameBg.naturalWidth;
+            const imgNatH = images.gameBg.naturalHeight;
+
+            // 캔버스 높이에 맞춰 비율 계산
+            const scale = canvas.height / imgNatH;
+            const drawWidth = imgNatW * scale;
+
+            // 스크롤 오프셋을 이미지 폭으로 나눈 나머지
+            const offsetX = data.bgScrollX % drawWidth;
+
+            // 배경을 여러 장 이어 그려서 루프 효과
+            for (let x = -offsetX; x < canvas.width; x += drawWidth) {
+                ctx.drawImage(images.gameBg, x, 0, drawWidth, canvas.height);
+            }
         }
 
         // 장애물 그리기 (비율 유지하며 자르기)
@@ -303,7 +354,15 @@ export default function FlappyGame({ onClose }) {
         }
 
         if (images.bird.complete) {
+            ctx.save();
+            const timeSinceHit = currentTime - data.lastHitTime;
+            if (timeSinceHit < 1000) {
+                const alpha = 1 - (timeSinceHit / 1000);
+                ctx.shadowColor = `rgba(255, 0, 0, ${alpha * 0.8})`;
+                ctx.shadowBlur = 50;
+            }
             ctx.drawImage(images.bird, data.bird.x, data.bird.y, data.bird.width, data.bird.height);
+            ctx.restore();
         }
 
         ctx.filter = 'none';
@@ -323,7 +382,23 @@ export default function FlappyGame({ onClose }) {
                 .sparkle {
                     animation: sparkle 1.5s ease-in-out infinite;
                 }
+                @keyframes float {
+                    0%, 100% { transform: translateY(0px); }
+                    50% { transform: translateY(-10px); }
+                }
+                .float-animation {
+                    animation: float 2s ease-in-out infinite;
+                }
+                @keyframes glow {
+                    0%, 100% { filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.6)); }
+                    50% { filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.9)); }
+                }
+                .glow-animation {
+                    animation: glow 2s ease-in-out infinite;
+                }
             `}</style>
+
+
 
             <div style={styles.gameContainer}>
                 {gameState !== GAME_STATES.START && (
@@ -358,29 +433,37 @@ export default function FlappyGame({ onClose }) {
                             priority
                         />
                         <div style={styles.startContent}>
-                            <div style={styles.startButtonWrapper} onClick={startGame}>
+                            <div
+                                style={styles.startButtonWrapper}
+                                onClick={startGame}
+                                className="float-animation"
+                            >
                                 <div style={{ ...styles.sparkleStar, top: '-5px', left: '10%', animationDelay: '0s' }} className="sparkle">✨</div>
                                 <div style={{ ...styles.sparkleStar, top: '80%', left: '5%', animationDelay: '1s' }} className="sparkle">✨</div>
                                 <div style={{ ...styles.sparkleStar, top: '-10%', right: '15%', animationDelay: '0.5s' }} className="sparkle">✨</div>
                                 <div style={{ ...styles.sparkleStar, top: '90%', right: '10%', animationDelay: '0.75s' }} className="sparkle">✨</div>
 
-                                <Image
-                                    src="/images/text_game_start.png"
-                                    alt="Start Button"
-                                    width={360}
-                                    height={120}
-                                    style={{ cursor: 'pointer', objectFit: 'contain' }}
-                                    priority
-                                />
+                                <div className="glow-animation">
+                                    <Image
+                                        src="/images/text_game_start.png"
+                                        alt="Start Button"
+                                        width={360}
+                                        height={120}
+                                        style={{ cursor: 'pointer', objectFit: 'contain' }}
+                                        priority
+                                    />
+                                </div>
                             </div>
                             <div style={styles.descriptionContainer}>
                                 <div style={styles.descriptionItem}>
-                                    <span style={{ fontSize: '18px' }}>⭐</span>
-                                    <span style={styles.descriptionText}>장애물을 피해 달려보세요!</span>
-                                </div>
-                                <div style={styles.descriptionItem}>
-                                    <span style={{ fontSize: '18px' }}>✨</span>
-                                    <span style={styles.descriptionText}>버틴 시간만큼 포인트를 얻을 수 있어요</span>
+                                    <div style={styles.descriptionRow}>
+                                        <span style={{ fontSize: '18px' }}>⭐</span>
+                                        <span style={styles.descriptionText}>장애물을 피해 달려보세요!</span>
+                                    </div>
+                                    <div style={styles.descriptionRow}>
+                                        <span style={{ fontSize: '18px' }}>✨</span>
+                                        <span style={styles.descriptionText}>버틴 시간만큼 포인트를 얻을 수 있어요</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -473,11 +556,7 @@ const styles = {
     startButtonWrapper: {
         position: 'relative',
         cursor: 'pointer',
-        transition: 'transform 0.1s',
         marginBottom: '0px',
-        ':active': {
-            transform: 'scale(0.95)',
-        },
     },
     sparkleStar: {
         position: 'absolute',
@@ -495,14 +574,20 @@ const styles = {
     },
     descriptionItem: {
         backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        padding: '10px 24px',
-        borderRadius: '50px',
+        padding: '12px 24px',
+        borderRadius: '20px',
         backdropFilter: 'blur(4px)',
         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         gap: '8px',
-        border: '2px solid #FFD700',
+        border: '3px solid #FFD700',
+    },
+    descriptionRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
     },
     descriptionText: {
         fontSize: '15px',
