@@ -55,21 +55,21 @@ export default function ReceiptScan({ onImageSelect, disabled = false }) {
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: disabled ? 'var(--background-muted, #f0f0f0)' : 'var(--card-bg)',
+                    backgroundColor: 'var(--card-bg)',
                     borderRadius: '12px',
                     padding: '1.5rem',
                     border: 'none',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                     cursor: disabled ? 'not-allowed' : 'pointer',
                     gap: '0.5rem',
-                    opacity: disabled ? 0.6 : 1
+                    opacity: 1
                 }}
             >
-                <Camera color={disabled ? '#999' : 'var(--primary)'} size={28} />
+                <Camera color="var(--primary)" size={28} />
                 <span style={{
                     fontSize: '0.95rem',
                     fontWeight: 'bold',
-                    color: disabled ? '#999' : 'var(--text-main)'
+                    color: 'var(--text-main)'
                 }}>
                     영수증 스캔
                 </span>

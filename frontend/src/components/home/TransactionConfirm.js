@@ -3,7 +3,7 @@
 
 
 // 외부 라이브러리 및 아이콘 임포트
-import { Edit2, ChevronRight, Search, MapPin, Calendar, Check } from 'lucide-react';
+import { Edit2, ChevronRight, Search, MapPin, Calendar, Check, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 import CalculatorInput from '../common/CalculatorInput';       // 금액 계산기 모달
@@ -324,24 +324,58 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate, 
                         gap: '12px'
                     }}
                 >
-                    {/* 장소명 텍스트 영역 - 클릭해도 모달 안 열림 */}
+                    {/* 장소명 입력 필드 - 직접 수정 가능 */}
                     <div style={{
                         flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
                         borderBottom: '1px solid #e2e8f0',
                         paddingBottom: '0.5rem'
                     }}>
-                        <span style={{
-                            fontSize: '1rem',
-                            fontWeight: '500',
-                            color: location.placeName || location.address ? 'var(--text-main)' : '#a0aec0',
-                            display: 'block',
-                            lineHeight: '1.5',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                        }}>
-                            {location.placeName || location.address || '장소를 검색하세요'}
-                        </span>
+                        <input
+                            type="text"
+                            value={location.placeName || location.address || ''}
+                            onChange={(e) => setLocation({
+                                ...location,
+                                placeName: e.target.value,
+                                address: location.address || e.target.value
+                            })}
+                            placeholder="장소를 검색하세요"
+                            style={{
+                                flex: 1,
+                                fontSize: '1rem',
+                                fontWeight: '500',
+                                color: 'var(--text-main)',
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                outline: 'none',
+                                padding: 0
+                            }}
+                        />
+                        {/* 장소명 삭제 버튼 */}
+                        {(location.placeName || location.address) && (
+                            <button
+                                onClick={() => setLocation({
+                                    placeName: '',
+                                    address: '',
+                                    lat: null,
+                                    lng: null
+                                })}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: '2px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'var(--text-sub)'
+                                }}
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
                     </div>
 
                     {/* 미니맵 영역 - 클릭 시에만 모달 열림 */}
