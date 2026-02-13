@@ -2,7 +2,6 @@
 
 import {
     Utensils,
-    UtensilsCrossed,
     Home,
     Coffee,
     ShoppingCart,
@@ -25,7 +24,6 @@ import {
 // 모든 카테고리 목록
 export const CATEGORIES = [
     '식비',
-    '외식/배달',
     '생활',
     '카페/간식',
     '온라인 쇼핑',
@@ -49,7 +47,6 @@ export const CATEGORIES = [
 // 카테고리별 아이콘 컴포넌트 매핑
 const CATEGORY_ICON_MAP = {
     '식비': Utensils,
-    '외식/배달': UtensilsCrossed,
     '생활': Home,
     '카페/간식': Coffee,
     '온라인 쇼핑': ShoppingCart,
@@ -85,7 +82,6 @@ const LEGACY_CATEGORY_MAP = {
 // 카테고리별 색상 매핑
 export const CATEGORY_COLORS = {
     '식비': '#14B8A6',
-    '외식/배달': '#0EA5E9',
     '생활': '#0D9488',
     '카페/간식': '#5EEAD4',
     '온라인 쇼핑': '#2DD4BF',
