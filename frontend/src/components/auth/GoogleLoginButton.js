@@ -12,7 +12,6 @@ import Image from 'next/image';
 
 function GoogleLoginButtonContent() {
     const { loginWithGoogle } = useAuth();
-    const [isHovered, setIsHovered] = useState(false);
     const [isActive, setIsActive] = useState(false);
 
     const login = useGoogleLogin({
@@ -27,14 +26,13 @@ function GoogleLoginButtonContent() {
             console.error('Google 로그인 실패');
             alert('Google 로그인에 실패했습니다. 다시 시도해주세요.');
         },
+        ux_mode: 'redirect', // 팝업 대신 리다이렉트 사용 (팝업 차단 문제 해결)
     });
 
     return (
         <button
             onClick={() => login()}
-            style={{ ...styles.button, ...(isHovered ? styles.buttonHover : {}), ...(isActive ? styles.buttonActive : {}) }}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            style={{ ...styles.button, ...(isActive ? styles.buttonActive : {}) }}
             onMouseDown={() => setIsActive(true)}
             onMouseUp={() => setIsActive(false)}
         >
@@ -90,11 +88,7 @@ const styles = {
         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
     },
-    buttonHover: {
-        backgroundColor: '#F8FAFC',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-        transform: 'translateY(-1px)',
-    },
+
     buttonActive: {
         transform: 'scale(0.98) translateY(0)',
         backgroundColor: '#F1F5F9',

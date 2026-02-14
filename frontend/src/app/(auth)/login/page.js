@@ -30,7 +30,7 @@ export default function LoginPage() {
         return (
             <>
                 <span style={styles.titleMint}>{dudukPart}</span>
-                {text.slice(dudukPart.length)}
+                <span style={{ whiteSpace: 'pre' }}>{text.slice(dudukPart.length)}</span>
             </>
         );
     };
