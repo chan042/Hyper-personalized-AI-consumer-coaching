@@ -1,0 +1,2 @@
+"""Services for challenges app."""
+

@@ -259,6 +259,8 @@ class UserChallenge(models.Model):
         if self.ends_at is None:
             return self.duration_days or 0
         now = timezone.now()
+        if self.started_at and now < self.started_at:
+            return self.duration_days or 0
         if now >= self.ends_at:
             return 0
         delta = self.ends_at - now
@@ -271,6 +273,9 @@ class UserChallenge(models.Model):
 
     def complete_challenge(self, is_success: bool, final_spent: int = None):
         """챌린지 완료 처리"""
+        if self.status in {'completed', 'failed'}:
+            return
+
         self.status = 'completed' if is_success else 'failed'
         self.completed_at = timezone.now()
         if final_spent is not None:
@@ -293,8 +298,39 @@ class UserChallenge(models.Model):
                 self.penalty_points = self._calculate_penalty()
                 self.user.points = max(0, self.user.points - self.penalty_points)
                 self.user.save(update_fields=['points'])
+
+        self._handle_completion_side_effects(is_success)
         
         self.save()
+
+    def _handle_completion_side_effects(self, is_success: bool):
+        """완료 시 부가 처리"""
+        success_conditions = self.success_conditions or {}
+        if success_conditions.get('type') != 'random_budget':
+            return
+
+        random_budget = int((self.system_generated_values or {}).get('random_budget') or 0)
+        if random_budget <= 0:
+            return
+
+        progress = self.progress or {}
+        progress['mask_target'] = False
+        progress['target'] = random_budget
+        self.progress = progress
+
+        try:
+            from apps.notifications.services import create_challenge_notification
+
+            status_text = "성공" if is_success else "실패"
+            spent = self.final_spent if self.final_spent is not None else progress.get('current', 0)
+            create_challenge_notification(
+                user=self.user,
+                title=f"{self.name} {status_text}",
+                message=f"숨겨진 예산은 {random_budget:,}원이었어요. 최종 지출은 {int(spent):,}원입니다.",
+            )
+        except Exception:
+            # 알림 실패가 완료 처리 자체를 막지 않도록 무시
+            pass
 
     def _calculate_points(self):
         """포인트 계산
@@ -313,12 +349,17 @@ class UserChallenge(models.Model):
             target = self.success_conditions.get('target_amount', 0)
             spent = self.final_spent or 0
             saved = max(0, target - spent)
+            random_budget = int((self.system_generated_values or {}).get('random_budget') or 0)
             
             formula = self.points_formula
             formula = formula.replace('{spent}', str(spent))
             formula = formula.replace('{target}', str(target))
             formula = formula.replace('{saved}', str(saved))
             formula = formula.replace('{base}', str(self.base_points))
+            formula = formula.replace('{actual_spent}', str(spent))
+            formula = formula.replace('{random_budget}', str(random_budget))
+            formula = formula.replace('actual_spent', str(spent))
+            formula = formula.replace('random_budget', str(random_budget))
             
             result = eval(formula)
             
@@ -345,11 +386,16 @@ class UserChallenge(models.Model):
             target = self.success_conditions.get('target_amount', 0)
             spent = self.final_spent or 0
             over = max(0, spent - target)
+            random_budget = int((self.system_generated_values or {}).get('random_budget') or 0)
             
             formula = self.penalty_formula
             formula = formula.replace('{spent}', str(spent))
             formula = formula.replace('{target}', str(target))
             formula = formula.replace('{over}', str(over))
+            formula = formula.replace('{actual_spent}', str(spent))
+            formula = formula.replace('{random_budget}', str(random_budget))
+            formula = formula.replace('actual_spent', str(spent))
+            formula = formula.replace('random_budget', str(random_budget))
             
             result = eval(formula)
             
@@ -396,6 +442,14 @@ class UserChallenge(models.Model):
                     else:
                         streak = 0
                 return streak >= required_streak
+            elif condition_type == 'jackpot':
+                random_budget = int((self.system_generated_values or {}).get('random_budget') or 0)
+                spent = self.final_spent or 0
+                if random_budget <= 0 or spent > random_budget:
+                    return False
+                threshold = float(self.bonus_condition.get('difference_percent', 5))
+                difference_percent = abs(random_budget - spent) / random_budget * 100
+                return difference_percent <= threshold
             
             return False
         except Exception:

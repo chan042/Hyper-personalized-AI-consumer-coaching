@@ -5,7 +5,7 @@ import time
 import datetime
 import logging
 import google.generativeai as genai
-from typing import Optional
+from typing import Optional, Any, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +152,134 @@ class GeminiClient:
                 else:
                     logger.error(f"Gemini API Error: {e}", exc_info=True)
                     return None
+
+    def analyze_image(self, prompt: str, image_base64: str, mime_type: str = "image/jpeg") -> Optional[dict]:
+        """
+        Sends image + prompt to Gemini and parses JSON response.
+        Returns None on any failure.
+        """
+        if not self.model:
+            logger.warning("Gemini 모델이 초기화되지 않았습니다 (API 키 확인 필요)")
+            return None
+
+        if not image_base64:
+            return None
+
+        try:
+            response = self.model.generate_content(
+                [
+                    prompt,
+                    {
+                        "inline_data": {
+                            "mime_type": mime_type,
+                            "data": image_base64,
+                        }
+                    },
+                ]
+            )
+            return parse_json_response(response.text)
+        except Exception as exc:
+            logger.warning("Gemini image analysis failed: %s", exc)
+            return None
+
+    def analyze_image_with_context(
+        self,
+        prompt: str,
+        image_base64: str,
+        mime_type: str = "image/jpeg",
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Optional[dict]:
+        """
+        Helper that appends structured context to prompt for stable image analysis.
+        """
+        context_text = ""
+        if context:
+            try:
+                context_text = f"\n\n[추가 문맥]\n{json.dumps(context, ensure_ascii=False)}"
+            except Exception:
+                context_text = ""
+        return self.analyze_image(f"{prompt}{context_text}", image_base64, mime_type=mime_type)
+
+    def analyze_cash_photo(
+        self,
+        image_base64: str,
+        expected_remaining: int,
+        mime_type: str = "image/jpeg",
+    ) -> Optional[dict]:
+        prompt = """
+        당신은 사진 속 현금 금액을 판정하는 심사기입니다.
+        사진에 보이는 지폐/동전의 권종과 개수를 추정하고 합계를 계산하세요.
+
+        반드시 아래 JSON만 출력하세요:
+        {
+        "is_cash_photo": true/false,
+        "detected_cash_total": 0 이상의 정수,
+        "denominations": [{"value": 10000, "count": 1}],
+        "confidence": 0.0~1.0 사이 실수
+        }
+        """
+        return self.analyze_image_with_context(
+            prompt=prompt,
+            image_base64=image_base64,
+            mime_type=mime_type,
+            context={
+                "expected_remaining": expected_remaining,
+                "rule": "detected_cash_total must exactly equal expected_remaining",
+            },
+        )
+
+    def analyze_marketplace_post_photo(
+        self,
+        image_base64: str,
+        mime_type: str = "image/jpeg",
+    ) -> Optional[dict]:
+        prompt = """
+        사진이 '중고거래 사이트/앱에 게시글(상품 등록 글)을 올린 화면'인지 판정하세요.
+        단순 채팅/목록 화면은 false입니다.
+
+        반드시 아래 JSON만 출력하세요:
+        {
+        "is_marketplace_post": true/false,
+        "platform_hint": "예: 당근/번개장터/중고나라/unknown",
+        "evidence": ["근거1", "근거2"],
+        "confidence": 0.0~1.0
+        }
+        """
+        return self.analyze_image(
+            prompt=prompt,
+            image_base64=image_base64,
+            mime_type=mime_type,
+        )
+
+    def analyze_one_plus_one_photo(
+        self,
+        image_base64: str,
+        ocr_text: str = "",
+        mime_type: str = "image/jpeg",
+    ) -> Optional[dict]:
+        prompt = """
+        사진과 OCR 텍스트를 함께 보고 다음을 판정하세요.
+        1) 편의점 구매 증거가 있는지 (브랜드/매장 단서 포함)
+        2) 1+1 또는 2+1 프로모션 증거가 있는지
+
+        반드시 아래 JSON만 출력하세요:
+        {
+        "is_convenience_purchase": true/false,
+        "has_promotion_1p1_or_2p1": true/false,
+        "promotion_type": "1+1|2+1|none",
+        "evidence": ["근거1", "근거2"],
+        "confidence": 0.0~1.0
+        }
+        """
+        return self.analyze_image_with_context(
+            prompt=prompt,
+            image_base64=image_base64,
+            mime_type=mime_type,
+            context={
+                "ocr_text": ocr_text or "",
+                "convenience_keywords": ["편의점", "GS25", "CU", "이마트24", "세븐일레븐"],
+            },
+        )
 
     def analyze_text(self, text: str) -> Optional[dict]:
         """

@@ -70,3 +70,16 @@ def create_monthly_report_notification(user, year, month):
         related_year=year,
         related_month=month
     )
+
+
+def create_challenge_notification(user, title, message, **kwargs):
+    """
+    챌린지 관련 알림
+    """
+    return create_notification(
+        user=user,
+        notification_type='CHALLENGE',
+        title=title,
+        message=message,
+        related_id=kwargs.get('related_id'),
+    )

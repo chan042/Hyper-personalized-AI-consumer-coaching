@@ -5,8 +5,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django.utils import timezone
 from django.db.models import Sum, OuterRef, Subquery
+from datetime import datetime, time
 
 from .models import ChallengeTemplate, UserChallenge, ChallengeDailyLog
+from .services.photo_verification import PhotoVerificationService
 from .serializers import (
     ChallengeTemplateSerializer, ChallengeTemplateListSerializer,
     UserChallengeSerializer, UserChallengeListSerializer,
@@ -62,6 +64,36 @@ class ChallengeTemplateViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         return queryset.order_by('display_order', '-created_at')
+
+    @action(detail=True, methods=['post'])
+    def preview_input(self, request, pk=None):
+        """
+        도전 전 입력값 프리뷰
+        - 나와의 싸움: 선택 주차 금액
+        - 고정비 다이어트: 지난달 고정비
+        """
+        template = self.get_object()
+        display_config = template.display_config or {}
+        if display_config.get('progress_type') != 'compare':
+            return Response(
+                {'error': '비교형 챌린지에서만 지원됩니다.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_input_values = request.data.get('user_input_values') or {}
+        serializer = UserChallengeCreateSerializer(context={'request': request})
+        reference_dt = serializer._resolve_start_at(template, template.success_conditions or {}, timezone.now())
+        compare_base = serializer._calculate_compare_base(
+            user_input_values=user_input_values,
+            success_conditions=template.success_conditions or {},
+            reference_dt=reference_dt,
+        )
+        return Response({
+            'compare_base': compare_base,
+            'compare_type': (template.success_conditions or {}).get('compare_type'),
+            'compare_week': user_input_values.get('compare_week'),
+            'scheduled_start_at': reference_dt,
+        })
 
 
 class UserChallengeViewSet(viewsets.ModelViewSet):
@@ -306,9 +338,10 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         
         from datetime import timedelta
         now = timezone.now()
+        start_at = self._resolve_retry_start_at(user_challenge, now)
         user_challenge.status = 'active'
-        user_challenge.started_at = now
-        user_challenge.ends_at = now + timedelta(days=user_challenge.duration_days)
+        user_challenge.started_at = start_at
+        user_challenge.ends_at = start_at + timedelta(days=user_challenge.duration_days)
         user_challenge.save()
         
         return Response(
@@ -349,10 +382,11 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         # 챌린지 상태 초기화
         now = timezone.now()
         duration_days = user_challenge.duration_days
+        start_at = self._resolve_retry_start_at(user_challenge, now)
 
         user_challenge.status = 'active'
-        user_challenge.started_at = now
-        user_challenge.ends_at = now + timezone.timedelta(days=duration_days)
+        user_challenge.started_at = start_at
+        user_challenge.ends_at = start_at + timezone.timedelta(days=duration_days)
         user_challenge.attempt_number += 1
         user_challenge.final_spent = None
         user_challenge.earned_points = 0
@@ -381,6 +415,21 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
 
+    def _resolve_retry_start_at(self, user_challenge, now):
+        success_conditions = user_challenge.success_conditions or {}
+        if success_conditions.get('compare_type') != 'last_month_week':
+            return now
+
+        weekday = now.weekday()
+        days_until_monday = (7 - weekday) % 7
+        if days_until_monday == 0:
+            return now
+        start_date = (now + timezone.timedelta(days=days_until_monday)).date()
+        return timezone.make_aware(
+            datetime.combine(start_date, time.min),
+            timezone.get_current_timezone()
+        )
+
     def _create_retry_progress(self, user_challenge):
         """재도전 시 초기 progress 생성"""
         display_config = user_challenge.display_config or {}
@@ -390,7 +439,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         if progress_type == 'amount':
             target = user_challenge.user_input_values.get('target_amount') or \
                      success_conditions.get('target_amount', 0)
-            return {
+            progress = {
                 "type": "amount",
                 "current": 0,
                 "target": target,
@@ -398,6 +447,11 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
                 "is_on_track": True,
                 "remaining": target
             }
+            if success_conditions.get('type') == 'amount_range' and target:
+                tolerance_percent = success_conditions.get('tolerance_percent', 10)
+                progress['lower_limit'] = int(target * (1 - tolerance_percent / 100))
+                progress['upper_limit'] = int(target * (1 + tolerance_percent / 100))
+            return progress
         elif progress_type == 'zero_spend':
             return {
                 "type": "zero_spend",
@@ -405,7 +459,10 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
                 "target_categories": success_conditions.get('categories', []),
                 "is_violated": False,
                 "violation_amount": 0,
-                "is_on_track": True
+                "is_on_track": True,
+                "elapsed_days": 0,
+                "total_days": user_challenge.duration_days,
+                "percentage": 0,
             }
         elif progress_type == 'daily_check':
             return {
@@ -417,14 +474,18 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
                 "is_on_track": True
             }
         elif progress_type == 'photo':
+            mode = user_challenge.photo_frequency or 'once'
             required = user_challenge.duration_days if user_challenge.photo_frequency == 'daily' else 1
+            if mode == 'on_purchase':
+                required = 0
             return {
                 "type": "photo",
                 "photo_count": 0,
                 "required_count": required,
                 "percentage": 0,
                 "photos": [],
-                "is_on_track": True
+                "is_on_track": True,
+                "mode": mode,
             }
         elif progress_type == 'compare':
             compare_base = success_conditions.get('compare_base', 0)
@@ -445,7 +506,9 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
                 "passed_days": 0,
                 "total_days": user_challenge.duration_days,
                 "is_on_track": True,
-                "has_violation": False
+                "has_violation": False,
+                "daily_rules": success_conditions.get('daily_rules', {}),
+                "percentage": 0,
             }
         elif progress_type == 'random_budget':
             return {
@@ -457,7 +520,8 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
                 "remaining": 0,
                 "potential_points": 0,
                 "jackpot_eligible": False,
-                "difference_percent": 100
+                "difference_percent": 100,
+                "mask_target": True,
             }
         else:
             return {"type": progress_type, "is_on_track": True}
@@ -531,10 +595,14 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        image_base64 = request.data.get('image_base64')
         photo_url = request.data.get('photo_url')
-        if not photo_url:
+        mime_type = request.data.get('mime_type', 'image/jpeg')
+        captured_at = request.data.get('captured_at')
+
+        if not image_base64 and not photo_url:
             return Response(
-                {'error': '사진 URL이 필요합니다.'},
+                {'error': 'image_base64 또는 photo_url이 필요합니다.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -544,51 +612,87 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
             log_date=today
         )
         
-        # 사진 URL 추가
+        verification_service = PhotoVerificationService()
+        verification = verification_service.verify(
+            user_challenge=user_challenge,
+            image_base64=image_base64,
+            photo_url=photo_url,
+            mime_type=mime_type,
+            log_date=today,
+        )
+
+        if not verification.get('passed'):
+            return Response(
+                {
+                    'error': verification.get('reason_message', '사진 검증에 실패했습니다.'),
+                    'error_code': 'PHOTO_VERIFICATION_FAILED',
+                    'verification': verification,
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 검증 통과한 사진만 저장
         photo_urls = log.photo_urls or []
         photo_urls.append({
-            'url': photo_url,
+            'url': photo_url or '',
             'uploaded_at': timezone.now().isoformat(),
-            'verified': False
+            'captured_at': captured_at,
+            'verified': True,
+            'verification_meta': {
+                'reason_code': verification.get('reason_code'),
+                'confidence': verification.get('confidence', 0),
+                'evidence': verification.get('evidence', {}),
+            },
         })
         log.photo_urls = photo_urls
-        log.save()
+        log.save(update_fields=['photo_urls', 'updated_at'])
         
         # progress 업데이트
         self._update_photo_progress(user_challenge)
         
         return Response({
-            'message': '사진 업로드 완료!',
+            'message': '사진 인증 완료!',
             'log': ChallengeDailyLogSerializer(log).data,
-            'progress': user_challenge.progress
+            'progress': user_challenge.progress,
+            'verification': verification,
         })
 
     def _update_daily_check_progress(self, user_challenge):
         """일일 체크 progress 업데이트"""
-        checked_count = user_challenge.daily_logs.filter(is_checked=True).count()
+        checked_count = 0
+        daily_status = []
+        for log in user_challenge.daily_logs.order_by('log_date'):
+            has_spending_input = (log.transaction_count or 0) > 0
+            done = bool(log.is_checked or has_spending_input)
+            if done:
+                checked_count += 1
+            daily_status.append({
+                "date": str(log.log_date),
+                "checked": bool(log.is_checked),
+                "has_spending_input": has_spending_input,
+                "done": done,
+                "amount": log.spent_amount,
+            })
+
+        if user_challenge.started_at:
+            today = timezone.now().date()
+            start_date = user_challenge.started_at.date()
+            end_date = min(today, user_challenge.ends_at.date() if user_challenge.ends_at else today)
+            elapsed_days = (end_date - start_date).days + 1 if end_date >= start_date else 0
+        else:
+            elapsed_days = 0
         total_days = user_challenge.duration_days
-        percentage = round((checked_count / total_days) * 100, 1) if total_days > 0 else 0
-        
-        daily_status = list(
-            user_challenge.daily_logs.order_by('log_date').values(
-                'log_date', 'is_checked', 'spent_amount'
-            )
-        )
+        denominator = max(1, min(total_days, elapsed_days)) if total_days > 0 else 1
+        percentage = round((checked_count / denominator) * 100, 1) if denominator > 0 else 0
         
         progress = {
             "type": "daily_check",
             "checked_days": checked_count,
             "total_days": total_days,
-            "percentage": percentage,
-            "daily_status": [
-                {
-                    "date": str(d['log_date']),
-                    "checked": d['is_checked'],
-                    "amount": d['spent_amount']
-                }
-                for d in daily_status
-            ],
-            "is_on_track": checked_count > 0
+            "elapsed_days": elapsed_days,
+            "percentage": min(100, percentage),
+            "daily_status": daily_status,
+            "is_on_track": checked_count >= elapsed_days
         }
         
         user_challenge.update_progress(progress)
@@ -600,15 +704,36 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         
         for log in user_challenge.daily_logs.order_by('log_date'):
             for photo in (log.photo_urls or []):
+                is_verified = bool(photo.get('verified', False))
+                if not is_verified:
+                    continue
                 total_photos += 1
                 photos.append({
                     "date": str(log.log_date),
                     "url": photo.get('url'),
-                    "verified": photo.get('verified', False)
+                    "verified": True
                 })
-        
-        required_count = user_challenge.duration_days if user_challenge.photo_frequency == 'daily' else 1
-        percentage = round((total_photos / required_count) * 100, 1) if required_count > 0 else 0
+
+        success_conditions = user_challenge.success_conditions or {}
+        photo_condition = success_conditions.get('photo_condition', '')
+        mode = user_challenge.photo_frequency or 'once'
+        required_count = success_conditions.get('required_photos', 1)
+
+        if user_challenge.photo_frequency == 'daily':
+            required_count = user_challenge.duration_days
+            percentage = round((total_photos / required_count) * 100, 1) if required_count > 0 else 0
+        elif '중고 거래' in photo_condition:
+            if user_challenge.started_at:
+                today = timezone.now().date()
+                start_date = user_challenge.started_at.date()
+                end_date = min(today, user_challenge.ends_at.date() if user_challenge.ends_at else today)
+                elapsed_days = (end_date - start_date).days + 1 if end_date >= start_date else 0
+            else:
+                elapsed_days = 0
+            total_days = user_challenge.duration_days or 1
+            percentage = round((elapsed_days / total_days) * 100, 1)
+        else:
+            percentage = round((total_photos / required_count) * 100, 1) if required_count > 0 else 0
         
         progress = {
             "type": "photo",
@@ -616,7 +741,8 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
             "required_count": required_count,
             "percentage": min(100, percentage),
             "photos": photos,
-            "is_on_track": total_photos > 0
+            "is_on_track": total_photos > 0,
+            "mode": mode,
         }
         
         user_challenge.update_progress(progress)

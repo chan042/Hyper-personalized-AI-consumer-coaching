@@ -5,11 +5,71 @@
  * - UserChallenge 모델에 맞게 progress 객체 처리
  */
 import { useState, useRef, useEffect } from 'react';
-import { X, Camera, Image, ChevronDown, Star, Calendar, TrendingUp, CheckCircle, Sparkles, AlertCircle } from 'lucide-react';
-import { CATEGORIES, getCategoryIcon, CATEGORY_COLORS } from '../common/CategoryIcons'; // 카테고리별 아이콘 가져오기
-import { getDifficultyLabel, getDifficultyStyle } from '@/lib/challengeUtils';
-import { useAuth } from '@/contexts/AuthContext';
+import { X, Camera, Image, ChevronDown, Star, Calendar, CheckCircle, Sparkles } from 'lucide-react';
+import { CATEGORIES, getCategoryIcon } from '../common/CategoryIcons';
 import { useChallenge } from './useChallenge';
+import { getDifficultyLabel, getDifficultyStyle } from '@/lib/challengeUtils';
+import { previewTemplateInput } from '@/lib/api/challenge';
+
+const WEEK_DAYS = [
+    { key: 'sun', label: 'SUN', index: 0, shortLabel: '일' },
+    { key: 'mon', label: 'MON', index: 1, shortLabel: '월' },
+    { key: 'tue', label: 'TUE', index: 2, shortLabel: '화' },
+    { key: 'wed', label: 'WED', index: 3, shortLabel: '수' },
+    { key: 'thu', label: 'THU', index: 4, shortLabel: '목' },
+    { key: 'fri', label: 'FRI', index: 5, shortLabel: '금' },
+    { key: 'sat', label: 'SAT', index: 6, shortLabel: '토' },
+];
+
+const FORBIDDEN_INPUT_KEYS = WEEK_DAYS.map((day) => `${day.key}_forbidden`);
+
+const normalizeWeekdayKey = (rawKey) => {
+    const key = String(rawKey || '').trim().toLowerCase();
+
+    if (key.includes('sun') || key === '일') return 'sun';
+    if (key.includes('mon') || key === '월') return 'mon';
+    if (key.includes('tue') || key === '화') return 'tue';
+    if (key.includes('wed') || key === '수') return 'wed';
+    if (key.includes('thu') || key === '목') return 'thu';
+    if (key.includes('fri') || key === '금') return 'fri';
+    if (key.includes('sat') || key === '토') return 'sat';
+
+    return null;
+};
+
+const normalizeDailyRules = (dailyRules) => {
+    const normalized = {};
+
+    Object.entries(dailyRules || {}).forEach(([day, category]) => {
+        const dayKey = normalizeWeekdayKey(day);
+        if (dayKey) {
+            normalized[dayKey] = category;
+        }
+    });
+
+    return normalized;
+};
+
+const getChallengeStartDayIndex = (challenge) => {
+    const startedAt = challenge?.startedAt;
+    if (!startedAt) return new Date().getDay();
+
+    const parsed = new Date(startedAt);
+    if (Number.isNaN(parsed.getTime())) return new Date().getDay();
+    return parsed.getDay();
+};
+
+const getOrderedWeekDays = (startDayIndex) => {
+    const startIndex = WEEK_DAYS.findIndex((day) => day.index === startDayIndex);
+    if (startIndex < 0) return WEEK_DAYS;
+    return [...WEEK_DAYS.slice(startIndex), ...WEEK_DAYS.slice(0, startIndex)];
+};
+
+const isCategoryInput = (input) => {
+    const key = String(input?.key || '').toLowerCase();
+    const label = String(input?.label || '').toLowerCase();
+    return key.includes('category') || label.includes('카테고리') || label.includes('category');
+};
 
 
 export default function ChallengeDetailModal({
@@ -26,11 +86,11 @@ export default function ChallengeDetailModal({
     onDescriptionChange,
     customFooter
 }) {
-    const { user } = useAuth();
-    const characterType = user?.character_type || 'ham';
-
     const [inputValues, setInputValues] = useState({});
     const [openCategorySelect, setOpenCategorySelect] = useState(null);
+    const [selectedDayTab, setSelectedDayTab] = useState('mon_forbidden');
+    const [comparePreview, setComparePreview] = useState(null);
+    const [isComparePreviewLoading, setIsComparePreviewLoading] = useState(false);
     const fileInputRef = useRef(null);
     const modalRef = useRef(null);
 
@@ -63,6 +123,49 @@ export default function ChallengeDetailModal({
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [onClose]);
+
+    const isNotStarted = !isActive && !isFailed && !isCompleted;
+    const isCompareTemplate =
+        isNotStarted &&
+        challenge?.displayConfig?.progress_type === 'compare' &&
+        !!challenge?.id;
+    const compareType = challenge?.successConditions?.compare_type;
+    const shouldShowComparePreview =
+        isCompareTemplate && (compareType === 'last_month_week' || compareType === 'fixed_expense');
+    const shouldShowCompareWeekPreview = isCompareTemplate && compareType === 'last_month_week';
+    const shouldShowFixedExpensePreview = isCompareTemplate && compareType === 'fixed_expense';
+
+    const fetchComparePreview = async (nextInputValues) => {
+        if (!shouldShowComparePreview) return;
+        try {
+            setIsComparePreviewLoading(true);
+            const preview = await previewTemplateInput(challenge.id, nextInputValues || {});
+            setComparePreview(preview);
+        } catch (e) {
+            setComparePreview(null);
+        } finally {
+            setIsComparePreviewLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        setComparePreview(null);
+        setInputValues({});
+        setOpenCategorySelect(null);
+
+        const inputKeySet = new Set((challenge?.userInputs || []).map((input) => input.key));
+        const firstAvailableForbiddenKey = getOrderedWeekDays(getChallengeStartDayIndex(challenge))
+            .map((day) => `${day.key}_forbidden`)
+            .find((key) => inputKeySet.has(key));
+        setSelectedDayTab(firstAvailableForbiddenKey || 'mon_forbidden');
+    }, [challenge?.id]);
+
+    useEffect(() => {
+        if (!shouldShowFixedExpensePreview) return;
+        if (compareType === 'fixed_expense') {
+            fetchComparePreview({});
+        }
+    }, [challenge?.id, compareType, shouldShowFixedExpensePreview]);
 
     if (!challenge) return null;
 
@@ -103,6 +206,44 @@ export default function ChallengeDetailModal({
     };
 
     const uiColor = 'var(--primary)';
+    const startDayIndex = getChallengeStartDayIndex(challenge);
+    const orderedWeekDays = getOrderedWeekDays(startDayIndex);
+    const normalizedDailyRules = normalizeDailyRules(progressData.dailyRules);
+    const forbiddenInputKeySet = new Set((challenge.userInputs || []).map((input) => input.key));
+    const selectableForbiddenDays = orderedWeekDays.filter((day) => forbiddenInputKeySet.has(`${day.key}_forbidden`));
+    const daySelectionItems = [
+        ...selectableForbiddenDays.map((day) => ({
+            key: `${day.key}_forbidden`,
+            label: day.shortLabel,
+            isAI: false,
+        })),
+        ...Array.from({ length: Math.max(0, 7 - selectableForbiddenDays.length) }, (_, idx) => ({
+            key: `ai_${idx + 1}`,
+            label: 'AI',
+            isAI: true,
+        })),
+    ];
+
+    const buildStartInputValues = () => {
+        const normalized = {};
+
+        (challenge?.userInputs || []).forEach((input) => {
+            const rawValue = inputValues[input.key];
+            if (rawValue === '' || rawValue === null || rawValue === undefined) {
+                return;
+            }
+
+            if (input.type === 'number' || input.key === 'compare_week') {
+                const parsed = Number(rawValue);
+                normalized[input.key] = Number.isNaN(parsed) ? rawValue : parsed;
+                return;
+            }
+
+            normalized[input.key] = rawValue;
+        });
+
+        return normalized;
+    };
 
     return (
         <div style={styles.overlay}>
@@ -195,6 +336,35 @@ export default function ChallengeDetailModal({
                             </div>
                         )}
 
+                        {isActive && progressData.type === 'amount' &&
+                            progressData.lowerLimit !== undefined &&
+                            progressData.upperLimit !== undefined && (
+                                <div style={styles.sectionContainer}>
+                                    <h3 style={styles.sectionTitle}>허용 범위</h3>
+                                    <p style={styles.descriptionText}>
+                                        {Number(progressData.lowerLimit).toLocaleString()}원 ~ {Number(progressData.upperLimit).toLocaleString()}원
+                                    </p>
+                                </div>
+                            )}
+
+                        {isActive && progressData.type === 'daily_rule' &&
+                            progressData.dailyRules &&
+                            Object.keys(progressData.dailyRules).length > 0 && (
+                                <div style={styles.sectionContainer}>
+                                    <h3 style={styles.sectionTitle}>요일별 금지 카테고리</h3>
+                                    <div style={styles.conditionBox}>
+                                        <div style={styles.weeklyCalendarGrid}>
+                                            {orderedWeekDays.map((day) => (
+                                                <div key={day.key} style={styles.weeklyCalendarCell}>
+                                                    <span style={styles.weeklyDayLabel}>{day.label}</span>
+                                                    <span style={styles.weeklyCategoryLabel}>{normalizedDailyRules[day.key] || '-'}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                         {/* Description */}
                         <div style={styles.sectionContainer}>
                             <h3 style={styles.sectionTitle}>챌린지 설명</h3>
@@ -250,7 +420,7 @@ export default function ChallengeDetailModal({
                         })()}
 
                         {/* User Inputs (Not Started) */}
-                        {!isActive && !isFailed && !isCompleted && challenge.userInputs && challenge.userInputs.some(i => i.key === 'mon_forbidden') && (
+                        {!isActive && !isFailed && !isCompleted && challenge.userInputs && challenge.userInputs.some(i => FORBIDDEN_INPUT_KEYS.includes(i.key)) && (
                             <div style={styles.sectionContainer}>
                                 <h3 style={styles.sectionTitle}>
                                     요일별 금지 카테고리 설정 <span style={styles.requiredMark}>*</span>
@@ -258,7 +428,7 @@ export default function ChallengeDetailModal({
                                 {/* ... (Original implementation improved slightly with styles) ... */}
                                 {/* Keeping existing logic but wrapping in new layout style */}
                                 {(() => {
-                                    const days = [
+                                    let days = [
                                         { key: 'mon_forbidden', label: '월' },
                                         { key: 'tue_forbidden', label: '화' },
                                         { key: 'wed_forbidden', label: '수' },
@@ -267,15 +437,14 @@ export default function ChallengeDetailModal({
                                         { key: 'ai_2', label: '?' },
                                         { key: 'ai_3', label: '?' },
                                     ];
-
-                                    const [selectedDayTab, setSelectedDayTab] = useState('mon_forbidden');
+                                    days = daySelectionItems;
 
                                     return (
                                         <div style={styles.inputWrapper}>
                                             <div style={styles.dayTabs}>
                                                 {days.map((day) => {
                                                     const isSelected = selectedDayTab === day.key;
-                                                    const isAI = day.label === '?';
+                                                    const isAI = day.isAI;
                                                     const hasValue = !isAI && inputValues[day.key];
 
                                                     return (
@@ -370,12 +539,12 @@ export default function ChallengeDetailModal({
 
                         {/* Other User Inputs */}
                         {!isActive && !isFailed && !isCompleted && challenge.userInputs &&
-                            challenge.userInputs.filter(input => !['mon_forbidden', 'tue_forbidden', 'wed_forbidden', 'thu_forbidden'].includes(input.key)).length > 0 && (
+                            challenge.userInputs.filter(input => !FORBIDDEN_INPUT_KEYS.includes(input.key)).length > 0 && (
                                 <div style={styles.sectionContainer}>
                                     <h3 style={styles.sectionTitle}>추가 설정</h3>
                                     <div style={styles.inputWrapper}>
                                         {challenge.userInputs
-                                            .filter(input => !['mon_forbidden', 'tue_forbidden', 'wed_forbidden', 'thu_forbidden'].includes(input.key))
+                                            .filter(input => !FORBIDDEN_INPUT_KEYS.includes(input.key))
                                             .map((input) => (
                                                 <div key={input.key} style={styles.inputGroup}>
                                                     <label style={styles.inputLabel}>
@@ -383,16 +552,84 @@ export default function ChallengeDetailModal({
                                                         {input.required && <span style={styles.requiredMark}>*</span>}
                                                     </label>
                                                     {input.type === 'select' ? (
-                                                        <select
-                                                            style={styles.inputField}
-                                                            value={inputValues[input.key] || ''}
-                                                            onChange={(e) => setInputValues({ ...inputValues, [input.key]: e.target.value })}
-                                                        >
-                                                            <option value="">선택해주세요</option>
-                                                            {input.options.map((opt) => (
-                                                                <option key={opt} value={opt}>{opt}주차</option>
-                                                            ))}
-                                                        </select>
+                                                        <>
+                                                            <select
+                                                                style={styles.inputField}
+                                                                value={inputValues[input.key] || ''}
+                                                                onChange={(e) => {
+                                                                    const value = e.target.value;
+                                                                    const nextValues = { ...inputValues, [input.key]: value };
+                                                                    setInputValues(nextValues);
+                                                                    if (input.key === 'compare_week') {
+                                                                        if (!value) {
+                                                                            setComparePreview(null);
+                                                                        } else {
+                                                                            fetchComparePreview({
+                                                                                ...nextValues,
+                                                                                compare_week: Number(value),
+                                                                            });
+                                                                        }
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <option value="">선택해주세요</option>
+                                                                {input.options.map((opt) => (
+                                                                    <option key={opt} value={opt}>{opt}주차</option>
+                                                                ))}
+                                                            </select>
+                                                            {input.key === 'compare_week' && shouldShowCompareWeekPreview && (
+                                                                <div style={styles.inlineComparePreview}>
+                                                                    {isComparePreviewLoading && <p style={styles.inlineComparePreviewText}>금액 계산 중...</p>}
+                                                                    {!isComparePreviewLoading && comparePreview?.compare_base !== undefined && (
+                                                                        <p style={styles.inlineComparePreviewText}>
+                                                                            {Number(comparePreview.compare_base).toLocaleString()}원
+                                                                        </p>
+                                                                    )}
+                                                                    {!isComparePreviewLoading && comparePreview?.compare_base === undefined && (
+                                                                        <p style={styles.inlineComparePreviewHint}>주차를 선택해주세요.</p>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    ) : isCategoryInput(input) ? (
+                                                        <div style={styles.categorySelectContainer}>
+                                                            <button
+                                                                type="button"
+                                                                style={{ ...styles.categorySelectButton, borderColor: inputValues[input.key] ? uiColor : '#E5E7EB' }}
+                                                                onClick={() => setOpenCategorySelect(openCategorySelect === input.key ? null : input.key)}
+                                                            >
+                                                                <span style={inputValues[input.key] ? styles.categorySelectedText : styles.categoryPlaceholder}>
+                                                                    {inputValues[input.key] ? (
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                            {getCategoryIcon(inputValues[input.key], 18)}
+                                                                            <span>{inputValues[input.key]}</span>
+                                                                        </div>
+                                                                    ) : '카테고리 선택'}
+                                                                </span>
+                                                                <ChevronDown size={18} style={{ transform: openCategorySelect === input.key ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                                                            </button>
+                                                            {openCategorySelect === input.key && (
+                                                                <div style={styles.categoryDropdown}>
+                                                                    {CATEGORIES.map((cat) => (
+                                                                        <button
+                                                                            key={cat}
+                                                                            type="button"
+                                                                            style={{
+                                                                                ...styles.categoryOption,
+                                                                                backgroundColor: inputValues[input.key] === cat ? '#F0FDF4' : 'transparent',
+                                                                            }}
+                                                                            onClick={() => {
+                                                                                setInputValues({ ...inputValues, [input.key]: cat });
+                                                                                setOpenCategorySelect(null);
+                                                                            }}
+                                                                        >
+                                                                            {getCategoryIcon(cat, 16)}
+                                                                            <span>{cat}</span>
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     ) : (
                                                         <input
                                                             type={input.type === 'number' ? 'number' : 'text'}
@@ -408,6 +645,23 @@ export default function ChallengeDetailModal({
                                     </div>
                                 </div>
                             )}
+
+                        {shouldShowFixedExpensePreview && (
+                            <div style={styles.sectionContainer}>
+                                <h3 style={styles.sectionTitle}>비교 기준 금액</h3>
+                                <div style={styles.conditionBox}>
+                                    {isComparePreviewLoading && <p style={styles.descriptionText}>금액 계산 중...</p>}
+                                    {!isComparePreviewLoading && comparePreview?.compare_base !== undefined && (
+                                        <p style={styles.descriptionText}>
+                                            {Number(comparePreview.compare_base).toLocaleString()}원
+                                        </p>
+                                    )}
+                                    {!isComparePreviewLoading && comparePreview?.compare_base === undefined && (
+                                        <p style={styles.descriptionText}>주차/기준을 선택하면 금액이 표시됩니다.</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Completed Info */}
                         {isCompleted && (
@@ -449,7 +703,7 @@ export default function ChallengeDetailModal({
                                     )}
                                     <button
                                         style={{ ...styles.primaryButton, background: 'var(--primary)' }}
-                                        onClick={() => {
+                                        onClick={async () => {
                                             if (challenge.userInputs) {
                                                 for (const input of challenge.userInputs) {
                                                     if (input.required && !inputValues[input.key]) {
@@ -458,8 +712,8 @@ export default function ChallengeDetailModal({
                                                     }
                                                 }
                                             }
-                                            onStart?.(challenge, inputValues);
-                                            onClose();
+                                            const startValues = buildStartInputValues();
+                                            await onStart?.(challenge, startValues);
                                         }}
                                     >
                                         도전하기
@@ -770,6 +1024,52 @@ const styles = {
         color: '#4B5563',
         lineHeight: '1.5',
     },
+    ruleRow: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '8px 0',
+        borderBottom: '1px solid #F3F4F6',
+        fontSize: '0.9rem',
+    },
+    ruleDay: {
+        color: '#6B7280',
+        fontWeight: '600',
+    },
+    ruleCategory: {
+        color: 'var(--primary)',
+        fontWeight: '700',
+    },
+    weeklyCalendarGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+        gap: '8px',
+    },
+    weeklyCalendarCell: {
+        border: '1px solid #E5E7EB',
+        borderRadius: '10px',
+        backgroundColor: '#F9FAFB',
+        padding: '8px 4px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '6px',
+        minHeight: '68px',
+        justifyContent: 'center',
+    },
+    weeklyDayLabel: {
+        fontSize: '0.72rem',
+        fontWeight: '700',
+        color: '#6B7280',
+        letterSpacing: '0.03em',
+    },
+    weeklyCategoryLabel: {
+        fontSize: '0.8rem',
+        fontWeight: '700',
+        color: 'var(--primary)',
+        textAlign: 'center',
+        wordBreak: 'keep-all',
+    },
     photoCondition: {
         display: 'flex',
         alignItems: 'center',
@@ -886,6 +1186,24 @@ const styles = {
         padding: '0 14px',
         fontSize: '0.95rem',
         outline: 'none',
+    },
+    inlineComparePreview: {
+        marginTop: '8px',
+        borderRadius: '10px',
+        border: '1px solid #E5E7EB',
+        backgroundColor: '#F9FAFB',
+        padding: '10px 12px',
+    },
+    inlineComparePreviewText: {
+        margin: 0,
+        fontSize: '0.9rem',
+        fontWeight: '700',
+        color: '#1F2937',
+    },
+    inlineComparePreviewHint: {
+        margin: 0,
+        fontSize: '0.85rem',
+        color: '#6B7280',
     },
 
     // Completed

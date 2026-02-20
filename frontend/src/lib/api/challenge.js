@@ -81,6 +81,10 @@ const transformUserChallenge = (uc) => {
         sourceType: uc.source_type,
         category: uc.source_type || 'all',
         displayConfig: uc.display_config || {},
+        successConditions: uc.success_conditions || {},
+        userInputValues: uc.user_input_values || {},
+        systemGeneratedValues: uc.system_generated_values || {},
+        userInputs: uc.user_inputs || [],
         successDescription: uc.success_description,
         attemptNumber: uc.attempt_number || 1,
         startedAt: uc.started_at,
@@ -135,6 +139,23 @@ export const getChallengeTemplateDetail = async (id) => {
         return transformTemplate(response.data);
     } catch (error) {
         console.error('Get Template Detail Error:', error);
+        throw error;
+    }
+};
+
+/**
+ * 챌린지 입력값 프리뷰 조회 (비교형 전용)
+ * @param {number} templateId
+ * @param {object} userInputValues
+ */
+export const previewTemplateInput = async (templateId, userInputValues = {}) => {
+    try {
+        const response = await client.post(`/api/challenges/templates/${templateId}/preview_input/`, {
+            user_input_values: userInputValues,
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Preview Template Input Error:', error);
         throw error;
     }
 };
@@ -277,12 +298,15 @@ export const checkDaily = async (id) => {
 /**
  * 사진 인증 업로드
  * @param {number} id
- * @param {string} photoUrl
+ * @param {Object} payload
  */
-export const uploadPhoto = async (id, photoUrl) => {
+export const uploadPhoto = async (id, payload) => {
     try {
         const response = await client.post(`/api/challenges/my/${id}/upload_photo/`, {
-            photo_url: photoUrl,
+            image_base64: payload?.image_base64,
+            photo_url: payload?.photo_url,
+            mime_type: payload?.mime_type,
+            captured_at: payload?.captured_at,
         });
         return response.data;
     } catch (error) {
@@ -450,4 +474,3 @@ export const startSavedChallenge = async (id) => {
         throw error;
     }
 };
-

@@ -32,7 +32,9 @@ import {
     startAIChallenge,
     deleteChallenge,
     startSavedChallenge,
+    uploadPhoto,
 } from '@/lib/api/challenge';
+import { fileToBase64, validateImageFile } from '@/lib/utils/imageUtils';
 
 
 
@@ -250,19 +252,70 @@ export default function ChallengePage() {
         }
     };
 
-    const handlePhotoUpload = async (challenge) => {
-        // 추후 구현 필요
-        alert('사진 업로드 기능은 준비 중입니다.');
+    const handlePhotoUpload = async (challenge, file) => {
+        if (!file) {
+            alert('업로드할 이미지를 선택해주세요.');
+            return;
+        }
+
+        const validation = validateImageFile(file, 10);
+        if (!validation.valid) {
+            alert(validation.error || '이미지 파일이 유효하지 않습니다.');
+            return;
+        }
+
+        try {
+            const challengeId = challenge.userChallengeId || challenge.id;
+            const imageBase64 = await fileToBase64(file);
+            const result = await uploadPhoto(challengeId, {
+                image_base64: imageBase64,
+                mime_type: file.type || 'image/jpeg',
+                captured_at: new Date().toISOString(),
+            });
+
+            await fetchChallenges();
+            setSelectedChallenge((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    progressData: result.progress,
+                    progress: result.progress?.percentage ?? prev.progress,
+                };
+            });
+            alert(result?.verification?.reason_message || '사진 인증이 완료되었습니다.');
+        } catch (err) {
+            const serverMessage =
+                err?.response?.data?.verification?.reason_message ||
+                err?.response?.data?.error ||
+                '사진 인증에 실패했습니다. 다시 시도해주세요.';
+            alert(serverMessage);
+        }
     };
     // 챌린지 시작
     const handleStartChallenge = async (challenge, userInputs = {}) => {
         try {
+            const normalizedInputs = Object.entries(userInputs || {}).reduce((acc, [key, value]) => {
+                if (value === '' || value === null || value === undefined) {
+                    return acc;
+                }
+
+                const inputMeta = (challenge.userInputs || []).find((input) => input.key === key);
+                if (inputMeta?.type === 'number' || key === 'compare_week') {
+                    const parsed = Number(value);
+                    acc[key] = Number.isNaN(parsed) ? value : parsed;
+                    return acc;
+                }
+
+                acc[key] = value;
+                return acc;
+            }, {});
+
             // 저장된 챌린지 시작
             if (challenge.status === 'ready') {
                 await startSavedChallenge(challenge.id);
             } else {
                 // 템플릿 기반 챌린지 시작
-                await startChallenge(challenge.id, userInputs);
+                await startChallenge(challenge.id, normalizedInputs);
             }
 
             await fetchChallenges();

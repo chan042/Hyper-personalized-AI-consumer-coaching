@@ -208,17 +208,17 @@ DUDUK_CHALLENGE_TEMPLATES = [
         "success_conditions": {
             "type": "zero_spend",
             "target_amount": 0,
-            "categories": ["외식", "배달"],
+            "categories": ["식비"],
             "comparison": "eq"
         },
         "user_inputs": None,
         "requires_daily_check": False,
         "requires_photo": False,
-        "success_description": ["외식, 배달 카테고리 지출 0원"],
+        "success_description": ["식비 카테고리 지출 0원"],
         "display_config": {
             "progress_type": "zero_spend",
             "primary_metric": {
-                "label": "외식/배달 지출",
+                "label": "식비 지출",
                 "unit": "원",
                 "format": "currency",
                 "show_target": True,

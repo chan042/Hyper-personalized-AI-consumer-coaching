@@ -171,7 +171,28 @@ export const getProgressText = (progress, durationDays) => {
 
     const type = progress.type;
 
-    if (type === 'amount' || type === 'compare' || type === 'random_budget') {
+    if (type === 'random_budget') {
+        const current = progress.current || 0;
+        if (progress.mask_target) {
+            return `${current.toLocaleString()}원 / ?원`;
+        }
+        const target = progress.target || 0;
+        return `${current.toLocaleString()}원 / ${target.toLocaleString()}원`;
+    }
+
+    if (type === 'amount') {
+        const current = progress.current || 0;
+        const target = progress.target || 0;
+        return `${current.toLocaleString()}원 / ${target.toLocaleString()}원`;
+    } else if (type === 'compare') {
+        if (progress.phase === 'next_month') {
+            const nextSpent = progress.next_month_spent || progress.current || 0;
+            const base = progress.compare_base || progress.this_month_spent || progress.target || 0;
+            return `${nextSpent.toLocaleString()}원 / ${base.toLocaleString()}원`;
+        }
+        if (progress.phase === 'this_month' && progress.this_month_spent !== undefined) {
+            return `${(progress.this_month_spent || 0).toLocaleString()}원`;
+        }
         const current = progress.current || 0;
         const target = progress.target || 0;
         return `${current.toLocaleString()}원 / ${target.toLocaleString()}원`;
@@ -181,6 +202,9 @@ export const getProgressText = (progress, durationDays) => {
         return `${checkedDays}일 / ${totalDays}일`;
     } else if (type === 'photo') {
         const photoCount = progress.photo_count || progress.photoCount || 0;
+        if ((progress.mode || '').toLowerCase() === 'on_purchase') {
+            return `${photoCount}회 인증`;
+        }
         const requiredCount = progress.required_count || progress.requiredCount || 1;
         return `${photoCount}회 / ${requiredCount}회`;
     } else if (type === 'zero_spend') {
@@ -220,6 +244,14 @@ export const getProgressData = (progress) => {
             // compare
             compareBase: progress.compare_base || progress.compareBase,
             difference: progress.difference,
+            phase: progress.phase,
+            thisMonthSpent: progress.this_month_spent,
+            nextMonthSpent: progress.next_month_spent,
+            ratioPercent: progress.ratio_percent,
+            dailyRules: progress.daily_rules || {},
+            mode: progress.mode,
+            lowerLimit: progress.lower_limit ?? progress.lowerLimit,
+            upperLimit: progress.upper_limit ?? progress.upperLimit,
             // common
             isOnTrack: progress.is_on_track || progress.isOnTrack,
         };

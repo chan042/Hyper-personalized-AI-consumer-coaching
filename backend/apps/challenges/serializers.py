@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime, time, date
+from calendar import monthrange
 from django.db.models import Sum
 import random
 from .models import ChallengeTemplate, UserChallenge, ChallengeDailyLog
@@ -152,7 +153,6 @@ class UserChallengeCreateSerializer(serializers.Serializer):
         user_input_values = validated_data.get('user_input_values', {})
 
         now = timezone.now()
-        ends_at = now + timedelta(days=template.duration_days)
 
         # 기존 활성 챌린지 확인
         existing = UserChallenge.objects.filter(
@@ -182,9 +182,27 @@ class UserChallengeCreateSerializer(serializers.Serializer):
             if key in success_conditions:
                 success_conditions[key] = value
 
-        initial_progress = self._create_initial_progress(template, user_input_values)
+        compare_type = success_conditions.get('compare_type')
+        if compare_type == 'next_month_category':
+            target_category = user_input_values.get('target_category')
+            if target_category:
+                success_conditions['categories'] = [target_category]
 
+        # 무00의 날: daily_rules 선생성
         system_generated_values = {}
+        if success_conditions.get('type') == 'daily_rule':
+            daily_rules = self._generate_daily_rules(user_input_values, success_conditions)
+            success_conditions['daily_rules'] = daily_rules
+            system_generated_values['daily_rules'] = daily_rules
+
+        start_at = self._resolve_start_at(template, success_conditions, now)
+        ends_at = start_at + timedelta(days=template.duration_days)
+        initial_progress = self._create_initial_progress(
+            template=template,
+            user_input_values=user_input_values,
+            success_conditions=success_conditions,
+            reference_dt=start_at,
+        )
 
         # 비교형 챌린지: compare_base 저장
         display_config = template.display_config or {}
@@ -194,17 +212,17 @@ class UserChallengeCreateSerializer(serializers.Serializer):
             compare_base = initial_progress.get('compare_base', 0)
             success_conditions['compare_base'] = compare_base
             system_generated_values['compare_base'] = compare_base
+            if success_conditions.get('compare_type') == 'next_month_category':
+                system_generated_values['future_message_notified'] = False
+                system_generated_values['challenge_start_month'] = {
+                    "year": start_at.year,
+                    "month": start_at.month,
+                }
 
         # 랜덤 예산 챌린지: random_budget 저장
         if progress_type == 'random_budget':
             random_budget = initial_progress.get('target', 0)
             system_generated_values['random_budget'] = random_budget
-
-        # 무00의 날: daily_rules 생성
-        if success_conditions.get('type') == 'daily_rule':
-            daily_rules = self._generate_daily_rules(user_input_values, success_conditions)
-            success_conditions['daily_rules'] = daily_rules
-            system_generated_values['daily_rules'] = daily_rules
 
         user_challenge = UserChallenge.objects.create(
             user=user,
@@ -214,7 +232,7 @@ class UserChallengeCreateSerializer(serializers.Serializer):
             description=template.description,
             difficulty=template.difficulty,
             duration_days=template.duration_days,
-            started_at=now,
+            started_at=start_at,
             ends_at=ends_at,
             success_conditions=success_conditions,
             user_input_values=user_input_values,
@@ -239,6 +257,24 @@ class UserChallengeCreateSerializer(serializers.Serializer):
         )
 
         return user_challenge
+
+    def _resolve_start_at(self, template, success_conditions, now=None):
+        """
+        특정 챌린지는 시작일을 강제
+        - 나와의 싸움(last_month_week): 항상 다음 월요일 시작
+        """
+        now = now or timezone.now()
+        compare_type = (success_conditions or {}).get('compare_type')
+        if compare_type != 'last_month_week':
+            return now
+
+        weekday = now.weekday()
+        days_until_monday = (7 - weekday) % 7
+        if days_until_monday == 0:
+            return now
+        start_date = (now + timedelta(days=days_until_monday)).date()
+        start_naive = datetime.combine(start_date, time.min)
+        return timezone.make_aware(start_naive, timezone.get_current_timezone())
 
     def _generate_daily_rules(self, user_input_values, success_conditions):
         """무00의 날: 요일별 금지 카테고리 생성"""
@@ -267,16 +303,17 @@ class UserChallengeCreateSerializer(serializers.Serializer):
 
         return daily_rules
 
-    def _create_initial_progress(self, template, user_input_values):
+    def _create_initial_progress(self, template, user_input_values, success_conditions=None, reference_dt=None):
         """초기 progress 생성"""
         display_config = template.display_config
         progress_type = display_config.get('progress_type', 'amount')
-        success_conditions = template.success_conditions
+        success_conditions = success_conditions or template.success_conditions
+        reference_dt = reference_dt or timezone.now()
 
         if progress_type == 'amount':
             target = user_input_values.get('target_amount') or \
                      template.success_conditions.get('target_amount', 0)
-            return {
+            progress = {
                 "type": "amount",
                 "current": 0,
                 "target": target,
@@ -284,6 +321,11 @@ class UserChallengeCreateSerializer(serializers.Serializer):
                 "is_on_track": True,
                 "remaining": target
             }
+            if success_conditions.get('type') == 'amount_range' and target:
+                tolerance_percent = success_conditions.get('tolerance_percent', 10)
+                progress['lower_limit'] = int(target * (1 - tolerance_percent / 100))
+                progress['upper_limit'] = int(target * (1 + tolerance_percent / 100))
+            return progress
         elif progress_type == 'zero_spend':
             return {
                 "type": "zero_spend",
@@ -291,7 +333,10 @@ class UserChallengeCreateSerializer(serializers.Serializer):
                 "target_categories": template.success_conditions.get('categories', []),
                 "is_violated": False,
                 "violation_amount": 0,
-                "is_on_track": True
+                "is_on_track": True,
+                "elapsed_days": 0,
+                "total_days": template.duration_days,
+                "percentage": 0,
             }
         elif progress_type == 'daily_check':
             return {
@@ -303,19 +348,28 @@ class UserChallengeCreateSerializer(serializers.Serializer):
                 "is_on_track": True
             }
         elif progress_type == 'photo':
+            mode = template.photo_frequency or 'once'
+            required_count = template.duration_days if template.photo_frequency == 'daily' else 1
+            if mode == 'on_purchase':
+                required_count = 0
             return {
                 "type": "photo",
                 "photo_count": 0,
-                "required_count": template.duration_days if template.photo_frequency == 'daily' else 1,
+                "required_count": required_count,
                 "percentage": 0,
                 "photos": [],
-                "is_on_track": True
+                "is_on_track": True,
+                "mode": mode,
             }
         elif progress_type == 'compare':
             # 비교형 챌린지
-            compare_base = self._calculate_compare_base(user_input_values, success_conditions)
+            compare_base = self._calculate_compare_base(
+                user_input_values=user_input_values,
+                success_conditions=success_conditions,
+                reference_dt=reference_dt,
+            )
             compare_label = success_conditions.get('compare_label', '비교 기준')
-            return {
+            progress = {
                 "type": "compare",
                 "current": 0,
                 "compare_base": compare_base,
@@ -325,13 +379,23 @@ class UserChallengeCreateSerializer(serializers.Serializer):
                 "percentage": 0,
                 "is_on_track": True
             }
+            if success_conditions.get('compare_type') == 'next_month_category':
+                progress.update({
+                    "phase": "this_month",
+                    "this_month_spent": compare_base,
+                    "next_month_spent": 0,
+                })
+            return progress
         elif progress_type == 'daily_rule':
             return {
                 "type": "daily_rule",
                 "daily_status": [],
                 "passed_days": 0,
                 "total_days": template.duration_days,
-                "is_on_track": True
+                "is_on_track": True,
+                "has_violation": False,
+                "daily_rules": success_conditions.get('daily_rules', {}),
+                "percentage": 0,
             }
         elif progress_type == 'random_budget':
             # 랜덤 예산 생성
@@ -345,18 +409,19 @@ class UserChallengeCreateSerializer(serializers.Serializer):
                 "remaining": random_budget,
                 "potential_points": int(random_budget * 0.08),
                 "jackpot_eligible": False,
-                "difference_percent": 100
+                "difference_percent": 100,
+                "mask_target": True,
             }
         else:
             return {"type": progress_type, "is_on_track": True}
 
-    def _calculate_compare_base(self, user_input_values, success_conditions):
+    def _calculate_compare_base(self, user_input_values, success_conditions, reference_dt=None):
         """비교형 챌린지의 비교 기준 계산"""
         from apps.transactions.models import Transaction
 
         user = self.context['request'].user
         compare_type = success_conditions.get('compare_type', '')
-        now = timezone.now()
+        now = reference_dt or timezone.now()
 
         if compare_type == 'last_month_week':
             # 나와의 싸움: 지난달 특정 주차의 지출
@@ -365,19 +430,17 @@ class UserChallengeCreateSerializer(serializers.Serializer):
             except (ValueError, TypeError):
                 compare_week = 1
             
-            # 1~4주차로 제한
-            compare_week = max(1, min(compare_week, 4))
+            # 1~5주차로 제한
+            compare_week = max(1, min(compare_week, 5))
             
             last_month = now.month - 1 if now.month > 1 else 12
             last_month_year = now.year if now.month > 1 else now.year - 1
 
             # 해당 주차의 시작일과 종료일 계산
-            from calendar import monthrange
             first_day = 1 + (compare_week - 1) * 7
             days_in_month = monthrange(last_month_year, last_month)[1]
             last_day = min(first_day + 6, days_in_month)
 
-            from datetime import date
             try:
                 start_date = date(last_month_year, last_month, first_day)
                 end_date = date(last_month_year, last_month, last_day)
@@ -395,26 +458,33 @@ class UserChallengeCreateSerializer(serializers.Serializer):
 
         elif compare_type == 'fixed_expense':
             # 고정비 다이어트: 지난달 고정비
-            last_month_start = now - timedelta(days=now.month + 30)
-            last_month_end = last_month_start + timedelta(days=30)
+            if now.month == 1:
+                last_month_year = now.year - 1
+                last_month = 12
+            else:
+                last_month_year = now.year
+                last_month = now.month - 1
+
+            last_month_start = date(last_month_year, last_month, 1)
+            last_month_end = date(last_month_year, last_month, monthrange(last_month_year, last_month)[1])
 
             total = Transaction.objects.filter(
                 user=user,
-                date__date__gte=last_month_start.date(),
-                date__date__lte=last_month_end.date(),
+                date__date__gte=last_month_start,
+                date__date__lte=last_month_end,
                 is_fixed=True
             ).aggregate(total=Sum('amount'))['total'] or 0
 
             return total
 
         elif compare_type == 'next_month_category':
-            # 미래의 나에게: 이번 달 해당 카테고리 지출
+            # 미래의 나에게: 시작 달 카테고리 지출 (시작 시점 기준)
             target_category = user_input_values.get('target_category', '')
-            first_day_of_month = now.replace(day=1)
+            first_day_of_month = date(now.year, now.month, 1)
 
             total = Transaction.objects.filter(
                 user=user,
-                date__date__gte=first_day_of_month.date(),
+                date__date__gte=first_day_of_month,
                 date__date__lte=now.date(),
                 category=target_category
             ).aggregate(total=Sum('amount'))['total'] or 0
