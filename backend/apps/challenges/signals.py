@@ -93,6 +93,13 @@ def update_challenge_progress_on_transaction(sender, instance, created, **kwargs
     store = instance.store
     transaction_date = instance.date.date() if hasattr(instance.date, 'date') else instance.date
 
+    # started_at이 지난 'ready' 챌린지 자동 활성화
+    UserChallenge.objects.filter(
+        user=user,
+        status='ready',
+        started_at__date__lte=transaction_date
+    ).update(status='active')
+
     # 진행 중인 챌린지 조회
     active_challenges = UserChallenge.objects.filter(
         user=user,

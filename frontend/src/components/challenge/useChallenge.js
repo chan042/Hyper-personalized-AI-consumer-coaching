@@ -15,7 +15,7 @@ export const useChallenge = (challenge, isOngoing = false) => {
     const progressPercent = getProgressPercent(challenge?.progress);
     const progressData = getProgressData(challenge?.progress || challenge?.progressData);
 
-    const isActive = isOngoing || challenge?.status === 'active';
+    const isActive = challenge?.status === 'active';
     const isFailed = challenge?.status === 'failed' || !!challenge?.failedDate;
     const isCompleted = challenge?.status === 'completed';
     const isReady = challenge?.status === 'ready';
@@ -27,7 +27,7 @@ export const useChallenge = (challenge, isOngoing = false) => {
         if (isActive) return '도전중';
         if (isFailed) return '재도전';
         if (isCompleted) return '완료';
-        if (isReady) return '시작하기';
+        if (isReady) return '도전 예약 완료';
         return '도전하기';
     };
 
@@ -85,4 +85,3 @@ export const useChallenge = (challenge, isOngoing = false) => {
 };
 
 export default useChallenge;
-

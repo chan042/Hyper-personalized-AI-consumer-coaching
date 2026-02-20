@@ -224,6 +224,8 @@ class UserChallengeCreateSerializer(serializers.Serializer):
             random_budget = initial_progress.get('target', 0)
             system_generated_values['random_budget'] = random_budget
 
+        initial_status = 'ready' if start_at > now else 'active'
+
         user_challenge = UserChallenge.objects.create(
             user=user,
             source_type=template.source_type,
@@ -254,6 +256,7 @@ class UserChallengeCreateSerializer(serializers.Serializer):
             progress=initial_progress,
             attempt_number=attempt_number,
             previous_attempt=previous_attempt,
+            status=initial_status,
         )
 
         return user_challenge

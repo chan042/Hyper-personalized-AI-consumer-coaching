@@ -1,12 +1,10 @@
 /**
- * [파일 역할]
- * - 챌린지 관련 API 호출 함수
- * - 백엔드 /api/challenges/ 엔드포인트와 통신
+ * 챌린지 관련 API 호출 함수
+ * - 챌린지 관련 모든 API 호출 함수
+ * - 공통 /api/challenges/ 백엔드에 의존
  * - ChallengeTemplate, UserChallenge 모델에 맞게 데이터 변환
  */
 import client from './client';
-
-// 아이콘별 배경색 매핑
 
 
 // 난이도 정렬 순서
@@ -115,7 +113,7 @@ const sortByDifficulty = (challenges) => {
 };
 
 /**
- * 챌린지 템플릿 목록 조회 (두둑/이벤트)
+ * 챌린지 템플릿 목록 조회 (두덕/이벤트)
  * @param {string} tab - 'duduk' | 'event'
  */
 export const getChallengeTemplates = async (tab = 'duduk') => {
@@ -144,7 +142,7 @@ export const getChallengeTemplateDetail = async (id) => {
 };
 
 /**
- * 챌린지 입력값 프리뷰 조회 (비교형 전용)
+ * 챌린지 입력값 미리보기 조회 (목표값 계산에 사용)
  * @param {number} templateId
  * @param {object} userInputValues
  */
@@ -183,7 +181,7 @@ export const getMyChallenges = async (status = null) => {
                 'success': 'completed',
                 'completed': 'completed',
                 'failed': 'failed',
-                'finished': 'finished', // completed + failed
+                'finished': 'finished',
                 'ready': 'ready',
                 'cancelled': 'cancelled',
             };
@@ -268,7 +266,7 @@ export const cancelChallenge = async (id) => {
 };
 
 /**
- * 챌린지 재도전
+ * 챌린지 다시하기
  * @param {number} id
  */
 export const retryChallenge = async (id) => {
@@ -316,7 +314,7 @@ export const uploadPhoto = async (id, payload) => {
 };
 
 /**
- * 일별 로그 조회
+ * 일일 로그 조회
  * @param {number} id
  */
 export const getDailyLogs = async (id) => {
@@ -471,6 +469,19 @@ export const startSavedChallenge = async (id) => {
         return transformUserChallenge(response.data);
     } catch (error) {
         console.error('Start Saved Challenge Error:', error);
+        throw error;
+    }
+};
+
+/**
+ * 진행중인 챌린지 목록 조회 (active 상태)
+ */
+export const getOngoingChallenges = async () => {
+    try {
+        const response = await client.get('/api/challenges/my/?status=active');
+        return response.data.map(transformUserChallenge);
+    } catch (error) {
+        console.error('Get Ongoing Challenges Error:', error);
         throw error;
     }
 };

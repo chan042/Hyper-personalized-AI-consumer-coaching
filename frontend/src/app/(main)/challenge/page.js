@@ -22,6 +22,7 @@ import AIGeneratedChallengeModal from '@/components/challenge/AIGeneratedChallen
 import {
     getChallengeTemplates,
     getMyChallenges,
+    getOngoingChallenges,
     getUserChallenges,
     startChallenge,
     retryChallenge,
@@ -97,7 +98,7 @@ export default function ChallengePage() {
                     try {
                         allEventTemplates = await getChallengeTemplates('event');
                     } catch (e) {
-                        // 이벤트 템플릿이 없을 수 있음
+                        // 이벤트 템플릿이 없을 때 무시
                     }
                     const allTemplates = [...allDudukTemplates, ...allEventTemplates];
 
@@ -105,23 +106,27 @@ export default function ChallengePage() {
                     const userChallengesAll = await getUserChallenges();
 
                     // 3. 진행중, 실패, 완료 챌린지
-                    ongoing = await getMyChallenges('active');
+                    const allOngoing = await getOngoingChallenges();
+                    const readyChallenges = await getMyChallenges('ready');
+                    const rawOngoing = [...allOngoing, ...readyChallenges];
+                    ongoing = Array.from(new Map(rawOngoing.map(c => [c.id, c])).values());
+
                     const failedChallenges = await getMyChallenges('failed');
                     const completedChallenges = await getMyChallenges('completed');
 
-                    // 진행중인 챌린지의 템플릿 ID/챌린지 ID 목록 (중복 방지용)
+                    // 진행중인 챌린지의 템플릿 ID/챌린지 ID 목록
                     const ongoingTemplateIds = ongoing.map(c => c.templateId);
                     const ongoingIds = ongoing.map(c => c.id);
 
                     // 진행중이 아닌 템플릿만 필터링
                     const filteredTemplates = allTemplates.filter(t => !ongoingTemplateIds.includes(t.id));
 
-                    // 사용자 챌린지: active 상태 제외
+                    // 사용자 챌린지: active/ready 상태 제외
                     const filteredUserChallenges = userChallengesAll.filter(c =>
-                        !ongoingIds.includes(c.id) && c.status !== 'active'
+                        !ongoingIds.includes(c.id) && !['active', 'ready'].includes(c.status)
                     );
 
-                    // 이미 포함된 템플릿 ID 수집 (중복 방지)
+                    // 이미 포함된 템플릿 ID 추적
                     const existingTemplateIds = new Set([
                         ...filteredTemplates.map(t => t.id),
                         ...filteredUserChallenges.map(c => c.templateId || c.id)
@@ -132,7 +137,7 @@ export default function ChallengePage() {
                         !existingTemplateIds.has(c.templateId) && !existingTemplateIds.has(c.id)
                     );
 
-                    // 완료 챌린지: 중복 제외 (실패 챌린지와도 중복 체크)
+                    // 완료 챌린지: 중복 제외
                     const failedIds = new Set(uniqueFailedChallenges.map(c => c.templateId || c.id));
                     const uniqueCompletedChallenges = completedChallenges.filter(c =>
                         !existingTemplateIds.has(c.templateId) &&
@@ -153,14 +158,14 @@ export default function ChallengePage() {
                 case 'duduk':
                     // 두둑 탭: 두둑 템플릿 + 진행중인 챌린지
                     const dudukTemplates = await getChallengeTemplates('duduk');
-                    const dudukOngoing = await getMyChallenges('active');
+                    const dudukOngoing = await getOngoingChallenges();
                     // 진행중인 챌린지의 템플릿 ID 목록
                     const dudukOngoingTemplateIds = dudukOngoing
                         .filter(c => c.sourceType === 'duduk')
                         .map(c => c.templateId);
                     // 진행중이 아닌 템플릿만 필터링
                     const dudukFiltered = dudukTemplates.filter(t => !dudukOngoingTemplateIds.includes(t.id));
-                    // 두둑 진행중 챌린지 + 미참여 템플릿 합치기
+                    // 두덕 진행중 챌린지 + 나머지 템플릿 병합
                     data = [
                         ...dudukOngoing.filter(c => c.sourceType === 'duduk'),
                         ...dudukFiltered
@@ -169,18 +174,18 @@ export default function ChallengePage() {
                     break;
 
                 case 'user':
-                    // 사용자 챌린지 탭: 사용자가 만든 챌린지 + AI 맞춤 챌린지
+                    // 사용자 탭: 사용자가 만든 챌린지 + AI 생성 챌린지
                     const userTemplates = await getUserChallenges();
-                    const userOngoing = await getMyChallenges('active');
+                    const userOngoing = await getOngoingChallenges();
                     // 진행중인 사용자/AI 챌린지 ID 목록
                     const userOngoingIds = userOngoing
                         .filter(c => c.sourceType === 'custom' || c.sourceType === 'ai')
                         .map(c => c.id);
-                    // 진행중이 아닌 템플릿만 필터링
+                    // 진행중이 아닌 챌린지만 필터링
                     const userFiltered = userTemplates.filter(t =>
-                        !userOngoingIds.includes(t.id) && t.status !== 'active'
+                        !userOngoingIds.includes(t.id) && !['active', 'ready'].includes(t.status)
                     );
-                    // 사용자 진행중 챌린지 + 미참여 템플릿 합치기
+                    // 사용자 진행중 챌린지 + 나머지 병합
                     data = [
                         ...userOngoing.filter(c => c.sourceType === 'custom' || c.sourceType === 'ai'),
                         ...userFiltered
@@ -189,13 +194,16 @@ export default function ChallengePage() {
                     break;
 
                 case 'ongoing':
-                    // 참여중 탭
-                    data = await getMyChallenges('active');
+                    // 진행중 탭: active + ready 상태 모두 포함
+                    const activeData = await getOngoingChallenges();
+                    const readyData = await getMyChallenges('ready');
+                    const rawData = [...activeData, ...readyData];
+                    data = Array.from(new Map(rawData.map(c => [c.id, c])).values());
                     setOngoingChallenges([]);
                     break;
 
                 case 'completed':
-                    // 완료된 항목 탭: 성공만
+                    // 완료 탭
                     data = await getMyChallenges('completed');
                     setOngoingChallenges([]);
                     break;
@@ -245,16 +253,16 @@ export default function ChallengePage() {
             await fetchChallenges();
             await fetchUserPoints();
             setSelectedChallenge(null);
-            alert('챌린지가 중단되었습니다.');
+            alert('챌린지가 취소되었습니다.');
         } catch (err) {
-            console.error('챌린지 중단 실패:', err);
-            alert('챌린지 중단에 실패했습니다.');
+            console.error('챌린지 취소 실패:', err);
+            alert('챌린지 취소에 실패했습니다.');
         }
     };
 
     const handlePhotoUpload = async (challenge, file) => {
         if (!file) {
-            alert('업로드할 이미지를 선택해주세요.');
+            alert('업로드할 파일을 선택해주세요.');
             return;
         }
 
@@ -321,7 +329,7 @@ export default function ChallengePage() {
             await fetchChallenges();
             setActiveTab('ongoing');
             handleCloseModal();
-            alert('챌린지가 시작되었습니다!');
+            alert('챌린지가 시작되었습니다.');
         } catch (err) {
             console.error('챌린지 시작 실패:', err);
             alert(err.response?.data?.error || err.response?.data?.detail || '챌린지 시작에 실패했습니다.');
@@ -330,16 +338,16 @@ export default function ChallengePage() {
 
     const handleRetryChallenge = async (challenge) => {
         try {
-            // 재도전 API 호출
+            // 다시하기 API 호출
             const challengeId = challenge.userChallengeId || challenge.id;
             await retryChallenge(challengeId);
             await fetchChallenges();
             await fetchUserPoints();
             setSelectedChallenge(null);
-            alert('챌린지를 재도전합니다!');
+            alert('챌린지를 다시 시작합니다!');
         } catch (err) {
-            console.error('재도전 실패:', err);
-            alert(err.response?.data?.error || err.response?.data?.detail || '재도전에 실패했습니다.');
+            console.error('다시하기 실패:', err);
+            alert(err.response?.data?.error || err.response?.data?.detail || '다시하기에 실패했습니다.');
         }
     };
 
@@ -395,23 +403,23 @@ export default function ChallengePage() {
         }
     };
 
-    // 스크롤 시 헤더 상단 숨김 처리를 위한 ref
+    // 스크롤 시 상단 헤더 숨김 처리를 위한 ref
     const headerTopRef = useRef(null);
 
     return (
         <div style={styles.container}>
-            {/* 헤더 섹션 (Calendar UI 스타일 - Sticky Header) */}
+            {/* 상단 영역 (Calendar UI 형태 - Sticky Header) */}
             <div style={styles.headerWrapper}>
-                {/* 상단 섹션 - 스크롤 시 사라짐 */}
+                {/* 상단 영역 - 스크롤 시 숨겨짐 */}
                 <div style={styles.headerTop} ref={headerTopRef}>
-                    {/* 우상단: 방 버튼 */}
+                    {/* 아이콘과 버튼 */}
                     <div style={styles.headerIcons}>
                         <button style={styles.iconButton} onClick={() => router.push('/room')}>
                             <DoorClosed size={20} color="var(--primary)" />
                         </button>
                     </div>
 
-                    {/* 중앙: 포인트 표시 */}
+                    {/* 포인트 표시 */}
                     <div style={styles.pointsDisplay}>
                         <div style={styles.pointsContainer}>
                             <span style={styles.pointsLabel}>보유 포인트</span>
@@ -423,7 +431,7 @@ export default function ChallengePage() {
                     </div>
                 </div>
 
-                {/* 하단 섹션 - Sticky로 고정됨 */}
+                {/* 하단 영역 - Sticky로 고정됨 */}
                 <div style={styles.headerBottom}>
                     <ChallengeTabs
                         tabs={challengeTabs}
@@ -439,7 +447,7 @@ export default function ChallengePage() {
             {/* 로딩 상태 */}
             {loading && (
                 <div style={styles.loadingState}>
-                    <p>로딩 중...</p>
+                    <p>불러오는 중...</p>
                 </div>
             )}
 
@@ -456,7 +464,7 @@ export default function ChallengePage() {
             {/* 챌린지 목록 */}
             {!loading && !error && (
                 <>
-                    {/* 전체 탭: 진행중인 챌린지 섹션 */}
+                    {/* 전체 탭: 진행중인 챌린지 표시 (active + ready 포함) */}
                     {activeTab === 'all' && ongoingChallenges.length > 0 && (
                         <div style={styles.section}>
                             <h3 style={styles.sectionTitle}>진행중인 챌린지</h3>
@@ -475,7 +483,7 @@ export default function ChallengePage() {
                         </div>
                     )}
 
-                    {/* 전체 탭: 시작 가능한 챌린지 섹션 */}
+                    {/* 전체 탭: 시작 가능한 챌린지 표시 */}
                     {activeTab === 'all' && challenges.length > 0 && (
                         <div style={styles.section}>
                             <h3 style={styles.sectionTitle}>도전해보세요</h3>
@@ -493,7 +501,7 @@ export default function ChallengePage() {
                         </div>
                     )}
 
-                    {/* 다른 탭: 일반 리스트 */}
+                    {/* 나머지 탭 공통 리스트 */}
                     {activeTab !== 'all' && challenges.length > 0 && (
                         <div style={styles.section}>
                             <div style={styles.cardList}>
@@ -520,10 +528,10 @@ export default function ChallengePage() {
                 </>
             )}
 
-            {/* 하단 여백 (BottomNavigation 위) */}
+            {/* 하단 여백 (BottomNavigation 때문) */}
             <div style={{ height: '100px' }}></div>
 
-            {/* 플로팅 직접 만들기 버튼 (Glassmorphism) */}
+            {/* 챌린지 직접 만들기 버튼 (Glassmorphism) */}
             <button style={styles.floatingCreateButton} onClick={handleCreateChallenge}>
                 <Plus size={18} strokeWidth={2.5} />
                 <span>직접 만들기</span>
@@ -573,7 +581,7 @@ const styles = {
         paddingTop: '0', // 상단 회색 영역 제거
         paddingBottom: '6rem',
     },
-    // Sticky Header Wrapper - 음수 top으로 headerTop이 스크롤 아웃되도록 함
+    // Sticky Header Wrapper
     headerWrapper: {
         backgroundColor: 'white',
         borderBottomLeftRadius: '20px',
@@ -581,11 +589,11 @@ const styles = {
         margin: '0 -1rem 0.5rem -1rem',
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)',
         position: 'sticky',
-        top: '-160px', // headerTop 높이만큼 음수 (스크롤 시 headerTop만 사라짐)
+        top: '-160px',
         zIndex: 50,
         overflow: 'hidden',
     },
-    // 상단 섹션 - 스크롤 시 사라지는 부분 (포인트, 상점 버튼)
+    // 상단 영역 - 스크롤 시 숨겨지는 부분 (포인트, 탭 버튼)
     headerTop: {
         padding: '1.5rem 1rem 0.5rem 1rem',
         paddingTop: '0.5rem',
@@ -593,12 +601,12 @@ const styles = {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        height: '160px', // sticky top과 동일하게 맞춤
+        height: '160px',
         boxSizing: 'border-box',
         backgroundColor: 'white',
         position: 'relative',
     },
-    // 하단 섹션 - Sticky로 상단에 고정되는 부분 (탭)
+    // 하단 영역 - Sticky로 하단에 고정되는 부분 (탭)
     headerBottom: {
         backgroundColor: 'white',
         padding: '0.5rem 1rem 1rem 1rem',
@@ -666,7 +674,6 @@ const styles = {
         transition: 'background-color 0.2s ease',
     },
     storeButton: {
-        // Kept for backwards compatibility but not used anymore
         background: 'none',
         border: 'none',
         cursor: 'pointer',
@@ -687,13 +694,13 @@ const styles = {
         justifyContent: 'center',
         gap: '6px',
         padding: '12px 24px',
-        borderRadius: '9999px', // 알약 형태
-        // Glassmorphism 스타일
-        background: 'rgba(255, 255, 255, 0.3)', // 반투명 배경
+        borderRadius: '9999px',
+        // Glassmorphism 효과
+        background: 'rgba(255, 255, 255, 0.3)',
         backdropFilter: 'blur(20px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(180%)', // Safari 대응
-        border: '1px solid rgba(255, 255, 255, 0.25)', // 얇은 반투명 테두리
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)', // 유리 질감 그림자
+        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+        border: '1px solid rgba(255, 255, 255, 0.25)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
         color: 'var(--primary)',
         fontSize: '0.9rem',
         fontWeight: '600',

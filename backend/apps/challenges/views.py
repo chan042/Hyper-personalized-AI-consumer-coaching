@@ -118,12 +118,21 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         return UserChallengeSerializer
     
     def get_queryset(self):
+        # started_at이 지난 'ready' 챌린지 자동 활성화
+        UserChallenge.objects.filter(
+            user=self.request.user,
+            status='ready',
+            started_at__lte=timezone.now()
+        ).update(status='active')
+
         queryset = UserChallenge.objects.filter(user=self.request.user)
         status_filter = self.request.query_params.get('status')
         source_type = self.request.query_params.get('source_type')
         
         if status_filter == 'active':
             queryset = queryset.filter(status='active')
+        elif status_filter == 'ready':
+            queryset = queryset.filter(status='ready')
         elif status_filter == 'completed':
             queryset = queryset.filter(status='completed')
         elif status_filter == 'failed':
@@ -384,7 +393,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         duration_days = user_challenge.duration_days
         start_at = self._resolve_retry_start_at(user_challenge, now)
 
-        user_challenge.status = 'active'
+        user_challenge.status = 'active' if start_at <= now else 'ready'
         user_challenge.started_at = start_at
         user_challenge.ends_at = start_at + timezone.timedelta(days=duration_days)
         user_challenge.attempt_number += 1

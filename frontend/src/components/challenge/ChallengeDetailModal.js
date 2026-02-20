@@ -99,6 +99,7 @@ export default function ChallengeDetailModal({
         isActive,
         isFailed,
         isCompleted,
+        isReady,
         progressData,
     } = useChallenge(challenge);
 
@@ -172,7 +173,6 @@ export default function ChallengeDetailModal({
     const handleFileSelect = (e) => {
         const file = e.target.files?.[0];
         if (file) {
-            // alert(`선택된 파일: ${file.name}\n(실제 업로드 기능은 준비 중입니다)`);
             onPhotoUpload?.(challenge, file);
         }
         e.target.value = '';
@@ -686,7 +686,7 @@ export default function ChallengeDetailModal({
                     ) : (
                         <>
                             {/* Not Started */}
-                            {!isActive && !isFailed && !isCompleted && (
+                            {!isActive && !isFailed && !isCompleted && !isReady && (
                                 <div style={styles.buttonRow}>
                                     {(challenge.sourceType === 'custom' || challenge.sourceType === 'ai') && (
                                         <button
@@ -721,6 +721,13 @@ export default function ChallengeDetailModal({
                                 </div>
                             )}
 
+
+                            {/* Ready - 예약 대기 중 */}
+                            {isReady && (
+                                <button style={styles.disabledButton} disabled>
+                                    도전 예약 완료
+                                </button>
+                            )}
                             {/* Failed */}
                             {isFailed && (
                                 <button

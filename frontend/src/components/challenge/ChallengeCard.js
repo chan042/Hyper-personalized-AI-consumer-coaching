@@ -1,9 +1,9 @@
 /**
- * [파일 역할]
- * - 챌린지 카드 컴포넌트
- * - 리스트 형태로 개별 챌린지 아이템 표시
- * - 새로운 UserChallenge 모델에 맞게 progress 객체 처리
- * - 난이도별 두둑 캐릭터 얼굴 아이콘 표시
+ * 챌린지 카드 컴포넌트
+ * - 챌린지 목록의 개별 카드 표시
+ * - 상태에 따른 버튼 스타일/텍스트 렌더링
+ * - 진행중인 UserChallenge의 progress 데이터 표시
+ * - ready 상태의 챌린지는 비활성화 스타일로 표시
  */
 import { Camera, Edit3 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,6 +22,7 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
     const {
         isActive,
         isFailed,
+        isReady,
         progressPercent,
         getButtonText,
         getButtonType,
@@ -30,13 +31,14 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
     } = useChallenge(challenge, isOngoing);
 
     const handleCardClick = (e) => {
-        // 버튼 클릭은 전파하지 않음
+        // 버튼 클릭 시 카드 클릭 이벤트 무시
         if (e.target.tagName === 'BUTTON') return;
         onClick?.(challenge);
     };
 
     const handleButtonClick = (e) => {
         e.stopPropagation();
+        if (isReady) return;
         if (isActive || progressPercent > 0) {
             onClick?.(challenge);
         } else if (isFailed) {
@@ -46,9 +48,8 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
         }
     };
 
-    // 버튼 스타일 결정
-    const getButtonStyle = () => {
-        const buttonType = getButtonType();
+    // 버튼 타입에 따른 스타일 반환
+    const getButtonStyle = (buttonType) => {
         switch (buttonType) {
             case 'active':
                 return styles.statusButton;
@@ -56,16 +57,20 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                 return { ...styles.joinButton, backgroundColor: '#EF4444' };
             case 'completed':
                 return { ...styles.statusButton, borderColor: 'var(--primary)', color: 'var(--primary)' };
+            case 'ready':
+                return styles.readyDisabledButton;
             default:
                 return styles.joinButton;
         }
     };
 
+    const buttonType = getButtonType();
+
     return (
         <div style={styles.card} onClick={handleCardClick}>
-            {/* 상단: 메인 컨텐츠 영역 */}
+            {/* 상단 영역: 캐릭터 이미지와 정보 */}
             <div style={styles.mainContent}>
-                {/* 왼쪽: 캐릭터 얼굴 아이콘 */}
+                {/* 왼쪽: 캐릭터 이미지 표시 */}
                 <div style={styles.iconContainer}>
                     <img
                         src={getCharacterFace(challenge.difficulty, characterType)}
@@ -74,9 +79,9 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                     />
                 </div>
 
-                {/* 가운데: 정보 */}
+                {/* 중앙 정보 영역 */}
                 <div style={styles.infoContainer}>
-                    {/* 상단: 난이도 + 태그 */}
+                    {/* 상단 행: 난이도 + 태그 */}
                     <div style={styles.topRow}>
                         <span style={{
                             ...styles.difficultyLabel,
@@ -84,13 +89,13 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                         }}>
                             {getDifficultyLabel(challenge.difficulty)}
                         </span>
-                        {/* 사진 인증 필요 표시 */}
+                        {/* 사진 인증 필요 태그 표시 */}
                         {challenge.requiresPhoto && (
                             <span style={styles.photoTag}>
                                 <Camera size={10} />
                             </span>
                         )}
-                        {/* 사용자 입력 필요 표시 */}
+                        {/* 사용자 입력 필요 태그 표시 */}
                         {challenge.userInputs && challenge.userInputs.length > 0 && (
                             <span style={styles.inputTag}>
                                 <Edit3 size={10} />
@@ -98,7 +103,7 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                         )}
                     </div>
 
-                    {/* 타이틀 */}
+                    {/* 챌린지 제목 */}
                     <div style={styles.title}>{challenge.title}</div>
 
                     {/* 설명 표시 */}
@@ -108,7 +113,7 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                         </div>
                     )}
 
-                    {/* 진행 정보 (진행률 바 없이 텍스트만) */}
+                    {/* 진행률 정보 (진행중인 챌린지에만 표시) */}
                     {isActive && (
                         <div style={styles.progressInfo}>
                             {getProgressDisplayText() && (
@@ -132,15 +137,16 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
 
                     {/* 액션 버튼 */}
                     <button
-                        style={getButtonStyle()}
+                        style={getButtonStyle(buttonType)}
                         onClick={handleButtonClick}
+                        disabled={buttonType === 'ready'}
                     >
                         {getButtonText()}
                     </button>
                 </div>
             </div>
 
-            {/* 하단: 진행률 바 (진행중인 챌린지만) */}
+            {/* 하단 영역: 진행 바 (진행중인 챌린지만 표시) */}
             {isActive && (
                 <div style={styles.progressBarSection}>
                     <div style={styles.progressBarContainer}>
@@ -314,5 +320,19 @@ const styles = {
         transition: 'all 0.2s ease',
         minWidth: '65px',
         textAlign: 'center',
+    },
+    readyDisabledButton: {
+        padding: '6px 16px',
+        borderRadius: '4px',
+        border: '2px solid #D1D5DB',
+        backgroundColor: '#F3F4F6',
+        color: '#9CA3AF',
+        fontSize: '0.75rem',
+        fontWeight: '600',
+        cursor: 'not-allowed',
+        transition: 'all 0.2s ease',
+        minWidth: '65px',
+        textAlign: 'center',
+        whiteSpace: 'nowrap',
     },
 };

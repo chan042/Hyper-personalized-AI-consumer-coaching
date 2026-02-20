@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import ChallengeCard from '@/components/challenge/ChallengeCard';
-import { getMyChallenges } from '@/lib/api/challenge';
+import { getOngoingChallenges, getMyChallenges } from '@/lib/api/challenge';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function ChallengeList() {
@@ -22,8 +22,14 @@ export default function ChallengeList() {
             }
 
             try {
-                const data = await getMyChallenges('active');
-                setChallenges(data);
+                // active + ready 상태 모두 가져오기
+                const [activeData, readyData] = await Promise.all([
+                    getOngoingChallenges(),
+                    getMyChallenges('ready'),
+                ]);
+                const combined = [...activeData, ...readyData];
+                const unique = Array.from(new Map(combined.map(c => [c.id, c])).values());
+                setChallenges(unique);
             } catch (error) {
                 console.error('Failed to fetch challenges:', error);
             } finally {
@@ -42,12 +48,12 @@ export default function ChallengeList() {
         router.push('/challenge');
     };
 
-    // 비로그인 상태이거나 챌린지가 없는 경우
+    // 로딩중이 아닌 상태에서 챌린지가 없는 경우
     if (!isLoading && (!isAuthenticated || challenges.length === 0)) {
         return (
             <div style={{ marginBottom: '0.75rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
-                    <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>도전 중인 챌린지</h2>
+                    <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>진행 중인 챌린지</h2>
                     <button
                         onClick={handleMoreClick}
                         style={{
@@ -61,7 +67,7 @@ export default function ChallengeList() {
                             alignItems: 'center',
                             gap: '0.25rem'
                         }}>
-                        더보기 <ChevronRight size={14} />
+                        더보기<ChevronRight size={14} />
                     </button>
                 </div>
                 <div style={{
@@ -77,11 +83,11 @@ export default function ChallengeList() {
                     {!isAuthenticated ? (
                         <>
                             로그인하고 챌린지에 도전해보세요!<br />
-                            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>목표를 달성하고 포인트를 받으세요</span>
+                            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>계정을 만들고 시작해보세요</span>
                         </>
                     ) : (
                         <>
-                            도전 중인 챌린지가 없습니다.<br />
+                            진행 중인 챌린지가 없습니다.<br />
                             <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>새로운 챌린지에 도전해보세요!</span>
                         </>
                     )}
@@ -93,7 +99,7 @@ export default function ChallengeList() {
     return (
         <div style={{ marginBottom: '0.75rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
-                <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>도전 중인 챌린지</h2>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>진행 중인 챌린지</h2>
                 <button
                     onClick={handleMoreClick}
                     style={{
@@ -107,7 +113,7 @@ export default function ChallengeList() {
                         alignItems: 'center',
                         gap: '0.25rem'
                     }}>
-                    더보기 <ChevronRight size={14} />
+                    더보기<ChevronRight size={14} />
                 </button>
             </div>
 
@@ -147,7 +153,7 @@ export default function ChallengeList() {
                     WebkitMaskImage: 'linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)'
                 }}>
                     {challenges.map(challenge => (
-                        <div key={challenge.id} style={{ minWidth: '310px' }}>
+                        <div key={challenge.uniqueId || challenge.id} style={{ minWidth: '310px' }}>
                             <ChallengeCard
                                 challenge={challenge}
                                 onClick={handleCardClick}
