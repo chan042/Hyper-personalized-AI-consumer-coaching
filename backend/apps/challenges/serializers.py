@@ -5,6 +5,62 @@ from calendar import monthrange
 from django.db.models import Sum
 import random
 from .models import ChallengeTemplate, UserChallenge, ChallengeDailyLog
+from .constants import (
+    CONDITION_TYPE_AMOUNT_LIMIT,
+    CONDITION_TYPE_ZERO_SPEND,
+    CONDITION_TYPE_COMPARE,
+    CONDITION_TYPE_PHOTO_VERIFICATION,
+    CONDITION_TYPE_AMOUNT_LIMIT_WITH_PHOTO,
+    CONDITION_TYPE_AMOUNT_RANGE,
+    CONDITION_TYPE_DAILY_RULE,
+    CONDITION_TYPE_DAILY_CHECK,
+    CONDITION_TYPE_RANDOM_BUDGET,
+    CONDITION_TYPE_CUSTOM,
+    COMPARE_TYPE_LAST_MONTH_WEEK,
+    COMPARE_TYPE_FIXED_EXPENSE,
+    COMPARE_TYPE_NEXT_MONTH_CATEGORY,
+)
+
+
+def _get_last_month_bounds(reference_dt=None):
+    now = reference_dt or timezone.now()
+    if now.month == 1:
+        last_month_year = now.year - 1
+        last_month = 12
+    else:
+        last_month_year = now.year
+        last_month = now.month - 1
+    start = date(last_month_year, last_month, 1)
+    end = date(last_month_year, last_month, monthrange(last_month_year, last_month)[1])
+    return start, end
+
+
+def _get_template_availability(template, user, reference_dt=None):
+    """
+    전월 데이터가 필요한 챌린지의 가용성 판단
+    """
+    success_conditions = template.success_conditions or {}
+    compare_type = success_conditions.get('compare_type')
+
+    if compare_type not in {COMPARE_TYPE_LAST_MONTH_WEEK, COMPARE_TYPE_FIXED_EXPENSE}:
+        return True, None
+
+    from apps.transactions.models import Transaction
+
+    last_month_start, last_month_end = _get_last_month_bounds(reference_dt)
+    base_queryset = Transaction.objects.filter(
+        user=user,
+        date__date__gte=last_month_start,
+        date__date__lte=last_month_end,
+    )
+    if compare_type == COMPARE_TYPE_FIXED_EXPENSE:
+        base_queryset = base_queryset.filter(is_fixed=True)
+
+    total = base_queryset.aggregate(total=Sum('amount'))['total'] or 0
+    if total <= 0:
+        return False, "전월 지출 내역이 없어 도전할 수 없습니다."
+
+    return True, None
 
 
 class ChallengeTemplateSerializer(serializers.ModelSerializer):
@@ -13,6 +69,8 @@ class ChallengeTemplateSerializer(serializers.ModelSerializer):
     difficulty_display = serializers.CharField(source='get_difficulty_display', read_only=True)
     is_event_active = serializers.BooleanField(read_only=True)
     remaining_event_time = serializers.SerializerMethodField()
+    is_available = serializers.SerializerMethodField()
+    unavailable_reason = serializers.SerializerMethodField()
     
     class Meta:
         model = ChallengeTemplate
@@ -26,6 +84,7 @@ class ChallengeTemplateSerializer(serializers.ModelSerializer):
             'requires_daily_check', 'requires_photo', 'photo_frequency', 'photo_description',
             'event_start_at', 'event_end_at', 'event_banner_url',
             'is_event_active', 'remaining_event_time',
+            'is_available', 'unavailable_reason',
             'is_active', 'display_order', 'created_at'
         ]
 
@@ -39,12 +98,28 @@ class ChallengeTemplateSerializer(serializers.ModelSerializer):
         delta = obj.event_end_at - now
         return int(delta.total_seconds())
 
+    def get_is_available(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return True
+        is_available, _ = _get_template_availability(obj, request.user)
+        return is_available
+
+    def get_unavailable_reason(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        _, reason = _get_template_availability(obj, request.user)
+        return reason
+
 
 class ChallengeTemplateListSerializer(serializers.ModelSerializer):
     """챌린지 템플릿 목록용 간략 직렬화"""
     source_type_display = serializers.CharField(source='get_source_type_display', read_only=True)
     difficulty_display = serializers.CharField(source='get_difficulty_display', read_only=True)
     is_event_active = serializers.BooleanField(read_only=True)
+    is_available = serializers.SerializerMethodField()
+    unavailable_reason = serializers.SerializerMethodField()
     
     # 사용자별 상태 정보
     my_challenge_status = serializers.CharField(read_only=True, required=False)
@@ -59,8 +134,23 @@ class ChallengeTemplateListSerializer(serializers.ModelSerializer):
             'requires_photo', 'requires_daily_check', 'photo_description',
             'user_inputs', 'success_description',
             'display_config', 'is_event_active', 'display_order',
+            'is_available', 'unavailable_reason',
             'my_challenge_status', 'my_challenge_id'
         ]
+
+    def get_is_available(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return True
+        is_available, _ = _get_template_availability(obj, request.user)
+        return is_available
+
+    def get_unavailable_reason(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        _, reason = _get_template_availability(obj, request.user)
+        return reason
 
 
 class UserChallengeSerializer(serializers.ModelSerializer):
@@ -136,6 +226,11 @@ class UserChallengeCreateSerializer(serializers.Serializer):
         template = ChallengeTemplate.objects.get(id=data['template_id'])
         user_inputs = template.user_inputs or []
         input_values = data.get('user_input_values', {})
+
+        # 전월 데이터가 필요한 챌린지 가용성 체크
+        is_available, reason = _get_template_availability(template, self.context['request'].user)
+        if not is_available:
+            raise serializers.ValidationError(reason or "도전할 수 없는 챌린지입니다.")
         
         # 필수 입력값 검증
         for user_input in user_inputs:
@@ -143,6 +238,13 @@ class UserChallengeCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {user_input['key']: f"{user_input['label']}은(는) 필수 입력 항목입니다."}
                 )
+
+        # 무00의 날: 사용자 입력 카테고리 중복 금지
+        if (template.success_conditions or {}).get('type') == CONDITION_TYPE_DAILY_RULE:
+            keys = ['mon_forbidden', 'tue_forbidden', 'wed_forbidden', 'thu_forbidden']
+            chosen = [input_values.get(k) for k in keys if input_values.get(k)]
+            if len(chosen) != len(set(chosen)):
+                raise serializers.ValidationError("요일별 금지 카테고리는 중복 선택할 수 없습니다.")
         
         data['template'] = template
         return data
@@ -183,20 +285,20 @@ class UserChallengeCreateSerializer(serializers.Serializer):
                 success_conditions[key] = value
 
         compare_type = success_conditions.get('compare_type')
-        if compare_type == 'next_month_category':
+        if compare_type == COMPARE_TYPE_NEXT_MONTH_CATEGORY:
             target_category = user_input_values.get('target_category')
             if target_category:
                 success_conditions['categories'] = [target_category]
 
         # 무00의 날: daily_rules 선생성
         system_generated_values = {}
-        if success_conditions.get('type') == 'daily_rule':
+        if success_conditions.get('type') == CONDITION_TYPE_DAILY_RULE:
             daily_rules = self._generate_daily_rules(user_input_values, success_conditions)
             success_conditions['daily_rules'] = daily_rules
             system_generated_values['daily_rules'] = daily_rules
 
         start_at = self._resolve_start_at(template, success_conditions, now)
-        ends_at = start_at + timedelta(days=template.duration_days)
+        ends_at = start_at + timedelta(days=template.duration_days - 1)
         initial_progress = self._create_initial_progress(
             template=template,
             user_input_values=user_input_values,
@@ -212,7 +314,7 @@ class UserChallengeCreateSerializer(serializers.Serializer):
             compare_base = initial_progress.get('compare_base', 0)
             success_conditions['compare_base'] = compare_base
             system_generated_values['compare_base'] = compare_base
-            if success_conditions.get('compare_type') == 'next_month_category':
+            if success_conditions.get('compare_type') == COMPARE_TYPE_NEXT_MONTH_CATEGORY:
                 system_generated_values['future_message_notified'] = False
                 system_generated_values['challenge_start_month'] = {
                     "year": start_at.year,
@@ -268,7 +370,7 @@ class UserChallengeCreateSerializer(serializers.Serializer):
         """
         now = now or timezone.now()
         compare_type = (success_conditions or {}).get('compare_type')
-        if compare_type != 'last_month_week':
+        if compare_type != COMPARE_TYPE_LAST_MONTH_WEEK:
             return now
 
         weekday = now.weekday()
@@ -297,12 +399,16 @@ class UserChallengeCreateSerializer(serializers.Serializer):
             if forbidden_category:
                 daily_rules[day] = forbidden_category
 
-        # 금~일: AI 랜덤 지정 (3일)
-        all_categories = ['식비', '교통', '쇼핑', '문화/여가', '카페', '술/유흥']
+        # 금~일: AI 랜덤 지정 (3일) - 중복 불가
         remaining_days = ['fri', 'sat', 'sun']
+        used = set(daily_rules.values())
+        pool = [cat for cat in ALL_CATEGORIES if cat not in used]
+        if len(pool) < len(remaining_days):
+            raise serializers.ValidationError("선택 가능한 카테고리가 부족합니다. 다른 카테고리를 선택해주세요.")
 
-        for day in remaining_days:
-            daily_rules[day] = random.choice(all_categories)
+        picked = random.sample(pool, len(remaining_days))
+        for day, category in zip(remaining_days, picked):
+            daily_rules[day] = category
 
         return daily_rules
 
@@ -324,7 +430,7 @@ class UserChallengeCreateSerializer(serializers.Serializer):
                 "is_on_track": True,
                 "remaining": target
             }
-            if success_conditions.get('type') == 'amount_range' and target:
+            if success_conditions.get('type') == CONDITION_TYPE_AMOUNT_RANGE and target:
                 tolerance_percent = success_conditions.get('tolerance_percent', 10)
                 progress['lower_limit'] = int(target * (1 - tolerance_percent / 100))
                 progress['upper_limit'] = int(target * (1 + tolerance_percent / 100))
@@ -382,7 +488,7 @@ class UserChallengeCreateSerializer(serializers.Serializer):
                 "percentage": 0,
                 "is_on_track": True
             }
-            if success_conditions.get('compare_type') == 'next_month_category':
+            if success_conditions.get('compare_type') == COMPARE_TYPE_NEXT_MONTH_CATEGORY:
                 progress.update({
                     "phase": "this_month",
                     "this_month_spent": compare_base,
@@ -426,7 +532,7 @@ class UserChallengeCreateSerializer(serializers.Serializer):
         compare_type = success_conditions.get('compare_type', '')
         now = reference_dt or timezone.now()
 
-        if compare_type == 'last_month_week':
+        if compare_type == COMPARE_TYPE_LAST_MONTH_WEEK:
             # 나와의 싸움: 지난달 특정 주차의 지출
             try:
                 compare_week = int(user_input_values.get('compare_week', 1))
@@ -459,7 +565,7 @@ class UserChallengeCreateSerializer(serializers.Serializer):
                 # 날짜 계산 오류 시 0 반환
                 return 0
 
-        elif compare_type == 'fixed_expense':
+        elif compare_type == COMPARE_TYPE_FIXED_EXPENSE:
             # 고정비 다이어트: 지난달 고정비
             if now.month == 1:
                 last_month_year = now.year - 1
@@ -480,7 +586,7 @@ class UserChallengeCreateSerializer(serializers.Serializer):
 
             return total
 
-        elif compare_type == 'next_month_category':
+        elif compare_type == COMPARE_TYPE_NEXT_MONTH_CATEGORY:
             # 미래의 나에게: 시작 달 카테고리 지출 (시작 시점 기준)
             target_category = user_input_values.get('target_category', '')
             first_day_of_month = date(now.year, now.month, 1)
@@ -535,7 +641,7 @@ class CustomChallengeCreateSerializer(serializers.Serializer):
         
         # success_conditions 생성
         success_conditions = {
-            "type": "amount_limit" if target_amount else "zero_spend",
+            "type": CONDITION_TYPE_AMOUNT_LIMIT if target_amount else CONDITION_TYPE_ZERO_SPEND,
             "target_amount": target_amount or 0,
             "categories": target_categories or ["all"],
             "comparison": "lte"
@@ -582,8 +688,8 @@ class CustomChallengeCreateSerializer(serializers.Serializer):
             description=validated_data.get('description', ''),
             difficulty=validated_data.get('difficulty', 'normal'),
             duration_days=validated_data['duration_days'],
-            started_at=now,
-            ends_at=now + timedelta(days=validated_data['duration_days']),
+            started_at=None,
+            ends_at=None,
             success_conditions=success_conditions,
             user_input_values={
                 'target_amount': target_amount,
@@ -593,6 +699,7 @@ class CustomChallengeCreateSerializer(serializers.Serializer):
             progress=progress,
             base_points=100,
             success_description=[f"{validated_data['duration_days']}일간 목표 금액 이하 지출"],
+            status='saved',
         )
 
         return user_challenge
@@ -689,12 +796,13 @@ class BaseChallengeStartSerializer(serializers.Serializer):
     # 모든 기존 condition_type 허용
     condition_type = serializers.ChoiceField(
         choices=[
-            'amount_limit', 'zero_spend', 'compare', 'amount_range',
-            'daily_rule', 'random_budget', 'photo_verification',
-            'amount_limit_with_photo', 'daily_check', 'custom'
+            CONDITION_TYPE_AMOUNT_LIMIT, CONDITION_TYPE_ZERO_SPEND, CONDITION_TYPE_COMPARE,
+            CONDITION_TYPE_AMOUNT_RANGE, CONDITION_TYPE_DAILY_RULE, CONDITION_TYPE_RANDOM_BUDGET,
+            CONDITION_TYPE_PHOTO_VERIFICATION, CONDITION_TYPE_AMOUNT_LIMIT_WITH_PHOTO,
+            CONDITION_TYPE_DAILY_CHECK, CONDITION_TYPE_CUSTOM,
         ],
         required=False,
-        default='amount_limit'
+        default=CONDITION_TYPE_AMOUNT_LIMIT,
     )
 
     def validate_target_categories(self, value):
@@ -706,7 +814,7 @@ class BaseChallengeStartSerializer(serializers.Serializer):
     def _build_success_conditions(self, target_amount, target_categories, target_keywords, success_conditions_list, condition_type=None):
         """success_conditions JSON 생성"""
         if condition_type is None:
-            condition_type = "amount_limit" if target_amount else "custom"
+            condition_type = CONDITION_TYPE_AMOUNT_LIMIT if target_amount else CONDITION_TYPE_CUSTOM
         
         return {
             "type": condition_type,
@@ -793,7 +901,7 @@ class BaseChallengeStartSerializer(serializers.Serializer):
             progress=progress,
             base_points=validated_data['base_points'],
             success_description=success_description,
-            status='ready',
+            status='saved',
         )
 
         return user_challenge

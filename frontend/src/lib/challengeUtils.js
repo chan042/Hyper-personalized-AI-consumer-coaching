@@ -191,7 +191,7 @@ export const getProgressText = (progress, durationDays) => {
             return `${nextSpent.toLocaleString()}원 / ${base.toLocaleString()}원`;
         }
         if (progress.phase === 'this_month' && progress.this_month_spent !== undefined) {
-            return `${(progress.this_month_spent || 0).toLocaleString()}원`;
+            return `기준 수집 중 · ${(progress.this_month_spent || 0).toLocaleString()}원`;
         }
         const current = progress.current || 0;
         const target = progress.target || 0;

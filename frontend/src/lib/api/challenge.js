@@ -43,6 +43,8 @@ const transformTemplate = (template) => ({
     // 사용자 상태 정보
     status: template.my_challenge_status,
     userChallengeId: template.my_challenge_id,
+    isAvailable: template.is_available !== false,
+    unavailableReason: template.unavailable_reason,
 });
 
 /**
@@ -72,7 +74,7 @@ const transformUserChallenge = (uc) => {
         progress: progressPercent,
         progressData: uc.progress,
         daysLeft: uc.remaining_days,
-        duration: uc.remaining_days !== undefined ? `${uc.remaining_days}일 남음` : `${uc.duration_days}일`,
+        duration: uc.remaining_days !== undefined ? `${uc.remaining_days}일` : `${uc.duration_days}일`,
         durationDays: uc.duration_days,
         status: uc.status,
         statusDisplay: uc.status_display,
@@ -183,6 +185,7 @@ export const getMyChallenges = async (status = null) => {
                 'failed': 'failed',
                 'finished': 'finished',
                 'ready': 'ready',
+                'saved': 'saved',
                 'cancelled': 'cancelled',
             };
             const mappedStatus = statusMap[status] || status;

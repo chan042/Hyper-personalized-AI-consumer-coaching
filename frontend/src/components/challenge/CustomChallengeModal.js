@@ -4,13 +4,27 @@
  * - 사용자가 제목, 상세 내용, 난이도를 입력
  * - AI로 챌린지 생성하기 버튼
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Sparkles, Trophy } from 'lucide-react';
 import { getDifficultyButtonStyle } from '@/lib/challengeUtils';
 
-export default function CustomChallengeModal({ isOpen, onClose, onGenerate, isLoading }) {
+export default function CustomChallengeModal({
+    isOpen,
+    onClose,
+    onGenerate,
+    isLoading,
+    initialDetails = '',
+    initialDifficulty = ''
+}) {
     const [details, setDetails] = useState('');
     const [difficulty, setDifficulty] = useState('');
+
+    useEffect(() => {
+        if (isOpen) {
+            setDetails(initialDetails || '');
+            setDifficulty(initialDifficulty || '');
+        }
+    }, [isOpen, initialDetails, initialDifficulty]);
 
     // 모달 닫을 때 입력값 초기화
     const handleClose = () => {

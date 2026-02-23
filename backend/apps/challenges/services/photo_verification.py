@@ -92,6 +92,7 @@ class PhotoVerificationService:
         target_amount = int(user_challenge.user_input_values.get("target_amount") or 0)
         current_spent = int((user_challenge.progress or {}).get("current") or 0)
         expected_remaining = max(0, target_amount - current_spent)
+        tolerance = int((user_challenge.success_conditions or {}).get("photo_amount_tolerance") or 0)
 
         gemini = GeminiClient(purpose="analysis")
         result = gemini.analyze_cash_photo(
@@ -122,7 +123,7 @@ class PhotoVerificationService:
                 },
             )
 
-        if detected_cash_total != expected_remaining:
+        if abs(detected_cash_total - expected_remaining) > tolerance:
             return self._failed(
                 reason_code="CASH_AMOUNT_MISMATCH",
                 reason_message="사진 속 현금 합계가 남은 금액과 다릅니다. 다시 촬영해주세요.",
@@ -130,6 +131,7 @@ class PhotoVerificationService:
                 evidence={
                     "detected_cash_total": detected_cash_total,
                     "expected_remaining": expected_remaining,
+                    "tolerance": tolerance,
                     "denominations": denominations,
                 },
             )

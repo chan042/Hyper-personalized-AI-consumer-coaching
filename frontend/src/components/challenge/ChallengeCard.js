@@ -23,6 +23,8 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
         isActive,
         isFailed,
         isReady,
+        isUnavailable,
+        isSaved,
         progressPercent,
         getButtonText,
         getButtonType,
@@ -38,6 +40,7 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
 
     const handleButtonClick = (e) => {
         e.stopPropagation();
+        if (isUnavailable) return;
         if (isReady) return;
         if (isActive || progressPercent > 0) {
             onClick?.(challenge);
@@ -59,6 +62,10 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                 return { ...styles.statusButton, borderColor: 'var(--primary)', color: 'var(--primary)' };
             case 'ready':
                 return styles.readyDisabledButton;
+            case 'unavailable':
+                return styles.unavailableButton;
+            case 'saved':
+                return styles.joinButton;
             default:
                 return styles.joinButton;
         }
@@ -112,6 +119,11 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                             {challenge.description}
                         </div>
                     )}
+                    {isUnavailable && challenge.unavailableReason && (
+                        <div style={styles.unavailableReason}>
+                            {challenge.unavailableReason}
+                        </div>
+                    )}
 
                     {/* 진행률 정보 (진행중인 챌린지에만 표시) */}
                     {isActive && (
@@ -139,7 +151,7 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                     <button
                         style={getButtonStyle(buttonType)}
                         onClick={handleButtonClick}
-                        disabled={buttonType === 'ready'}
+                        disabled={buttonType === 'ready' || buttonType === 'unavailable'}
                     >
                         {getButtonText()}
                     </button>
@@ -244,6 +256,14 @@ const styles = {
         textOverflow: 'ellipsis',
         marginTop: '2px',
     },
+    unavailableReason: {
+        fontSize: '0.72rem',
+        color: '#9CA3AF',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        marginTop: '2px',
+    },
     progressInfo: {
         display: 'flex',
         alignItems: 'center',
@@ -326,6 +346,20 @@ const styles = {
         borderRadius: '4px',
         border: '2px solid #D1D5DB',
         backgroundColor: '#F3F4F6',
+        color: '#9CA3AF',
+        fontSize: '0.75rem',
+        fontWeight: '600',
+        cursor: 'not-allowed',
+        transition: 'all 0.2s ease',
+        minWidth: '65px',
+        textAlign: 'center',
+        whiteSpace: 'nowrap',
+    },
+    unavailableButton: {
+        padding: '6px 16px',
+        borderRadius: '4px',
+        border: '2px solid #E5E7EB',
+        backgroundColor: '#F9FAFB',
         color: '#9CA3AF',
         fontSize: '0.75rem',
         fontWeight: '600',

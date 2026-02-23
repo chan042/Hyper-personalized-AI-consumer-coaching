@@ -19,15 +19,19 @@ export const useChallenge = (challenge, isOngoing = false) => {
     const isFailed = challenge?.status === 'failed' || !!challenge?.failedDate;
     const isCompleted = challenge?.status === 'completed';
     const isReady = challenge?.status === 'ready';
+    const isUnavailable = challenge?.isAvailable === false;
+    const isSaved = challenge?.status === 'saved';
 
     /**
      * 버튼 텍스트 결정
      */
     const getButtonText = () => {
+        if (isUnavailable) return '도전하기';
         if (isActive) return '도전중';
         if (isFailed) return '재도전';
         if (isCompleted) return '완료';
-        if (isReady) return '도전 예약 완료';
+        if (isReady) return '도전 대기 중';
+        if (isSaved) return '도전하기';
         return '도전하기';
     };
 
@@ -36,10 +40,12 @@ export const useChallenge = (challenge, isOngoing = false) => {
      * @returns {'active' | 'failed' | 'completed' | 'ready' | 'default'}
      */
     const getButtonType = () => {
+        if (isUnavailable) return 'unavailable';
         if (isActive) return 'active';
         if (isFailed) return 'failed';
         if (isCompleted) return 'completed';
         if (isReady) return 'ready';
+        if (isSaved) return 'saved';
         return 'default';
     };
 
@@ -75,6 +81,8 @@ export const useChallenge = (challenge, isOngoing = false) => {
         isFailed,
         isCompleted,
         isReady,
+        isUnavailable,
+        isSaved,
         progressPercent,
         progressData,
         getButtonText,

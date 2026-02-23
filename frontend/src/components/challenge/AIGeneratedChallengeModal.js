@@ -1,8 +1,8 @@
 /**
  * [파일 역할]
  * - AI가 생성한 챌린지 미리보기 모달
- * - ChallengeDetailModal을 재사용하여 일관된 UI 제공
- * - 수정/저장 기능 (커스텀 버튼 및 입력 모드)
+ * - 커스텀 챌린지: 재생성/저장 버튼
+ * - AI 챌린지: 저장 버튼
  */
 import { useState, useEffect } from 'react';
 import ChallengeDetailModal from './ChallengeDetailModal';
@@ -13,9 +13,9 @@ export default function AIGeneratedChallengeModal({
     challengeData,
     onSave,
     isSaving,
+    onRegenerate,
     source = 'custom'
 }) {
-    const [isEditing, setIsEditing] = useState(false);
     const [editedData, setEditedData] = useState(null);
 
     // 초기 데이터 로드
@@ -41,50 +41,39 @@ export default function AIGeneratedChallengeModal({
         ...editedData
     };
 
-    const handleTitleChange = (newTitle) => {
-        setEditedData(prev => ({ ...prev, name: newTitle, title: newTitle }));
-    };
-
-    const handleDescriptionChange = (newDesc) => {
-        setEditedData(prev => ({ ...prev, description: newDesc }));
-    };
-
-    const handleEditClick = () => {
-        setIsEditing(true);
-    };
-
     const handleSaveClick = () => {
-        setIsEditing(false);
         onSave(editedData); // 저장 호출
     };
 
-    // 커스텀 푸터 버튼 (수정 / 저장)
+    const shouldShowRegenerate = source === 'custom';
+
+    // 커스텀 푸터 버튼 (재생성/저장 또는 저장만)
     const customFooter = (
         <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
-            {/* 수정 버튼: 편집 모드가 아닐 때만 활성화 (또는 항상 보여주고 편집모드 진입) */}
-            <button
-                style={{
-                    flex: 1,
-                    padding: '14px',
-                    borderRadius: '12px',
-                    backgroundColor: isEditing ? '#E5E7EB' : '#F3F4F6',
-                    color: isEditing ? '#9CA3AF' : '#4B5563',
-                    border: 'none',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    cursor: isEditing ? 'default' : 'pointer',
-                    transition: 'all 0.2s ease',
-                }}
-                onClick={handleEditClick}
-                disabled={isEditing}
-            >
-                수정
-            </button>
+            {shouldShowRegenerate && (
+                <button
+                    style={{
+                        flex: 1,
+                        padding: '14px',
+                        borderRadius: '12px',
+                        backgroundColor: '#F3F4F6',
+                        color: '#4B5563',
+                        border: 'none',
+                        fontSize: '1rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                    }}
+                    onClick={onRegenerate}
+                >
+                    재생성
+                </button>
+            )}
 
             {/* 저장 버튼 */}
             <button
                 style={{
-                    flex: 2,
+                    flex: 1,
                     padding: '14px',
                     borderRadius: '12px',
                     backgroundColor: 'var(--primary)',
@@ -108,10 +97,6 @@ export default function AIGeneratedChallengeModal({
         <ChallengeDetailModal
             challenge={formattedChallenge}
             onClose={onClose}
-            // Edit Control
-            isEditing={isEditing}
-            onTitleChange={handleTitleChange}
-            onDescriptionChange={handleDescriptionChange}
             customFooter={customFooter}
         />
     );

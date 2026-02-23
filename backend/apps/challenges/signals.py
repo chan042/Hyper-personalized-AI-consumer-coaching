@@ -6,14 +6,31 @@ from datetime import timedelta, date
 from calendar import monthrange
 from apps.transactions.models import Transaction
 from .models import UserChallenge, ChallengeDailyLog
-
-
-CONVENIENCE_STORE_KEYWORDS = ["편의점", "gs25", "cu", "이마트24", "emart24", "세븐일레븐", "7eleven"]
+from .constants import (
+    CONVENIENCE_STORE_KEYWORDS,
+    CONDITION_TYPE_AMOUNT_LIMIT,
+    CONDITION_TYPE_ZERO_SPEND,
+    CONDITION_TYPE_COMPARE,
+    CONDITION_TYPE_PHOTO_VERIFICATION,
+    CONDITION_TYPE_AMOUNT_LIMIT_WITH_PHOTO,
+    CONDITION_TYPE_AMOUNT_RANGE,
+    CONDITION_TYPE_DAILY_RULE,
+    CONDITION_TYPE_DAILY_CHECK,
+    CONDITION_TYPE_RANDOM_BUDGET,
+    CONDITION_TYPE_CUSTOM,
+    COMPARE_TYPE_LAST_MONTH_WEEK,
+    COMPARE_TYPE_FIXED_EXPENSE,
+    COMPARE_TYPE_NEXT_MONTH_CATEGORY,
+)
 
 
 def _contains_convenience_store_keyword(text: str) -> bool:
     lowered = (text or "").lower()
     return any(keyword in lowered for keyword in CONVENIENCE_STORE_KEYWORDS)
+
+
+def _normalize_target_categories(categories):
+    return list(categories) if categories else []
 
 
 def _count_verified_photos(log: ChallengeDailyLog) -> int:
@@ -75,8 +92,9 @@ def _should_track_transaction(user_challenge, transaction):
     # 2. 키워드가 없으면 카테고리 매칭
     if not target_categories or 'all' in target_categories:
         return True
-    
-    return transaction.category in target_categories
+
+    normalized_targets = _normalize_target_categories(target_categories)
+    return transaction.category in normalized_targets
 
 
 @receiver(post_save, sender=Transaction)
@@ -112,7 +130,7 @@ def update_challenge_progress_on_transaction(sender, instance, created, **kwargs
         success_conditions = uc.success_conditions or {}
         compare_type = success_conditions.get('compare_type', '')
         
-        if compare_type == 'fixed_expense' and not instance.is_fixed:
+        if compare_type == COMPARE_TYPE_FIXED_EXPENSE and not instance.is_fixed:
             continue
         
         # 챌린지 관련 지출인지 확인
@@ -162,7 +180,7 @@ def _update_challenge_progress(user_challenge, transaction_date=None, category=N
     display_config = user_challenge.display_config or {}
     progress_type = display_config.get('progress_type', 'amount')
     success_conditions = user_challenge.success_conditions or {}
-    condition_type = success_conditions.get('type', 'amount_limit')
+    condition_type = success_conditions.get('type', CONDITION_TYPE_AMOUNT_LIMIT)
 
     # 전체 지출 합계
     total_spent = user_challenge.daily_logs.aggregate(
@@ -210,7 +228,7 @@ def _update_amount_progress(user_challenge, total_spent, success_conditions):
         "remaining": remaining
     }
 
-    if success_conditions.get('type') == 'amount_range' and target:
+    if success_conditions.get('type') == CONDITION_TYPE_AMOUNT_RANGE and target:
         tolerance_percent = success_conditions.get('tolerance_percent', 10)
         progress['lower_limit'] = int(target * (1 - tolerance_percent / 100))
         progress['upper_limit'] = int(target * (1 + tolerance_percent / 100))
@@ -221,13 +239,14 @@ def _update_amount_progress(user_challenge, total_spent, success_conditions):
 def _update_zero_spend_progress(user_challenge, total_spent, success_conditions):
     """zero_spend 타입 progress 업데이트"""
     target_categories = success_conditions.get('categories', [])
+    normalized_targets = _normalize_target_categories(target_categories)
     
     # 대상 카테고리 지출 합계
     violation_amount = 0
     if target_categories and 'all' not in target_categories:
         for log in user_challenge.daily_logs.all():
             for cat, amt in (log.spent_by_category or {}).items():
-                if cat in target_categories:
+                if cat in normalized_targets:
                     violation_amount += amt
     else:
         violation_amount = total_spent
@@ -254,7 +273,7 @@ def _update_zero_spend_progress(user_challenge, total_spent, success_conditions)
 def _update_compare_progress(user_challenge, total_spent, success_conditions):
     """compare 타입 progress 업데이트"""
     compare_type = success_conditions.get('compare_type', '')
-    if compare_type == 'next_month_category':
+    if compare_type == COMPARE_TYPE_NEXT_MONTH_CATEGORY:
         progress = _build_future_compare_progress(user_challenge, success_conditions)
         user_challenge.update_progress(progress)
         return
@@ -475,8 +494,8 @@ def _check_auto_judgement(user_challenge, transaction_date=None, category=None, 
         return
 
     # 챌린지 유형별 즉시 실패 조건 확인
-    condition_type = success_conditions.get('type', 'amount_limit')
-    
+    condition_type = success_conditions.get('type', CONDITION_TYPE_AMOUNT_LIMIT)
+
     # 딕셔너리에서 핸들러 조회 후 실행
     handler = IMMEDIATE_FAILURE_HANDLERS.get(condition_type)
     if handler:
@@ -508,15 +527,15 @@ def _check_compare_failure(user_challenge, progress, success_conditions, transac
     compare_base = int(success_conditions.get('compare_base', 0))
     current = progress.get('current', 0)
 
-    if compare_type == 'last_month_week':
+    if compare_type == COMPARE_TYPE_LAST_MONTH_WEEK:
         # 지난달 주차 지출보다 초과하면 즉시 실패
         if current > compare_base:
             user_challenge.complete_challenge(False, current)
-    elif compare_type == 'fixed_expense':
+    elif compare_type == COMPARE_TYPE_FIXED_EXPENSE:
         # 고정비 다이어트 - 이번주 고정비 >= 이전 고정비면 즉시 실패
         if current >= compare_base and current > 0:
             user_challenge.complete_challenge(False, current)
-    elif compare_type == 'next_month_category':
+    elif compare_type == COMPARE_TYPE_NEXT_MONTH_CATEGORY:
         # 미래의 나에게 - (a+1)달 카테고리 지출이 a달 초과 시 즉시 실패
         if progress.get('phase') == 'next_month' and current > compare_base:
             user_challenge.complete_challenge(False, current)
@@ -597,16 +616,15 @@ def _check_custom_failure(user_challenge, progress, success_conditions, transact
 
 # condition_type별 즉시 실패 체크 핸들러 매핑
 IMMEDIATE_FAILURE_HANDLERS = {
-    'amount_limit': _check_amount_limit_failure,
-    'compare': _check_compare_failure,
-    'zero_spend': _check_zero_spend_failure,
-    'amount_limit_with_photo': _check_amount_limit_with_photo_failure,
-    'photo_verification': _check_photo_verification_failure,
-    'amount_range': _check_amount_range_failure,
-    'daily_rule': _check_daily_rule_failure,
-    'random_budget': _check_random_budget_failure,
-    'custom': _check_custom_failure,
-    'daily_check': None,  # daily_check는 즉시 실패 조건 없음
+    CONDITION_TYPE_AMOUNT_LIMIT: _check_amount_limit_failure,
+    CONDITION_TYPE_COMPARE: _check_compare_failure,
+    CONDITION_TYPE_ZERO_SPEND: _check_zero_spend_failure,
+    CONDITION_TYPE_AMOUNT_LIMIT_WITH_PHOTO: _check_amount_limit_with_photo_failure,
+    CONDITION_TYPE_PHOTO_VERIFICATION: _check_photo_verification_failure,
+    CONDITION_TYPE_AMOUNT_RANGE: _check_amount_range_failure,
+    CONDITION_TYPE_DAILY_RULE: _check_daily_rule_failure,
+    CONDITION_TYPE_CUSTOM: _check_custom_failure,
+    CONDITION_TYPE_DAILY_CHECK: None,  # daily_check는 즉시 실패 조건 없음
 }
 
 
@@ -749,10 +767,10 @@ def _update_random_budget_progress(user_challenge, total_spent, success_conditio
 
 def _evaluate_success(user_challenge, progress, success_conditions):
     """성공 여부 평가"""
-    condition_type = success_conditions.get('type', 'amount_limit')
+    condition_type = success_conditions.get('type', CONDITION_TYPE_AMOUNT_LIMIT)
     comparison = success_conditions.get('comparison', 'lte')
 
-    if condition_type == 'amount_limit':
+    if condition_type == CONDITION_TYPE_AMOUNT_LIMIT:
         target = int(success_conditions.get('target_amount', 0))
         current = progress.get('current', 0)
 
@@ -767,7 +785,7 @@ def _evaluate_success(user_challenge, progress, success_conditions):
         elif comparison == 'eq':
             return current == target
 
-    elif condition_type == 'amount_limit_with_photo':
+    elif condition_type == CONDITION_TYPE_AMOUNT_LIMIT_WITH_PHOTO:
         # 현금 챌린지: 금액 + 사진 인증 모두 충족해야 성공
         target = user_challenge.user_input_values.get('target_amount', 0)
         if target:
@@ -788,15 +806,15 @@ def _evaluate_success(user_challenge, progress, success_conditions):
             date_iter += timedelta(days=1)
         return True
 
-    elif condition_type == 'zero_spend':
+    elif condition_type == CONDITION_TYPE_ZERO_SPEND:
         return not progress.get('is_violated', False)
 
-    elif condition_type == 'daily_check':
+    elif condition_type == CONDITION_TYPE_DAILY_CHECK:
         required_days = success_conditions.get('required_days', user_challenge.duration_days)
         checked_days = progress.get('checked_days', 0)
         return checked_days >= required_days
 
-    elif condition_type == 'photo_verification':
+    elif condition_type == CONDITION_TYPE_PHOTO_VERIFICATION:
         photo_condition = success_conditions.get('photo_condition', '')
         if '1+1' in photo_condition:
             for log in user_challenge.daily_logs.all():
@@ -807,17 +825,17 @@ def _evaluate_success(user_challenge, progress, success_conditions):
         photo_count = progress.get('photo_count', 0)
         return photo_count >= required_count
 
-    elif condition_type == 'compare':
-        if success_conditions.get('compare_type') == 'next_month_category':
+    elif condition_type == CONDITION_TYPE_COMPARE:
+        if success_conditions.get('compare_type') == COMPARE_TYPE_NEXT_MONTH_CATEGORY:
             if progress.get('phase') != 'next_month':
                 return False
             return progress.get('current', 0) <= progress.get('compare_base', 0)
         return progress.get('is_on_track', False)
 
-    elif condition_type == 'daily_rule':
+    elif condition_type == CONDITION_TYPE_DAILY_RULE:
         return progress.get('is_on_track', False)
 
-    elif condition_type == 'amount_range':
+    elif condition_type == CONDITION_TYPE_AMOUNT_RANGE:
         # 내 소비 맞추기: ±10% 범위 내
         target = user_challenge.user_input_values.get('target_amount', 0)
         if target:
@@ -829,7 +847,7 @@ def _evaluate_success(user_challenge, progress, success_conditions):
             return lower_limit <= current <= upper_limit
         return False
 
-    elif condition_type == 'random_budget':
+    elif condition_type == CONDITION_TYPE_RANDOM_BUDGET:
         return progress.get('is_on_track', False)
 
     return progress.get('is_on_track', False)

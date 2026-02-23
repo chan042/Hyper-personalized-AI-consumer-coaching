@@ -12,20 +12,16 @@ from datetime import timedelta, date
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from apps.challenges.models import UserChallenge
+from apps.challenges.models import UserChallenge, ChallengeDailyLog
 from apps.challenges.signals import _update_challenge_progress, _evaluate_success
+from apps.challenges.constants import (
+    CONVENIENCE_STORE_KEYWORDS,
+    CONDITION_TYPE_DAILY_CHECK,
+    CONDITION_TYPE_AMOUNT_LIMIT_WITH_PHOTO,
+    CONDITION_TYPE_PHOTO_VERIFICATION,
+    COMPARE_TYPE_NEXT_MONTH_CATEGORY,
+)
 from apps.notifications.services import create_challenge_notification
-
-
-CONVENIENCE_STORE_KEYWORDS = [
-    "편의점",
-    "gs25",
-    "cu",
-    "이마트24",
-    "emart24",
-    "세븐일레븐",
-    "7eleven",
-]
 
 
 def _contains_convenience_store_keyword(text: str) -> bool:
@@ -66,6 +62,11 @@ class Command(BaseCommand):
             if not uc.started_at:
                 continue
 
+            # daily_check 타입은 누락 로그를 미리 생성 (진행률/실패 판정 안정화)
+            success_conditions = uc.success_conditions or {}
+            if success_conditions.get("type") == CONDITION_TYPE_DAILY_CHECK:
+                self._ensure_daily_logs(uc, today)
+
             # 1) 거래가 없던 날도 progress가 갱신되도록 일괄 업데이트
             if uc.started_at.date() <= today:
                 _update_challenge_progress(uc)
@@ -78,19 +79,19 @@ class Command(BaseCommand):
                 success_conditions = uc.success_conditions or {}
                 condition_type = success_conditions.get("type", "")
 
-                if condition_type == "daily_check":
+                if condition_type == CONDITION_TYPE_DAILY_CHECK:
                     if self._check_daily_check_failure(uc, yesterday):
                         failed_count += 1
                         self.stdout.write(self.style.WARNING(f"미라클 두둑! 실패: {uc.user.username} - {uc.name}"))
                         continue
 
-                elif condition_type == "amount_limit_with_photo":
+                elif condition_type == CONDITION_TYPE_AMOUNT_LIMIT_WITH_PHOTO:
                     if self._check_photo_missing_failure(uc, yesterday):
                         failed_count += 1
                         self.stdout.write(self.style.WARNING(f"현금 챌린지 실패: {uc.user.username} - {uc.name}"))
                         continue
 
-                elif condition_type == "photo_verification":
+                elif condition_type == CONDITION_TYPE_PHOTO_VERIFICATION:
                     photo_condition = success_conditions.get("photo_condition", "")
                     if "1+1" in photo_condition and self._check_one_plus_one_failure(uc, yesterday):
                         failed_count += 1
@@ -136,6 +137,40 @@ class Command(BaseCommand):
 
         return False
 
+    def _ensure_daily_logs(self, user_challenge, today):
+        """
+        daily_check용 누락 로그 생성:
+        시작일부터 오늘까지 로그가 없으면 빈 로그 생성
+        """
+        start_date = user_challenge.started_at.date()
+        end_date = min(today, user_challenge.ends_at.date() if user_challenge.ends_at else today)
+        if end_date < start_date:
+            return
+
+        existing_dates = set(
+            user_challenge.daily_logs.filter(log_date__gte=start_date, log_date__lte=end_date)
+            .values_list("log_date", flat=True)
+        )
+
+        to_create = []
+        cursor = start_date
+        while cursor <= end_date:
+            if cursor not in existing_dates:
+                to_create.append(
+                    ChallengeDailyLog(
+                        user_challenge=user_challenge,
+                        log_date=cursor,
+                        spent_amount=0,
+                        transaction_count=0,
+                        spent_by_category={},
+                        is_checked=False,
+                    )
+                )
+            cursor += timedelta(days=1)
+
+        if to_create:
+            ChallengeDailyLog.objects.bulk_create(to_create)
+
     def _check_photo_missing_failure(self, user_challenge, check_date):
         """
         현금 챌린지: 전날 사진 미인증 시 실패
@@ -176,7 +211,7 @@ class Command(BaseCommand):
         시작 다음 달 1일에 사용자의 입력 메시지 알림 발송
         """
         success_conditions = user_challenge.success_conditions or {}
-        if success_conditions.get("compare_type") != "next_month_category":
+        if success_conditions.get("compare_type") != COMPARE_TYPE_NEXT_MONTH_CATEGORY:
             return
 
         if not user_challenge.started_at:

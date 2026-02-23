@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /**
  * [파일 역할]
@@ -66,6 +66,7 @@ export default function ChallengePage() {
     // AI 생성 챌린지 미리보기 모달 상태
     const [showAIPreviewModal, setShowAIPreviewModal] = useState(false);
     const [aiGeneratedChallenge, setAiGeneratedChallenge] = useState(null);
+    const [lastGenerateInput, setLastGenerateInput] = useState({ details: '', difficulty: '' });
     const [isSavingAI, setIsSavingAI] = useState(false);
 
 
@@ -302,6 +303,10 @@ export default function ChallengePage() {
     // 챌린지 시작
     const handleStartChallenge = async (challenge, userInputs = {}) => {
         try {
+            if (challenge.isAvailable === false) {
+                alert(challenge.unavailableReason || '현재 도전할 수 없는 챌린지입니다.');
+                return;
+            }
             const normalizedInputs = Object.entries(userInputs || {}).reduce((acc, [key, value]) => {
                 if (value === '' || value === null || value === undefined) {
                     return acc;
@@ -318,8 +323,8 @@ export default function ChallengePage() {
                 return acc;
             }, {});
 
-            // 저장된 챌린지 시작
-            if (challenge.status === 'ready') {
+            // 저장된/예약 챌린지 시작
+            if (challenge.status === 'ready' || challenge.status === 'saved') {
                 await startSavedChallenge(challenge.id);
             } else {
                 // 템플릿 기반 챌린지 시작
@@ -360,6 +365,7 @@ export default function ChallengePage() {
     const handleGenerateAIChallenge = async (title, details, difficulty) => {
         setIsGenerating(true);
         try {
+            setLastGenerateInput({ details, difficulty });
             const generated = await generateAIChallenge(title, details, difficulty);
             setAiGeneratedChallenge(generated);
             setShowCustomModal(false);
@@ -380,6 +386,7 @@ export default function ChallengePage() {
             await fetchChallenges();
             setShowAIPreviewModal(false);
             setAiGeneratedChallenge(null);
+            setLastGenerateInput({ details: '', difficulty: '' });
             setActiveTab('user');
             alert('챌린지가 저장되었습니다!');
         } catch (err) {
@@ -401,6 +408,11 @@ export default function ChallengePage() {
             console.error('챌린지 삭제 실패:', err);
             alert(err.response?.data?.error || '챌린지 삭제에 실패했습니다.');
         }
+    };
+
+    const handleRegenerateAIChallenge = () => {
+        setShowAIPreviewModal(false);
+        setShowCustomModal(true);
     };
 
     // 스크롤 시 상단 헤더 숨김 처리를 위한 ref
@@ -556,6 +568,8 @@ export default function ChallengePage() {
                 onClose={() => setShowCustomModal(false)}
                 onGenerate={handleGenerateAIChallenge}
                 isLoading={isGenerating}
+                initialDetails={lastGenerateInput.details}
+                initialDifficulty={lastGenerateInput.difficulty}
             />
 
             {/* AI 생성 챌린지 미리보기 모달 */}
@@ -568,6 +582,7 @@ export default function ChallengePage() {
                 challengeData={aiGeneratedChallenge}
                 onSave={handleSaveAIChallenge}
                 isSaving={isSavingAI}
+                onRegenerate={handleRegenerateAIChallenge}
             />
         </div>
     );

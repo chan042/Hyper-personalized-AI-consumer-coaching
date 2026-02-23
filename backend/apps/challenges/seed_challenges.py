@@ -26,7 +26,7 @@ DUDUK_CHALLENGE_TEMPLATES = [
         "name": "3만원의 행복",
         "description": "일주일 동안 3만원으로 절약의 행복을 찾아봐요!",
         "source_type": "duduk",
-        "difficulty": "medium",
+        "difficulty": "normal",
         "base_points": 350,
         "has_penalty": False,
         "duration_days": 7,
@@ -155,7 +155,8 @@ DUDUK_CHALLENGE_TEMPLATES = [
             "target_amount": None,
             "categories": ["all"],
             "comparison": "lte",
-            "requires_daily_photo": True
+            "requires_daily_photo": True,
+            "photo_amount_tolerance": 1000
         },
         "user_inputs": [
             {
@@ -172,7 +173,8 @@ DUDUK_CHALLENGE_TEMPLATES = [
         "photo_description": "매일 저녁에 남은 현금을 사진으로 인증해주세요",
         "success_description": [
             "일주일 동안 설정한 예산으로 생활(권장 예산 이하 금액)",
-            "목표 금액 이하 지출"
+            "목표 금액 이하 지출",
+            "사진 속 현금 합계는 남은 금액 ±1,000원까지 허용"
         ],
         "display_config": {
             "progress_type": "amount",
@@ -207,7 +209,7 @@ DUDUK_CHALLENGE_TEMPLATES = [
         "success_conditions": {
             "type": "zero_spend",
             "target_amount": 0,
-            "categories": ["식비"],
+            "categories": ["식비", "카페", "술/유흥"],
             "comparison": "eq"
         },
         "user_inputs": None,
@@ -355,7 +357,7 @@ DUDUK_CHALLENGE_TEMPLATES = [
         "name": "내 소비 맞추기",
         "description": "계획 소비의 힘을 키워볼까요? 일주일 간 나의 소비 계획을 세우고 더 쓰지도, 덜 쓰지도 않고 그대로 실행해봐요.",
         "source_type": "duduk",
-        "difficulty": "medium",
+        "difficulty": "normal",
         "base_points": 300,
         "has_penalty": False,
         "duration_days": 7,
@@ -376,7 +378,10 @@ DUDUK_CHALLENGE_TEMPLATES = [
         ],
         "requires_daily_check": False,
         "requires_photo": False,
-        "success_description": ["일주일 목표 소비 금액 설정(권장 예산 이하)", "목표 금액 ±10% 이내 지출"],
+        "success_description": [
+            "일주일 목표 소비 금액 설정(권장 예산 이하)",
+            "목표 금액 +10% 초과 시 즉시 실패"
+        ],
         "display_config": {
             "progress_type": "amount",
             "primary_metric": {
@@ -404,7 +409,7 @@ DUDUK_CHALLENGE_TEMPLATES = [
         "name": "미라클 두둑!",
         "description": "매일 지출 입력하는 습관 기르기! 부지런한 내가 되어봐요.",
         "source_type": "duduk",
-        "difficulty": "medium",
+        "difficulty": "normal",
         "base_points": 350,
         "has_penalty": False,
         "duration_days": 30,
@@ -441,7 +446,7 @@ DUDUK_CHALLENGE_TEMPLATES = [
         "name": "무00의 날",
         "description": "어제는 카페, 오늘은 술! 내일은 어떤 소비를 참아볼까요? 4일은 내가 정한 카테고리를, 3일은 AI가 정해준 카테고리를 피해 지출해봐요.",
         "source_type": "duduk",
-        "difficulty": "medium",
+        "difficulty": "normal",
         "base_points": 300,
         "has_penalty": False,
         "duration_days": 7,
@@ -503,7 +508,7 @@ DUDUK_CHALLENGE_TEMPLATES = [
         "name": "미래의 나에게",
         "description": "미래의 나에게 이번 달 가장 후회되는 소비 카테고리와 함께 따끔한 한마디를 적어서 보내요!",
         "source_type": "duduk",
-        "difficulty": "medium",
+        "difficulty": "normal",
         "base_points": 350,
         "has_penalty": False,
         "duration_days": 60,

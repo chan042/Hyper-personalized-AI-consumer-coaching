@@ -123,6 +123,7 @@ class UserChallenge(models.Model):
     ]
     
     STATUS_CHOICES = [
+        ('saved', '저장됨'),
         ('ready', '시작 대기'),
         ('active', '진행 중'),
         ('completed', '완료'),

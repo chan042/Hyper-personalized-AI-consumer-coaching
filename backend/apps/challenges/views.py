@@ -9,6 +9,12 @@ from datetime import datetime, time
 
 from .models import ChallengeTemplate, UserChallenge, ChallengeDailyLog
 from .services.photo_verification import PhotoVerificationService
+from .constants import (
+    CONDITION_TYPE_AMOUNT_RANGE,
+    CONDITION_TYPE_PHOTO_VERIFICATION,
+    COMPARE_TYPE_LAST_MONTH_WEEK,
+)
+from .signals import _evaluate_success
 from .serializers import (
     ChallengeTemplateSerializer, ChallengeTemplateListSerializer,
     UserChallengeSerializer, UserChallengeListSerializer,
@@ -16,7 +22,8 @@ from .serializers import (
     ChallengeDailyLogSerializer,
     UserPointsSerializer,
     AIChallengGenerateSerializer, AIChallengePreviewSerializer, AIChallengeStartSerializer,
-    CoachingChallengeGenerateSerializer, CoachingChallengePreviewSerializer, CoachingChallengeStartSerializer
+    CoachingChallengeGenerateSerializer, CoachingChallengePreviewSerializer, CoachingChallengeStartSerializer,
+    _get_template_availability
 )
 from external.gemini.client import GeminiClient
 
@@ -73,6 +80,12 @@ class ChallengeTemplateViewSet(viewsets.ReadOnlyModelViewSet):
         - 고정비 다이어트: 지난달 고정비
         """
         template = self.get_object()
+        is_available, reason = _get_template_availability(template, request.user)
+        if not is_available:
+            return Response(
+                {'error': reason or '도전할 수 없는 챌린지입니다.', 'is_available': False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         display_config = template.display_config or {}
         if display_config.get('progress_type') != 'compare':
             return Response(
@@ -339,18 +352,21 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         """저장된 챌린지 시작"""
         user_challenge = self.get_object()
         
-        if user_challenge.status != 'ready':
+        if user_challenge.status not in {'ready', 'saved'}:
             return Response(
-                {'error': '대기 중인 챌린지만 시작할 수 있습니다.'},
+                {'error': '대기/저장 상태 챌린지만 시작할 수 있습니다.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         from datetime import timedelta
         now = timezone.now()
-        start_at = self._resolve_retry_start_at(user_challenge, now)
-        user_challenge.status = 'active'
+        if user_challenge.status == 'ready':
+            start_at = self._resolve_retry_start_at(user_challenge, now)
+        else:
+            start_at = now
+        user_challenge.status = 'active' if start_at <= now else 'ready'
         user_challenge.started_at = start_at
-        user_challenge.ends_at = start_at + timedelta(days=user_challenge.duration_days)
+        user_challenge.ends_at = start_at + timedelta(days=user_challenge.duration_days - 1)
         user_challenge.save()
         
         return Response(
@@ -426,7 +442,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
 
     def _resolve_retry_start_at(self, user_challenge, now):
         success_conditions = user_challenge.success_conditions or {}
-        if success_conditions.get('compare_type') != 'last_month_week':
+        if success_conditions.get('compare_type') != COMPARE_TYPE_LAST_MONTH_WEEK:
             return now
 
         weekday = now.weekday()
@@ -456,7 +472,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
                 "is_on_track": True,
                 "remaining": target
             }
-            if success_conditions.get('type') == 'amount_range' and target:
+            if success_conditions.get('type') == CONDITION_TYPE_AMOUNT_RANGE and target:
                 tolerance_percent = success_conditions.get('tolerance_percent', 10)
                 progress['lower_limit'] = int(target * (1 - tolerance_percent / 100))
                 progress['upper_limit'] = int(target * (1 + tolerance_percent / 100))
@@ -658,6 +674,13 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         
         # progress 업데이트
         self._update_photo_progress(user_challenge)
+
+        # photo_verification + once 타입은 즉시 완료 처리
+        success_conditions = user_challenge.success_conditions or {}
+        if success_conditions.get('type') == CONDITION_TYPE_PHOTO_VERIFICATION and user_challenge.photo_frequency in (None, 'once'):
+            progress = user_challenge.progress or {}
+            if _evaluate_success(user_challenge, progress, success_conditions):
+                user_challenge.complete_challenge(True, progress.get('current', 0))
         
         return Response({
             'message': '사진 인증 완료!',

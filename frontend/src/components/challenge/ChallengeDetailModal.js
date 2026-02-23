@@ -6,7 +6,7 @@
  */
 import { useState, useRef, useEffect } from 'react';
 import { X, Camera, Image, ChevronDown, Star, Calendar, CheckCircle, Sparkles } from 'lucide-react';
-import { CATEGORIES, getCategoryIcon } from '../common/CategoryIcons';
+import { CATEGORIES, getCategoryIcon, CATEGORY_COLORS } from '../common/CategoryIcons';
 import { useChallenge } from './useChallenge';
 import { getDifficultyLabel, getDifficultyStyle } from '@/lib/challengeUtils';
 import { previewTemplateInput } from '@/lib/api/challenge';
@@ -71,6 +71,18 @@ const isCategoryInput = (input) => {
     return key.includes('category') || label.includes('카테고리') || label.includes('category');
 };
 
+/**
+ * 챌린지 시작일로부터 dayOffset번째 날이 오늘인지 반환
+ */
+const isTodayByOffset = (startedAt, dayOffset) => {
+    if (!startedAt) return false;
+    const start = new Date(startedAt);
+    if (isNaN(start.getTime())) return false;
+    const d = new Date(start);
+    d.setDate(d.getDate() + dayOffset);
+    return d.toDateString() === new Date().toDateString();
+};
+
 
 export default function ChallengeDetailModal({
     challenge,
@@ -89,10 +101,12 @@ export default function ChallengeDetailModal({
     const [inputValues, setInputValues] = useState({});
     const [openCategorySelect, setOpenCategorySelect] = useState(null);
     const [selectedDayTab, setSelectedDayTab] = useState('mon_forbidden');
+    const [duplicateTooltip, setDuplicateTooltip] = useState(null);
     const [comparePreview, setComparePreview] = useState(null);
     const [isComparePreviewLoading, setIsComparePreviewLoading] = useState(false);
     const fileInputRef = useRef(null);
     const modalRef = useRef(null);
+    const duplicateTooltipTimerRef = useRef(null);
 
     // 공통 훅 사용
     const {
@@ -100,6 +114,8 @@ export default function ChallengeDetailModal({
         isFailed,
         isCompleted,
         isReady,
+        isUnavailable,
+        isSaved,
         progressData,
     } = useChallenge(challenge);
 
@@ -124,6 +140,24 @@ export default function ChallengeDetailModal({
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [onClose]);
+
+    useEffect(() => {
+        return () => {
+            if (duplicateTooltipTimerRef.current) {
+                clearTimeout(duplicateTooltipTimerRef.current);
+            }
+        };
+    }, []);
+
+    const showDuplicateTooltip = (dayKey) => {
+        if (duplicateTooltipTimerRef.current) {
+            clearTimeout(duplicateTooltipTimerRef.current);
+        }
+        setDuplicateTooltip({ dayKey, message: '중복 카테고리는 설정할 수 없습니다.' });
+        duplicateTooltipTimerRef.current = setTimeout(() => {
+            setDuplicateTooltip(null);
+        }, 1600);
+    };
 
     const isNotStarted = !isActive && !isFailed && !isCompleted;
     const isCompareTemplate =
@@ -352,15 +386,50 @@ export default function ChallengeDetailModal({
                             Object.keys(progressData.dailyRules).length > 0 && (
                                 <div style={styles.sectionContainer}>
                                     <h3 style={styles.sectionTitle}>요일별 금지 카테고리</h3>
-                                    <div style={styles.conditionBox}>
-                                        <div style={styles.weeklyCalendarGrid}>
-                                            {orderedWeekDays.map((day) => (
+                                    <div style={styles.weeklyCalendarGrid}>
+                                        {orderedWeekDays.map((day, idx) => {
+                                            const category = normalizedDailyRules[day.key];
+                                            const catColor = category
+                                                ? (CATEGORY_COLORS[category] || 'var(--primary)')
+                                                : '#9CA3AF';
+                                            const isToday = isTodayByOffset(challenge?.startedAt, idx);
+
+                                            return (
                                                 <div key={day.key} style={styles.weeklyCalendarCell}>
-                                                    <span style={styles.weeklyDayLabel}>{day.label}</span>
-                                                    <span style={styles.weeklyCategoryLabel}>{normalizedDailyRules[day.key] || '-'}</span>
+                                                    {/* 요일 레이블 */}
+                                                    <div style={styles.weeklyDayArea}>
+                                                        <span style={{
+                                                            ...styles.weeklyDayLabel,
+                                                            ...(isToday ? {
+                                                                backgroundColor: '#1F2937',
+                                                                color: '#FFFFFF',
+                                                                borderRadius: '50%',
+                                                                width: '24px',
+                                                                height: '24px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                            } : {}),
+                                                        }}>
+                                                            {day.shortLabel}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* 구분선 */}
+                                                    <div style={styles.weeklyCellDivider} />
+
+                                                    {/* 카테고리 텍스트 */}
+                                                    <div style={styles.weeklyCategoryArea}>
+                                                        <span style={{
+                                                            ...styles.weeklyCategoryText,
+                                                            color: catColor,
+                                                        }}>
+                                                            {category || '-'}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            ))}
-                                        </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
@@ -379,6 +448,11 @@ export default function ChallengeDetailModal({
                             ) : (
                                 <p style={styles.descriptionText}>
                                     {challenge.description || challenge.successDescription || '이 챌린지에 대한 상세 설명이 없습니다.'}
+                                </p>
+                            )}
+                            {isUnavailable && challenge.unavailableReason && (
+                                <p style={styles.unavailableReasonText}>
+                                    {challenge.unavailableReason}
                                 </p>
                             )}
                         </div>
@@ -516,6 +590,13 @@ export default function ChallengeDetailModal({
                                                                         backgroundColor: inputValues[selectedDayTab] === cat ? '#F0FDF4' : 'transparent',
                                                                     }}
                                                                     onClick={() => {
+                                                                        const isDuplicate = FORBIDDEN_INPUT_KEYS.some(
+                                                                            (key) => key !== selectedDayTab && inputValues[key] === cat
+                                                                        );
+                                                                        if (isDuplicate) {
+                                                                            showDuplicateTooltip(selectedDayTab);
+                                                                            return;
+                                                                        }
                                                                         setInputValues({ ...inputValues, [selectedDayTab]: cat });
                                                                         setOpenCategorySelect(null);
                                                                     }}
@@ -524,6 +605,11 @@ export default function ChallengeDetailModal({
                                                                     <span>{cat}</span>
                                                                 </button>
                                                             ))}
+                                                        </div>
+                                                    )}
+                                                    {duplicateTooltip?.dayKey === selectedDayTab && (
+                                                        <div style={styles.duplicateTooltip}>
+                                                            {duplicateTooltip.message}
                                                         </div>
                                                     )}
                                                 </div>
@@ -702,8 +788,19 @@ export default function ChallengeDetailModal({
                                         </button>
                                     )}
                                     <button
-                                        style={{ ...styles.primaryButton, background: 'var(--primary)' }}
+                                        style={{
+                                            ...styles.primaryButton,
+                                            background: isUnavailable ? '#E5E7EB' : 'var(--primary)',
+                                            color: isUnavailable ? '#9CA3AF' : 'white',
+                                            cursor: isUnavailable ? 'not-allowed' : 'pointer',
+                                        }}
                                         onClick={async () => {
+                                            if (isUnavailable) {
+                                                if (challenge.unavailableReason) {
+                                                    alert(challenge.unavailableReason);
+                                                }
+                                                return;
+                                            }
                                             if (challenge.userInputs) {
                                                 for (const input of challenge.userInputs) {
                                                     if (input.required && !inputValues[input.key]) {
@@ -715,8 +812,9 @@ export default function ChallengeDetailModal({
                                             const startValues = buildStartInputValues();
                                             await onStart?.(challenge, startValues);
                                         }}
+                                        disabled={isUnavailable}
                                     >
-                                        도전하기
+                                        {isSaved ? '시작하기' : '도전하기'}
                                     </button>
                                 </div>
                             )}
@@ -725,7 +823,7 @@ export default function ChallengeDetailModal({
                             {/* Ready - 예약 대기 중 */}
                             {isReady && (
                                 <button style={styles.disabledButton} disabled>
-                                    도전 예약 완료
+                                    도전 대기 중
                                 </button>
                             )}
                             {/* Failed */}
@@ -1000,6 +1098,12 @@ const styles = {
         borderRadius: '16px',
         margin: 0,
     },
+    unavailableReasonText: {
+        fontSize: '0.85rem',
+        color: '#F87171',
+        fontWeight: '700',
+        marginTop: '8px',
+    },
     editingDescriptionInput: {
         width: '100%',
         padding: '12px',
@@ -1050,32 +1154,50 @@ const styles = {
     weeklyCalendarGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-        gap: '8px',
+        gap: '0',
+        border: '1px solid #E5E7EB',
+        borderRadius: '12px',
+        overflow: 'hidden',
     },
     weeklyCalendarCell: {
-        border: '1px solid #E5E7EB',
-        borderRadius: '10px',
-        backgroundColor: '#F9FAFB',
-        padding: '8px 4px',
         display: 'flex',
         flexDirection: 'column',
+        alignItems: 'stretch',
+        borderRight: '1px solid #E5E7EB',
+    },
+    weeklyDayArea: {
+        height: '40px',
+        display: 'flex',
         alignItems: 'center',
-        gap: '6px',
-        minHeight: '68px',
         justifyContent: 'center',
+        flexShrink: 0,
+    },
+    weeklyCellDivider: {
+        height: '1px',
+        backgroundColor: '#E5E7EB',
+        flexShrink: 0,
+    },
+    weeklyCategoryArea: {
+        minHeight: '44px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '6px 2px',
     },
     weeklyDayLabel: {
-        fontSize: '0.72rem',
-        fontWeight: '700',
-        color: '#6B7280',
-        letterSpacing: '0.03em',
-    },
-    weeklyCategoryLabel: {
         fontSize: '0.8rem',
+        fontWeight: '600',
+        color: '#6B7280',
+        letterSpacing: '0em',
+        lineHeight: 1,
+    },
+    weeklyCategoryText: {
+        fontSize: '0.62rem',
         fontWeight: '700',
-        color: 'var(--primary)',
         textAlign: 'center',
         wordBreak: 'keep-all',
+        lineHeight: '1.3',
+        padding: '0 2px',
     },
     photoCondition: {
         display: 'flex',
@@ -1148,6 +1270,20 @@ const styles = {
         overflowY: 'auto',
         border: '1px solid #E5E7EB',
         padding: '4px',
+    },
+    duplicateTooltip: {
+        position: 'absolute',
+        top: '100%',
+        right: 0,
+        marginTop: '6px',
+        backgroundColor: '#111827',
+        color: '#FFFFFF',
+        fontSize: '0.75rem',
+        padding: '6px 10px',
+        borderRadius: '10px',
+        boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+        zIndex: 60,
+        whiteSpace: 'nowrap',
     },
     categoryOption: {
         width: '100%',
