@@ -15,13 +15,14 @@ import {
 import { useChallenge } from './useChallenge';
 
 
-export default function ChallengeCard({ challenge, onStart, onRetry, onClick, isOngoing }) {
+export default function ChallengeCard({ challenge, onStart, onRetry, onClaimReward, onClick, isOngoing }) {
     const { user } = useAuth();
     const characterType = user?.character_type || 'ham';
 
     const {
         isActive,
         isFailed,
+        isCompleted,
         isReady,
         isUnavailable,
         isSaved,
@@ -42,7 +43,9 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
         e.stopPropagation();
         if (isUnavailable) return;
         if (isReady) return;
-        if (isActive || progressPercent > 0) {
+        if (isCompleted) {
+            onClaimReward?.(challenge);
+        } else if (isActive || progressPercent > 0) {
             onClick?.(challenge);
         } else if (isFailed) {
             onRetry?.(challenge);
@@ -60,6 +63,8 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
                 return { ...styles.joinButton, backgroundColor: '#EF4444' };
             case 'completed':
                 return { ...styles.statusButton, borderColor: 'var(--primary)', color: 'var(--primary)' };
+            case 'reward':
+                return styles.rewardButton;
             case 'ready':
                 return styles.readyDisabledButton;
             case 'unavailable':
@@ -74,101 +79,106 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClick, is
     const buttonType = getButtonType();
 
     return (
-        <div style={styles.card} onClick={handleCardClick}>
-            {/* 상단 영역: 캐릭터 이미지와 정보 */}
-            <div style={styles.mainContent}>
-                {/* 왼쪽: 캐릭터 이미지 표시 */}
-                <div style={styles.iconContainer}>
-                    <img
-                        src={getCharacterFace(challenge.difficulty, characterType)}
-                        alt="character"
-                        style={styles.characterImage}
-                    />
-                </div>
-
-                {/* 중앙 정보 영역 */}
-                <div style={styles.infoContainer}>
-                    {/* 상단 행: 난이도 + 태그 */}
-                    <div style={styles.topRow}>
-                        <span style={{
-                            ...styles.difficultyLabel,
-                            ...getDifficultyStyle(challenge.difficulty),
-                        }}>
-                            {getDifficultyLabel(challenge.difficulty)}
-                        </span>
-                        {/* 사진 인증 필요 태그 표시 */}
-                        {challenge.requiresPhoto && (
-                            <span style={styles.photoTag}>
-                                <Camera size={10} />
-                            </span>
-                        )}
-                        {/* 사용자 입력 필요 태그 표시 */}
-                        {challenge.userInputs && challenge.userInputs.length > 0 && (
-                            <span style={styles.inputTag}>
-                                <Edit3 size={10} />
-                            </span>
-                        )}
+        <div className={isCompleted ? 'golden-glow-card' : ''} style={isCompleted ? styles.glowWrapper : {}}>
+            <div style={styles.card} onClick={handleCardClick}>
+                {/* 상단 영역: 캐릭터 이미지와 정보 */}
+                <div style={styles.mainContent}>
+                    {/* 왼쪽: 캐릭터 이미지 표시 */}
+                    <div style={styles.iconContainer}>
+                        <img
+                            src={getCharacterFace(challenge.difficulty, characterType)}
+                            alt="character"
+                            style={styles.characterImage}
+                        />
                     </div>
 
-                    {/* 챌린지 제목 */}
-                    <div style={styles.title}>{challenge.title}</div>
-
-                    {/* 설명 표시 */}
-                    {challenge.description && (
-                        <div style={styles.description}>
-                            {challenge.description}
-                        </div>
-                    )}
-                    {isUnavailable && challenge.unavailableReason && (
-                        <div style={styles.unavailableReason}>
-                            {challenge.unavailableReason}
-                        </div>
-                    )}
-
-                    {/* 진행률 정보 (진행중인 챌린지에만 표시) */}
-                    {isActive && (
-                        <div style={styles.progressInfo}>
-                            {getProgressDisplayText() && (
-                                <span style={styles.progressText}>
-                                    {getProgressDisplayText()}
+                    {/* 중앙 정보 영역 */}
+                    <div style={styles.infoContainer}>
+                        {/* 상단 행: 난이도 + 태그 */}
+                        <div style={styles.topRow}>
+                            <span style={{
+                                ...styles.difficultyLabel,
+                                ...getDifficultyStyle(challenge.difficulty),
+                            }}>
+                                {getDifficultyLabel(challenge.difficulty)}
+                            </span>
+                            {/* 사진 인증 필요 태그 표시 */}
+                            {challenge.requiresPhoto && (
+                                <span style={styles.photoTag}>
+                                    <Camera size={10} />
                                 </span>
                             )}
-                            {challenge.daysLeft !== undefined && (
-                                <span style={styles.daysLeft}>D-{challenge.daysLeft}</span>
+                            {/* 사용자 입력 필요 태그 표시 */}
+                            {challenge.userInputs && challenge.userInputs.length > 0 && (
+                                <span style={styles.inputTag}>
+                                    <Edit3 size={10} />
+                                </span>
                             )}
                         </div>
-                    )}
-                </div>
 
-                {/* 오른쪽: 포인트 + 버튼 */}
-                <div style={styles.rightContainer}>
-                    {/* 포인트 */}
-                    <div style={styles.points}>
-                        {getPointsDisplay()}
+                        {/* 챌린지 제목 */}
+                        <div style={styles.title}>{challenge.title}</div>
+
+                        {/* 설명 표시 */}
+                        {challenge.description && (
+                            <div style={styles.description}>
+                                {challenge.description}
+                            </div>
+                        )}
+                        {isUnavailable && challenge.unavailableReason && (
+                            <div style={styles.unavailableReason}>
+                                {challenge.unavailableReason}
+                            </div>
+                        )}
+
+                        {/* 진행률 정보 (진행중인 챌린지에만 표시) */}
+                        {isActive && (
+                            <div style={styles.progressInfo}>
+                                {getProgressDisplayText() && (
+                                    <span style={styles.progressText}>
+                                        {getProgressDisplayText()}
+                                    </span>
+                                )}
+                                {challenge.daysLeft !== undefined && (
+                                    <span style={styles.daysLeft}>D-{challenge.daysLeft}</span>
+                                )}
+                            </div>
+                        )}
+
+
+
                     </div>
 
-                    {/* 액션 버튼 */}
-                    <button
-                        style={getButtonStyle(buttonType)}
-                        onClick={handleButtonClick}
-                        disabled={buttonType === 'ready' || buttonType === 'unavailable'}
-                    >
-                        {getButtonText()}
-                    </button>
+                    {/* 오른쪽: 포인트 + 버튼 */}
+                    <div style={styles.rightContainer}>
+                        {/* 포인트 */}
+                        <div style={styles.points}>
+                            {getPointsDisplay()}
+                        </div>
+
+                        {/* 액션 버튼 */}
+                        <button
+                            style={getButtonStyle(buttonType)}
+                            onClick={handleButtonClick}
+                            disabled={buttonType === 'ready' || buttonType === 'unavailable'}
+                        >
+                            {getButtonText()}
+                        </button>
+                    </div>
                 </div>
+
+                {/* 하단 영역: 진행 바 (진행중인 챌린지만 표시) */}
+                {isActive && (
+                    <div style={styles.progressBarSection}>
+                        <div style={styles.progressBarContainer}>
+                            <div style={{
+                                ...styles.progressBarFill,
+                                width: `${Math.min(100, progressPercent)}%`
+                            }} />
+                        </div>
+                    </div>
+                )}
             </div>
-
-            {/* 하단 영역: 진행 바 (진행중인 챌린지만 표시) */}
-            {isActive && (
-                <div style={styles.progressBarSection}>
-                    <div style={styles.progressBarContainer}>
-                        <div style={{
-                            ...styles.progressBarFill,
-                            width: `${Math.min(100, progressPercent)}%`
-                        }} />
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
@@ -184,6 +194,12 @@ const styles = {
         cursor: 'pointer',
         transition: 'transform 0.2s ease',
         gap: '10px',
+        position: 'relative',
+        zIndex: 2,
+    },
+    glowWrapper: {
+        position: 'relative',
+        borderRadius: '16px',
     },
     mainContent: {
         display: 'flex',
@@ -368,5 +384,24 @@ const styles = {
         minWidth: '65px',
         textAlign: 'center',
         whiteSpace: 'nowrap',
+    },
+    rewardButton: {
+        padding: '6px 16px',
+        borderRadius: '4px',
+        border: 'none',
+        backgroundColor: '#FFD700',
+        color: 'white',
+        fontSize: '0.75rem',
+        fontWeight: '700',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        minWidth: '65px',
+        textAlign: 'center',
+    },
+    rewardInfo: {
+        fontSize: '0.73rem',
+        color: '#D97706',
+        fontWeight: '600',
+        marginTop: '4px',
     },
 };

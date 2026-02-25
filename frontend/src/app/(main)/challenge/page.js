@@ -34,6 +34,7 @@ import {
     deleteChallenge,
     startSavedChallenge,
     uploadPhoto,
+    claimReward,
 } from '@/lib/api/challenge';
 import { fileToBase64, validateImageFile } from '@/lib/utils/imageUtils';
 
@@ -119,12 +120,17 @@ export default function ChallengePage() {
                     const ongoingTemplateIds = ongoing.map(c => c.templateId);
                     const ongoingIds = ongoing.map(c => c.id);
 
-                    // 진행중이 아닌 템플릿만 필터링
-                    const filteredTemplates = allTemplates.filter(t => !ongoingTemplateIds.includes(t.id));
+                    // 완료된 챌린지의 템플릿 ID 목록
+                    const completedTemplateIds = new Set(completedChallenges.map(c => c.templateId).filter(Boolean));
 
-                    // 사용자 챌린지: active/ready 상태 제외
+                    // 진행중이 아닌 & 완료 챌린지가 없는 템플릿만 필터링
+                    const filteredTemplates = allTemplates.filter(t =>
+                        !ongoingTemplateIds.includes(t.id) && !completedTemplateIds.has(t.id)
+                    );
+
+                    // 사용자 챌린지: active/ready/completed 상태 제외
                     const filteredUserChallenges = userChallengesAll.filter(c =>
-                        !ongoingIds.includes(c.id) && !['active', 'ready'].includes(c.status)
+                        !ongoingIds.includes(c.id) && !['active', 'ready', 'completed'].includes(c.status)
                     );
 
                     // 이미 포함된 템플릿 ID 추적
@@ -138,20 +144,18 @@ export default function ChallengePage() {
                         !existingTemplateIds.has(c.templateId) && !existingTemplateIds.has(c.id)
                     );
 
-                    // 완료 챌린지: 중복 제외
-                    const failedIds = new Set(uniqueFailedChallenges.map(c => c.templateId || c.id));
-                    const uniqueCompletedChallenges = completedChallenges.filter(c =>
-                        !existingTemplateIds.has(c.templateId) &&
-                        !existingTemplateIds.has(c.id) &&
-                        !failedIds.has(c.templateId) &&
-                        !failedIds.has(c.id)
-                    );
+                    // 완료 챌린지: 최신 완료순 정렬 (completedAt 내림차순)
+                    const sortedCompletedChallenges = [...completedChallenges].sort((a, b) => {
+                        const dateA = a.completedAt ? new Date(a.completedAt) : new Date(0);
+                        const dateB = b.completedAt ? new Date(b.completedAt) : new Date(0);
+                        return dateB - dateA;
+                    });
 
                     data = [
+                        ...sortedCompletedChallenges,
                         ...filteredTemplates,
                         ...filteredUserChallenges,
                         ...uniqueFailedChallenges,
-                        ...uniqueCompletedChallenges
                     ];
                     setOngoingChallenges(ongoing);
                     break;
@@ -415,6 +419,21 @@ export default function ChallengePage() {
         setShowCustomModal(true);
     };
 
+    // 보상받기
+    const handleClaimReward = async (challenge) => {
+        try {
+            const challengeId = challenge.userChallengeId || challenge.id;
+            const result = await claimReward(challengeId);
+            await fetchChallenges();
+            await fetchUserPoints();
+            setSelectedChallenge(null);
+            alert(result.message || '보상이 지급되었습니다!');
+        } catch (err) {
+            console.error('보상 수령 실패:', err);
+            alert(err.response?.data?.error || '보상 수령에 실패했습니다.');
+        }
+    };
+
     // 스크롤 시 상단 헤더 숨김 처리를 위한 ref
     const headerTopRef = useRef(null);
 
@@ -488,6 +507,7 @@ export default function ChallengePage() {
                                         onClick={handleCardClick}
                                         onStart={handleStartChallenge}
                                         onRetry={handleRetryChallenge}
+                                        onClaimReward={handleClaimReward}
                                         isOngoing={true}
                                     />
                                 ))}
@@ -507,6 +527,7 @@ export default function ChallengePage() {
                                         onClick={handleCardClick}
                                         onStart={handleStartChallenge}
                                         onRetry={handleRetryChallenge}
+                                        onClaimReward={handleClaimReward}
                                     />
                                 ))}
                             </div>
@@ -524,6 +545,7 @@ export default function ChallengePage() {
                                         onClick={handleCardClick}
                                         onStart={handleStartChallenge}
                                         onRetry={handleRetryChallenge}
+                                        onClaimReward={handleClaimReward}
                                         isOngoing={activeTab === 'ongoing'}
                                     />
                                 ))}
@@ -559,6 +581,7 @@ export default function ChallengePage() {
                     onCancel={handleCancelChallenge}
                     onDelete={handleDeleteChallenge}
                     onPhotoUpload={handlePhotoUpload}
+                    onClaimReward={handleClaimReward}
                 />
             )}
 

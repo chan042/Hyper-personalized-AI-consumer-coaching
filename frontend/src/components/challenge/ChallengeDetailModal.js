@@ -92,6 +92,7 @@ export default function ChallengeDetailModal({
     onCancel,
     onDelete,
     onPhotoUpload,
+    onClaimReward,
     // Edit specific props
     isEditing = false,
     onTitleChange,
@@ -749,16 +750,7 @@ export default function ChallengeDetailModal({
                             </div>
                         )}
 
-                        {/* Completed Info */}
-                        {isCompleted && (
-                            <div style={styles.completedBanner}>
-                                <div style={styles.completedIcon}>🎉</div>
-                                <div style={styles.completedText}>
-                                    <div>챌린지 완주 성공!</div>
-                                    <div style={styles.completedPoints}>+{challenge.earnedPoints || 0}P 획득</div>
-                                </div>
-                            </div>
-                        )}
+
 
                     </div>
                     {/* Padding for Scroll */}
@@ -877,10 +869,16 @@ export default function ChallengeDetailModal({
                                 </div>
                             )}
 
-                            {/* Completed */}
+                            {/* Completed - 보상받기 */}
                             {isCompleted && (
-                                <button style={styles.disabledButton} disabled>
-                                    이미 완료된 챌린지입니다
+                                <button
+                                    style={styles.rewardClaimButton}
+                                    onClick={() => {
+                                        onClaimReward?.(challenge);
+                                        onClose();
+                                    }}
+                                >
+                                    보상받기 (+{challenge.earnedPoints || challenge.basePoints}P)
                                 </button>
                             )}
                         </>
@@ -1464,5 +1462,20 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    rewardClaimButton: {
+        width: '100%',
+        height: '56px',
+        borderRadius: '16px',
+        border: 'none',
+        backgroundColor: '#FFD700',
+        color: 'white',
+        fontSize: '1.1rem',
+        fontWeight: '700',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'transform 0.1s',
     },
 };

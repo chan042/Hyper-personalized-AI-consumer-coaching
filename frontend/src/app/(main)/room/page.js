@@ -18,7 +18,7 @@ function getTodayString() {
 export default function RoomPage() {
     const router = useRouter();
     const { user, refreshUser } = useAuth();
-    const [characterType, setCharacterType] = useState('char_dog');
+    const [characterType, setCharacterType] = useState(null);
     const [equippedItems, setEquippedItems] = useState({
         clothing: null,
         item: null,
@@ -239,7 +239,7 @@ export default function RoomPage() {
 
             {/* 상단 뒤로가기 */}
             <div style={styles.header}>
-                <button onClick={() => router.push('/challenge')} style={styles.iconButton}>
+                <button onClick={() => router.push('/challenge')} style={{ ...styles.iconButton, filter: 'drop-shadow(0 0 2px white) drop-shadow(0 0 2px white)' }}>
                     <ChevronLeft color="#333" size={26} />
                 </button>
             </div>
@@ -268,14 +268,16 @@ export default function RoomPage() {
                 style={styles.characterContainer}
                 onClick={handleCharacterClick}
             >
-                <Image
-                    src={getCharacterImagePath()}
-                    alt="Character"
-                    width={290}
-                    height={290}
-                    style={{ objectFit: 'contain' }}
-                    priority
-                />
+                {characterType && (
+                    <Image
+                        src={getCharacterImagePath()}
+                        alt="Character"
+                        width={290}
+                        height={290}
+                        style={{ objectFit: 'contain' }}
+                        priority
+                    />
+                )}
             </div>
 
             {/* 전환 말풍선 (문 클릭 직후) – 화면 기준 하단 고정 */}

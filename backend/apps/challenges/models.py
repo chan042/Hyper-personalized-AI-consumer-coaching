@@ -283,16 +283,12 @@ class UserChallenge(models.Model):
             self.final_spent = final_spent
         
         if is_success:
-            # 포인트 계산
+            # 포인트 계산 (실제 지급은 claim_reward에서 수행)
             self.earned_points = self._calculate_points()
             # 보너스 체크
             if self._check_bonus_condition():
                 self.bonus_earned = True
                 self.earned_points += self.bonus_points or 0
-            # 사용자 포인트 적립
-            self.user.points += self.earned_points
-            self.user.total_points_earned += self.earned_points
-            self.user.save(update_fields=['points', 'total_points_earned'])
         else:
             # 패널티 계산
             if self.has_penalty:
@@ -303,6 +299,17 @@ class UserChallenge(models.Model):
         self._handle_completion_side_effects(is_success)
         
         self.save()
+
+    def claim_reward(self):
+        """보상 수령 처리 - 포인트 지급"""
+        if self.status != 'completed':
+            return False
+
+        # 포인트 지급
+        self.user.points += self.earned_points
+        self.user.total_points_earned += self.earned_points
+        self.user.save(update_fields=['points', 'total_points_earned'])
+        return True
 
     def _handle_completion_side_effects(self, is_success: bool):
         """완료 시 부가 처리"""

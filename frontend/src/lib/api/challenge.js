@@ -488,3 +488,17 @@ export const getOngoingChallenges = async () => {
         throw error;
     }
 };
+
+/**
+ * 보상 수령
+ * @param {number} id
+ */
+export const claimReward = async (id) => {
+    try {
+        const response = await client.post(`/api/challenges/my/${id}/claim_reward/`);
+        return response.data;
+    } catch (error) {
+        console.error('Claim Reward Error:', error);
+        throw error;
+    }
+};

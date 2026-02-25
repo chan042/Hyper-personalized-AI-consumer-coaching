@@ -204,6 +204,36 @@ button {
   white-space: pre-wrap;
 }
 
+/* ===== Golden Glow Border (completed challenges) ===== */
+
+.golden-glow-card {
+  position: relative;
+  border-radius: 16px;
+  z-index: 1;
+}
+
+.golden-glow-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: #ffffff;
+  z-index: -1;
+}
+
+.golden-glow-card::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 22px;
+  background: linear-gradient(45deg, #FFD700, #FFA500, #FFE066, #FFCC00, #FF8C00, #FFD700);
+  background-size: 400%;
+  z-index: -2;
+  filter: blur(8px);
+  opacity: 0.75;
+  animation: aurora 6s linear infinite;
+}
+
 /* ===== 로딩 오버레이 ===== */
 
 .loading-overlay {

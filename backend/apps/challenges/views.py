@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django.utils import timezone
 from django.db.models import Sum, OuterRef, Subquery
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from .models import ChallengeTemplate, UserChallenge, ChallengeDailyLog
 from .services.photo_verification import PhotoVerificationService
@@ -439,6 +439,30 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
             UserChallengeSerializer(user_challenge).data,
             status=status.HTTP_200_OK
         )
+
+    @action(detail=True, methods=['post'])
+    def claim_reward(self, request, pk=None):
+        """보상 수령 - 포인트 지급 후 다시 도전 가능 상태로 전환"""
+        user_challenge = self.get_object()
+
+        if user_challenge.status != 'completed':
+            return Response(
+                {'error': '완료된 챌린지만 보상을 받을 수 있습니다.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        earned_points = user_challenge.earned_points
+        user_challenge.claim_reward()
+
+        # 보상받기 후 UserChallenge 삭제 → 챌린지가 다시 '도전하기' 상태로 표시됨
+        user_challenge.daily_logs.all().delete()
+        user_challenge.delete()
+
+        return Response({
+            'message': f'{earned_points}P가 지급되었습니다!',
+            'earned_points': earned_points,
+            'user_points': request.user.points
+        })
 
     def _resolve_retry_start_at(self, user_challenge, now):
         success_conditions = user_challenge.success_conditions or {}
