@@ -19,7 +19,7 @@ export default function ClosetPage() {
     });
     const [selectedItem, setSelectedItem] = useState(null);
     const [filteredItems, setFilteredItems] = useState([]);
-    const [characterType, setCharacterType] = useState('char_dog');
+    const [characterType, setCharacterType] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -207,13 +207,15 @@ export default function ClosetPage() {
 
                 {/* Character Image */}
                 <div style={styles.characterContainer}>
-                    <Image
-                        src={getCharacterImagePath()}
-                        alt="Character"
-                        fill
-                        style={{ objectFit: 'contain', objectPosition: 'center bottom', paddingBottom: '40px' }}
-                        priority
-                    />
+                    {characterType && (
+                        <Image
+                            src={getCharacterImagePath()}
+                            alt="Character"
+                            fill
+                            style={{ objectFit: 'contain', objectPosition: 'center bottom', paddingBottom: '40px' }}
+                            priority
+                        />
+                    )}
                 </div>
             </div>
 

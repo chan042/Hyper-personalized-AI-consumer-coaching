@@ -29,7 +29,7 @@ export const useChallenge = (challenge, isOngoing = false) => {
         if (isUnavailable) return '도전하기';
         if (isActive) return '도전중';
         if (isFailed) return '재도전';
-        if (isCompleted) return '완료';
+        if (isCompleted) return '보상받기';
         if (isReady) return '도전 대기 중';
         if (isSaved) return '도전하기';
         return '도전하기';
@@ -43,7 +43,7 @@ export const useChallenge = (challenge, isOngoing = false) => {
         if (isUnavailable) return 'unavailable';
         if (isActive) return 'active';
         if (isFailed) return 'failed';
-        if (isCompleted) return 'completed';
+        if (isCompleted) return 'reward';
         if (isReady) return 'ready';
         if (isSaved) return 'saved';
         return 'default';

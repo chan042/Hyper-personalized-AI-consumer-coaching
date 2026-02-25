@@ -203,7 +203,8 @@ class UserChallengeListSerializer(serializers.ModelSerializer):
             'requires_photo', 'requires_daily_check', 'photo_description',
             'success_description',
             'status', 'status_display',
-            'base_points', 'earned_points', 'attempt_number'
+            'base_points', 'earned_points', 'attempt_number',
+            'completed_at'
         ]
 
 
