@@ -86,6 +86,7 @@ DUDU_PROMPT_CONFIG = {
             "active_challenges": "array of objects - 진행 중인 챌린지 목록. 각 객체: {name: string, status: string}",
         },
         "few_shot_examples": [
+            # ── 예시 1: 스트레스 배달 유혹 + 챌린지 진행 중 ──
             {
                 "context": {
                     "user_profile": {
@@ -104,6 +105,7 @@ DUDU_PROMPT_CONFIG = {
                 "user_input": "오늘 회사에서 너무 스트레스 받았어. 매운 엽떡 시켜 먹을까?",
                 "agent_response": "오늘 하루 정말 고생 많으셨어요, 두둑님! 스트레스받을 땐 매운 음식이 당기죠. 하지만 지금 '배달 앱 VIP 탈출하기' 챌린지를 잘 이어가고 계셔서, 오늘은 마트 밀키트로 비슷한 만족을 챙겨보는 건 어떨까요? 비용도 아끼고 윤택지수도 지킬 수 있어요.",
             },
+            # ── 예시 2: 고가 가치소비 고민 (게임 타이틀) ──
             {
                 "context": {
                     "user_profile": {
@@ -121,6 +123,120 @@ DUDU_PROMPT_CONFIG = {
                 },
                 "user_input": "이번에 새로 나온 게임 타이틀 7만 원인데 살까 말까 고민돼.",
                 "agent_response": "새 게임 타이틀이면 고민될 만해요. 지금 남은 예산이 20만 원이라 무리는 크지 않아서, 이건 소비님 취향을 살리는 가치 소비에 가까워 보여요. 대신 이번 주에는 소소한 간식비를 조금만 줄여서 균형을 맞춰보면 더 좋겠어요.",
+            },
+            # ── 예시 3: 예산 초과 상태에서 추가 지출 욕구 ──
+            {
+                "context": {
+                    "user_profile": {
+                        "name": "박한달",
+                        "age_group": "30대",
+                        "job": "직장인",
+                        "hobbies": ["독서"],
+                    },
+                    "financial_status": {
+                        "monthly_budget": 700000,
+                        "remaining_budget": -30000,
+                        "today_spending": 45000,
+                    },
+                    "active_challenges": [],
+                },
+                "user_input": "오늘 친구 생일이라 선물 사야 하는데… 또 카드 긁어도 될까?",
+                "agent_response": "이번 달 예산을 살짝 넘어선 상황이라 솔직히 말씀드릴게요. 선물을 챙기고 싶은 마음은 당연해요! 3만 원대 소소한 선물이나 직접 만든 케이크처럼 진심이 담긴 대안도 충분히 따뜻하거든요. 다음 달은 같이 계획 세워봐요! 😊",
+            },
+            # ── 예시 4: 구독 서비스 누수 소비 진단 ──
+            {
+                "context": {
+                    "user_profile": {
+                        "name": "최구독",
+                        "age_group": "20대",
+                        "job": "학생",
+                        "hobbies": ["영화", "드라마"],
+                    },
+                    "financial_status": {
+                        "monthly_budget": 400000,
+                        "remaining_budget": 80000,
+                        "today_spending": 0,
+                    },
+                    "active_challenges": [],
+                },
+                "user_input": "매달 어디선가 돈이 새는 느낌인데 뭐가 문제일까?",
+                "agent_response": "지출 내역 보니까 OTT 구독이 겹쳐 있는 것 같아요! 넷플릭스·티빙처럼 비슷한 서비스를 동시에 쓰면 매달 2~3만 원이 그냥 빠져나가거든요. 실제로 이번 달 가장 많이 켠 서비스 하나만 남겨보는 건 어떨까요? 😊",
+            },
+            # ── 예시 5: 계획 소비 성공 칭찬 요청 ──
+            {
+                "context": {
+                    "user_profile": {
+                        "name": "정알뜰",
+                        "age_group": "20대",
+                        "job": "직장인",
+                        "hobbies": ["요리"],
+                    },
+                    "financial_status": {
+                        "monthly_budget": 500000,
+                        "remaining_budget": 200000,
+                        "today_spending": 0,
+                    },
+                    "active_challenges": [],
+                },
+                "user_input": "오늘 점심에 도시락 싸왔어! 칭찬해줘!",
+                "agent_response": "와, 진짜요?! 오늘 완전 잘하셨다!! 🎉 점심 도시락 하나만 꾸준히 해도 한 달이면 10만 원 이상 차이 나거든요. 지금 잔여 예산도 20만 원이나 되니까, 이 페이스 유지하면 이번 달 윤택지수 점수 확 올릴 수 있겠어요!",
+            },
+            # ── 예시 6: 충동 지름 직전 자제 성공 ──
+            {
+                "context": {
+                    "user_profile": {
+                        "name": "강참을",
+                        "age_group": "20대",
+                        "job": "프리랜서",
+                        "hobbies": ["패션"],
+                    },
+                    "financial_status": {
+                        "monthly_budget": 500000,
+                        "remaining_budget": 120000,
+                        "today_spending": 10000,
+                    },
+                    "active_challenges": [{"name": "온라인 쇼핑 줄이기", "status": "active"}],
+                },
+                "user_input": "방금 쇼핑앱 열었다가 그냥 껐어. 나 대단하지?",
+                "agent_response": "진짜 대단해요!!! 그 순간 앱 끄는 게 제일 어렵거든요. 💪 '온라인 쇼핑 줄이기' 챌린지 지금 너무 잘 하고 계신 거예요. 이 느낌 그대로만 가면 챌린지 성공은 거의 따놓은 당상이에요!",
+            },
+            # ── 예시 7: 급전 / 심각한 재정 걱정 ──
+            {
+                "context": {
+                    "user_profile": {
+                        "name": "윤힘들",
+                        "age_group": "20대",
+                        "job": "알바",
+                        "hobbies": [],
+                    },
+                    "financial_status": {
+                        "monthly_budget": 300000,
+                        "remaining_budget": -150000,
+                        "today_spending": 20000,
+                    },
+                    "active_challenges": [],
+                },
+                "user_input": "이번 달 진짜 힘들어. 월급날까지 어떻게 버티지.",
+                "agent_response": "그 마음 충분히 이해해요, 정말 힘드셨겠다. 😔 당장은 구독 서비스를 잠깐 멈추고 냉장고 재료 먼저 소진하는 '냉장고 파먹기 모드'로 전환해보는 게 도움 돼요. 소소한 것부터 하나씩, 같이 버텨봐요!",
+            },
+            # ── 예시 8: 두둑 범위 외 질문 (주식/코인 추천) ──
+            {
+                "context": {
+                    "user_profile": {
+                        "name": "임투자",
+                        "age_group": "30대",
+                        "job": "직장인",
+                        "hobbies": ["재테크"],
+                    },
+                    "financial_status": {
+                        "monthly_budget": 800000,
+                        "remaining_budget": 300000,
+                        "today_spending": 5000,
+                    },
+                    "active_challenges": [],
+                },
+                "user_input": "요즘 어떤 주식이 오를 것 같아? 추천해줘.",
+                "agent_response": "주식 종목 추천은 제 전문 영역 밖이라 섣불리 말씀드리기 어렵겠어요. 😅 저는 일상 소비에서 새는 돈을 줄이고 윤택지수를 높이는 데 특화되어 있거든요. 혹시 이번 달 소비에서 궁금한 게 있으시면 뭐든 물어봐주세요!",
             },
         ],
         "response_guidelines": {
@@ -261,17 +377,23 @@ class MonthlyReportResponse(AIBaseModel):
     expert_summary: Dict[str, Any] = Field(default_factory=dict)
 
 
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+
+
 class AIClient:
     def __init__(self, purpose: str = "analysis"):
+        self.purpose = purpose
+        self.default_model = DEFAULT_GEMINI_MODEL
         self.api_key = (
             os.environ.get(f"GEMINI_API_KEY_{purpose.upper()}")
             or os.environ.get("GEMINI_API_KEY")
             or os.environ.get("GOOGLE_API_KEY")
         )
         if purpose == "coaching":
-            self.model = os.environ.get("GEMINI_MODEL_COACHING", "gemini-2.5-flash")
+            self.model = os.environ.get("GEMINI_MODEL_COACHING", self.default_model)
         else:
-            self.model = os.environ.get("GEMINI_MODEL_ANALYSIS", "gemini-2.5-flash")
+            self.model = os.environ.get("GEMINI_MODEL_ANALYSIS", self.default_model)
+        self.model = (self.model or self.default_model).strip()
 
         self.client = None
         if self.api_key:
@@ -295,6 +417,54 @@ class AIClient:
                 "resource has been exhausted",
             )
         )
+
+    def _is_model_not_found_error(self, exc: Exception) -> bool:
+        error_str = str(exc).lower()
+        return (
+            "404" in error_str
+            and "model" in error_str
+            and ("not found" in error_str or "not supported" in error_str)
+        )
+
+    def _get_model_candidates(self, requested_model: Optional[str] = None) -> List[str]:
+        primary_model = (requested_model or self.model or self.default_model).strip()
+        candidates = [primary_model]
+        if primary_model != self.default_model:
+            candidates.append(self.default_model)
+        return candidates
+
+    def _generate_content_with_fallback(
+        self,
+        *,
+        contents: List[Any],
+        config: types.GenerateContentConfig,
+        model: Optional[str] = None,
+    ) -> Any:
+        candidates = self._get_model_candidates(model)
+        last_exc: Optional[Exception] = None
+
+        for index, candidate in enumerate(candidates):
+            try:
+                return self.client.models.generate_content(
+                    model=candidate,
+                    contents=contents,
+                    config=config,
+                )
+            except Exception as exc:
+                last_exc = exc
+                if self._is_model_not_found_error(exc) and index + 1 < len(candidates):
+                    fallback_model = candidates[index + 1]
+                    logger.warning(
+                        "Gemini 모델 '%s'을(를) 찾을 수 없어 '%s'로 재시도합니다.",
+                        candidate,
+                        fallback_model,
+                    )
+                    continue
+                raise
+
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("Gemini 응답 생성 중 알 수 없는 오류가 발생했습니다.")
 
     def _build_contents(
         self,
@@ -458,10 +628,10 @@ class AIClient:
 
         for attempt in range(max_retries + 1):
             try:
-                response = self.client.models.generate_content(
-                    model=selected_model,
+                response = self._generate_content_with_fallback(
                     contents=contents,
                     config=config,
+                    model=selected_model,
                 )
                 parsed = getattr(response, "parsed", None)
                 if parsed is None:
@@ -516,8 +686,7 @@ class AIClient:
             )
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
+            response = self._generate_content_with_fallback(
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ViewToggle from './ViewToggle';
 import ListView from './ListView';
 import CalendarView from './CalendarView';
@@ -111,17 +111,19 @@ export default function ExpenseContainer() {
         fetchData();
     }, [fetchData]);
 
-    // 이전 월로 이동
-    const goToPrevMonth = () => {
+    const moveMonth = useCallback((offset) => {
         if (currentYear === null || currentMonth === null) return;
-        if (currentMonth === 1) {
-            setCurrentYear(currentYear - 1);
-            setCurrentMonth(12);
-        } else {
-            setCurrentMonth(currentMonth - 1);
-        }
+
+        const nextDate = new Date(currentYear, currentMonth - 1 + offset, 1);
+        setCurrentYear(nextDate.getFullYear());
+        setCurrentMonth(nextDate.getMonth() + 1);
         setSelectedDate(null);
-    };
+    }, [currentMonth, currentYear]);
+
+    // 이전 월로 이동
+    const goToPrevMonth = useCallback(() => {
+        moveMonth(-1);
+    }, [moveMonth]);
 
     const handleDateClick = (day) => {
         if (selectedDate === day) {
@@ -132,16 +134,9 @@ export default function ExpenseContainer() {
     };
 
     // 다음 월로 이동
-    const goToNextMonth = () => {
-        if (currentYear === null || currentMonth === null) return;
-        if (currentMonth === 12) {
-            setCurrentYear(currentYear + 1);
-            setCurrentMonth(1);
-        } else {
-            setCurrentMonth(currentMonth + 1);
-        }
-        setSelectedDate(null);
-    };
+    const goToNextMonth = useCallback(() => {
+        moveMonth(1);
+    }, [moveMonth]);
 
     // 메모 업데이트 핸들러
     const handleUpdateTransaction = async (transactionId, updateData) => {
@@ -304,6 +299,8 @@ export default function ExpenseContainer() {
                     dailyStatus={dailyStatus}
                     selectedDate={selectedDate}
                     onDateClick={handleDateClick}
+                    onPrevMonth={goToPrevMonth}
+                    onNextMonth={goToNextMonth}
                     onTransactionClick={setSelectedTransaction}
                     currentYear={currentYear}
                     currentMonth={currentMonth}

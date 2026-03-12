@@ -253,11 +253,28 @@
 }
 
 .calendarGrid {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.calendarWeekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 6px;
-  width: 100%;
+}
+
+.calendarSwipeArea {
   margin-bottom: 1rem;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.calendarDaysGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
 }
 
 .weekDay {
