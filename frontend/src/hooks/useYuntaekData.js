@@ -9,7 +9,7 @@ const SCORE_DETAILS_MAP = [
     { key: 'growth_consumption', label: '성장 점수', max: 10 },
     { key: 'health_score', label: '건강 점수', max: 15 },
     { key: 'spending_consistency', label: '꾸준함', max: 7 },
-    { key: 'leakage_improvement', label: '누수지출 개선', max: 10 },
+    { key: 'leakage_improvement', label: '누수 지출', max: 10 },
     { key: 'challenge_success', label: '챌린지 참여', max: 3 },
 ];
 

@@ -1203,7 +1203,7 @@ AI 소비 코칭 분석 결과를 바탕으로 사용자가 실천할 수 있는
 - 성장 점수: {score_breakdown.get('growth_consumption', 0)}/10점
 - 건강 점수: {score_breakdown.get('health_score', 0)}/15점
 - 꾸준함: {score_breakdown.get('spending_consistency', 0)}/7점
-- 누수지출 개선: {score_breakdown.get('leakage_improvement', 0)}/10점
+- 누수 지출: {score_breakdown.get('leakage_improvement', 0)}/10점
 - 챌린지 참여: {score_breakdown.get('challenge_success', 0)}/3점
 
 [중요]

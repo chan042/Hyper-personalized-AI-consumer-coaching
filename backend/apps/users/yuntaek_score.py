@@ -7,7 +7,7 @@
 - 소비 일관성: 7점  
 - 챌린지 성공: 3점
 - 건강 점수: 15점 (AI 분석)
-- 누수 지출 개선: 10점 (AI 분석)
+- 누수 지출: 10점 (AI 분석)
 - 성장 소비: 10점 (AI 분석)
 """
 
@@ -19,7 +19,7 @@ from django.db.models import Sum
 from apps.transactions.models import Transaction
 from apps.challenges.models import UserChallenge
 from external.ai.client import AIClient
-from .services import get_month_date_range, get_monthly_budget_snapshot, get_previous_month
+from .services import get_month_date_range, get_monthly_budget_snapshot
 
 
 class YuntaekScoreAnalysisError(Exception):
@@ -37,7 +37,7 @@ class YuntaekScoreCalculator:
     
     # AI 분석 기반 점수 가중치
     MAX_HEALTH_SCORE = 15
-    MAX_LEAKAGE_IMPROVEMENT_SCORE = 10
+    MAX_LEAKAGE_SCORE = 10
     MAX_GROWTH_SCORE = 10
     
     # 챌린지 생성 최소 횟수
@@ -75,7 +75,7 @@ class YuntaekScoreCalculator:
         
         # AI 분석 기반 점수
         health_score = self._calculate_health_score()
-        leakage_score = self._calculate_leakage_improvement()
+        leakage_score = self._calculate_leakage_score()
         growth_score = self._calculate_growth_consumption()
         
         total_score = (
@@ -269,42 +269,28 @@ class YuntaekScoreCalculator:
         
         return int(score)
     
-    def _calculate_leakage_improvement(self) -> int:
+    def _calculate_leakage_score(self) -> int:
         """
-        6. 누수 지출 개선 (10점) - AI 분석
-        
-        client.py에서 이번달/지난달 누수 지출액을 반환
-        공식: 1 - (이번달 누수 지출액 / 지난달 누수 지출액)
-        - 감소율 90% 이상: 10점
-        - 감소율 50%: 5점
-        - 오히려 증가 시: 0점
+        6. 누수 지출 (10점) - AI 분석
+
+        client.py에서 이번 달 누수 지출액을 반환
+        공식: (누수 지출 / 월 예산) * 100
+        - 0 <= 비율 <= 20 구간은 10점에서 0점까지 선형 감소
+        - 점수는 1점 단위 정수로 버림 처리
+        - 20 < 비율: 0점
         """
-        # 이번 달 누수 지출액
         current_leakage = self.ai_client.analyze_leakage_spending(self.user.id, self.year, self.month)
         if current_leakage is None:
             raise YuntaekScoreAnalysisError('누수 지출 분석에 실패했습니다.')
 
-        # 지난 달 누수 지출액
-        prev_year, prev_month = get_previous_month(self.year, self.month)
+        monthly_budget = float(self._get_monthly_budget())
+        leakage_ratio = (current_leakage / monthly_budget) * 100
 
-        prev_leakage = self.ai_client.analyze_leakage_spending(self.user.id, prev_year, prev_month)
-        if prev_leakage is None:
-            raise YuntaekScoreAnalysisError('전월 누수 지출 분석에 실패했습니다.')
-        
-        # 점수 계산
-        if prev_leakage == 0:
-            score = self.MAX_LEAKAGE_IMPROVEMENT_SCORE if current_leakage == 0 else 0
+        if leakage_ratio > 20:
+            score = 0
         else:
-            improvement_rate = 1 - (current_leakage / prev_leakage)
-            
-            if improvement_rate >= 0.9:
-                score = 10
-            elif improvement_rate >= 0.5:
-                score = int(5 + (improvement_rate - 0.5) * 12.5)
-            elif improvement_rate > 0:
-                score = int(improvement_rate * 10)
-            else:
-                score = 0
+            raw_score = self.MAX_LEAKAGE_SCORE - (leakage_ratio / 20) * self.MAX_LEAKAGE_SCORE
+            score = max(0, int(raw_score))
         
         return int(score)
     
