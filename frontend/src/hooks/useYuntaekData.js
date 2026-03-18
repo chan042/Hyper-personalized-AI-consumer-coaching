@@ -16,7 +16,7 @@ const SCORE_DETAILS_MAP = [
 // ─── 공통 헬퍼 함수 ───
 
 /** 조회 대상 연/월 (전월) 계산 */
-function getTargetYearMonth() {
+export function getTargetYearMonth() {
     const formatter = new Intl.DateTimeFormat('en-US', {
         timeZone: 'Asia/Seoul',
         year: 'numeric',
@@ -37,6 +37,17 @@ function getTargetYearMonth() {
 
 function getCacheKey(type, year, month) {
     return `yuntaek_${type}_${year}_${month}`;
+}
+
+export function clearYuntaekCache(year, month) {
+    if (typeof window === 'undefined') return;
+
+    try {
+        localStorage.removeItem(getCacheKey('score', year, month));
+        localStorage.removeItem(getCacheKey('report', year, month));
+    } catch (err) {
+        console.error('윤택 캐시 삭제 오류:', err);
+    }
 }
 
 function getFromCache(type, year, month) {

@@ -7,6 +7,7 @@
 """
 import logging
 from django.db import transaction
+from django.conf import settings
 
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -15,11 +16,11 @@ from django.contrib.auth import get_user_model
 
 from .serializers import UserSerializer
 from .services import (
+    force_regenerate_monthly_yuntaek_data,
     get_target_month,
     is_new_user_for_month,
-    collect_report_data,
-    ensure_score_snapshot,
-    save_report_and_persona,
+    get_cached_report_content,
+    get_cached_score_snapshot,
 )
 
 User = get_user_model()
@@ -82,8 +83,6 @@ class YuntaekScoreView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        from .yuntaek_score import YuntaekScoreAnalysisError
-
         year, month = get_target_month(
             request.query_params.get('year'),
             request.query_params.get('month'),
@@ -101,23 +100,11 @@ class YuntaekScoreView(APIView):
                 'is_new_user': True,
             })
 
-        try:
-            score_data, monthly_report, was_cached = ensure_score_snapshot(
-                request.user,
-                year,
-                month,
-            )
-        except YuntaekScoreAnalysisError as exc:
-            logger.error("윤택지수 스냅샷 조회 중 오류: %s", exc, exc_info=True)
+        score_data, monthly_report = get_cached_score_snapshot(request.user, year, month)
+        if not score_data:
             return Response(
-                {'error': '윤택지수 분석이 아직 완료되지 않았습니다. 잠시 후 다시 시도해주세요.'},
+                {'error': '윤택지수가 아직 생성되지 않았습니다. 월간 배치 완료 후 다시 시도해주세요.'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-        except Exception as exc:
-            logger.error("윤택지수 조회 중 오류: %s", exc, exc_info=True)
-            return Response(
-                {'error': '윤택지수를 불러오는 중 오류가 발생했습니다.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
         return Response({
@@ -126,8 +113,9 @@ class YuntaekScoreView(APIView):
             'year': year,
             'month': month,
             'breakdown': score_data.get('breakdown', {}),
+            'analysis_warnings': score_data.get('analysis_warnings', []),
             'generated_at': monthly_report.score_generated_at if monthly_report else None,
-            'cached': was_cached,
+            'cached': True,
             'is_new_user': False,
         })
 
@@ -135,40 +123,17 @@ class YuntaekScoreView(APIView):
 class MonthlyReportView(APIView):
     """
     월간 AI 분석 리포트 조회 API
-    GET /api/users/yuntaek-report/?year=YYYY&month=MM&refresh=false
+    GET /api/users/yuntaek-report/?year=YYYY&month=MM
 
-    캐싱 메커니즘:
-    1. 캐시된 리포트 확인
-    2. 캐시가 있고 refresh=false이면 캐시 반환
-    3. 캐시가 없거나 refresh=true이면 새로 생성
+    매월 1일 생성된 리포트 스냅샷만 조회합니다.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        from .models import MonthlyReport
-        from external.ai.client import AIClient
-        from .yuntaek_score import YuntaekScoreAnalysisError
-
         year, month = get_target_month(
             request.query_params.get('year'),
             request.query_params.get('month'),
         )
-        refresh = request.query_params.get('refresh', 'false').lower() == 'true'
-
-        # 캐시된 리포트 확인
-        cached_report = MonthlyReport.objects.filter(
-            user=request.user, year=year, month=month
-        ).first()
-
-        if cached_report and cached_report.report_content and not refresh:
-            return Response({
-                'year': year,
-                'month': month,
-                'report': cached_report.report_content,
-                'generated_at': cached_report.updated_at,
-                'cached': True,
-                'is_new_user': False,
-            })
 
         # 신규 사용자 처리 - 빈 리포트 반환 (프론트엔드에서 가이드 표시)
         if is_new_user_for_month(request.user, year, month):
@@ -181,43 +146,63 @@ class MonthlyReportView(APIView):
                 'is_new_user': True,
             })
 
-        # 데이터 수집 + AI 리포트 생성
-        try:
-            score_data, _, _ = ensure_score_snapshot(request.user, year, month)
-            report_data = collect_report_data(request.user, year, month, score_data=score_data)
-            client = AIClient(purpose="analysis")
-            ai_result = client.generate_monthly_report(report_data)
-
-            if not ai_result or not isinstance(ai_result, dict):
-                return Response(
-                    {'error': '리포트 형식이 올바르지 않습니다.'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-
-            # 리포트 저장 + 페르소나 업데이트
-            saved, report_content = save_report_and_persona(
-                request.user, year, month, ai_result
-            )
-        except YuntaekScoreAnalysisError as e:
-            logger.error("리포트 생성을 위한 윤택지수 스냅샷 생성 실패: %s", e, exc_info=True)
+        report_content, monthly_report = get_cached_report_content(request.user, year, month)
+        if not report_content:
             return Response(
-                {'error': '윤택지수 분석이 아직 완료되지 않았습니다. 잠시 후 다시 시도해주세요.'},
+                {'error': '월간 분석 리포트가 아직 생성되지 않았습니다. 월간 배치 완료 후 다시 시도해주세요.'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-        except Exception as e:
-            logger.error(f"월간 리포트 생성 중 오류: {e}", exc_info=True)
-            return Response(
-                {'error': f'리포트 생성 중 오류가 발생했습니다: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
         return Response({
             'year': year,
             'month': month,
             'report': report_content,
-            'generated_at': saved.updated_at,
-            'cached': False,
+            'generated_at': monthly_report.updated_at if monthly_report else None,
+            'cached': True,
             'is_new_user': False,
+        })
+
+
+class DevYuntaekRegenerateView(APIView):
+    """
+    개발 환경 전용 윤택지수/리포트 강제 재생성 API
+    POST /api/users/yuntaek-regenerate/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if not settings.DEBUG:
+            return Response(
+                {'error': '개발 환경에서만 사용할 수 있습니다.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        year, month = get_target_month(
+            request.data.get('year') or request.query_params.get('year'),
+            request.data.get('month') or request.query_params.get('month'),
+        )
+
+        try:
+            score_data, report_content, score_report, monthly_report = force_regenerate_monthly_yuntaek_data(
+                request.user,
+                year,
+                month,
+            )
+        except Exception as exc:
+            logger.error("개발용 윤택지수/리포트 재생성 중 오류: %s", exc, exc_info=True)
+            return Response(
+                {'error': f'재생성 중 오류가 발생했습니다: {str(exc)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({
+            'message': f'{year}년 {month}월 윤택지수와 리포트를 재생성했습니다.',
+            'year': year,
+            'month': month,
+            'score': score_data,
+            'report': report_content,
+            'score_generated_at': score_report.score_generated_at if score_report else None,
+            'report_generated_at': monthly_report.updated_at if monthly_report else None,
         })
 
 class GameRewardView(APIView):

@@ -368,13 +368,92 @@ class GrowthResponse(AIBaseModel):
     reason: str = ""
 
 
+class BudgetStatusResponse(AIBaseModel):
+    budget: int = 0
+    spent: int = 0
+    remaining: int = 0
+    message: str = ""
+
+
+class TopCategoryResponse(AIBaseModel):
+    category: str = ""
+    amount: int = 0
+    percentage: float = 0.0
+
+
+class SummarySectionResponse(AIBaseModel):
+    period: str = ""
+    overview: str = ""
+    budget_status: BudgetStatusResponse = Field(default_factory=BudgetStatusResponse)
+    top_categories: List[TopCategoryResponse] = Field(default_factory=list)
+
+
+class ImpulseSpendingItemResponse(AIBaseModel):
+    description: str = ""
+    reason: str = ""
+    amount: int = 0
+
+
+class ImpulseSpendingResponse(AIBaseModel):
+    total_amount: int = 0
+    percentage_of_total: float = 0.0
+    items: List[ImpulseSpendingItemResponse] = Field(default_factory=list)
+
+
+class LeakageAreaResponse(AIBaseModel):
+    pattern: str = ""
+    frequency: str = ""
+    monthly_total: int = 0
+    potential_savings: int = 0
+
+
+class WeaknessAnalysisResponse(AIBaseModel):
+    impulse_spending: ImpulseSpendingResponse = Field(default_factory=ImpulseSpendingResponse)
+    leakage_areas: List[LeakageAreaResponse] = Field(default_factory=list)
+
+
+class YuntaekFactorResponse(AIBaseModel):
+    name: str = ""
+    current_score: int = 0
+    max_score: int = 0
+    improvement_tip: str = ""
+
+
+class YuntaekAnalysisResponse(AIBaseModel):
+    current_score: int = 0
+    previous_score: int = 0
+    score_level: str = ""
+    score_message: str = ""
+    factors: List[YuntaekFactorResponse] = Field(default_factory=list)
+
+
+class PriorityTaskResponse(AIBaseModel):
+    rank: int = 0
+    title: str = ""
+    current_state: str = ""
+    target_state: str = ""
+    action_steps: List[str] = Field(default_factory=list)
+    expected_savings: int = 0
+
+
+class NextMonthStrategyResponse(AIBaseModel):
+    priority_tasks: List[PriorityTaskResponse] = Field(default_factory=list)
+
+
+class ExpertSummaryResponse(AIBaseModel):
+    overall_assessment: str = ""
+    key_achievement: str = ""
+    key_improvement_area: str = ""
+    professional_advice: str = ""
+
+
 class MonthlyReportResponse(AIBaseModel):
     updated_persona_summary: str = ""
-    summary: Dict[str, Any] = Field(default_factory=dict)
-    weakness_analysis: Dict[str, Any] = Field(default_factory=dict)
-    yuntaek_analysis: Dict[str, Any] = Field(default_factory=dict)
-    next_month_strategy: Dict[str, Any] = Field(default_factory=dict)
-    expert_summary: Dict[str, Any] = Field(default_factory=dict)
+    summary: SummarySectionResponse = Field(default_factory=SummarySectionResponse)
+    weakness_analysis: WeaknessAnalysisResponse = Field(default_factory=WeaknessAnalysisResponse)
+    yuntaek_analysis: YuntaekAnalysisResponse = Field(default_factory=YuntaekAnalysisResponse)
+    next_month_strategy: NextMonthStrategyResponse = Field(default_factory=NextMonthStrategyResponse)
+    expert_summary: ExpertSummaryResponse = Field(default_factory=ExpertSummaryResponse)
 
 
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
@@ -1217,9 +1296,16 @@ AI 소비 코칭 분석 결과를 바탕으로 사용자가 실천할 수 있는
 
 [반드시 포함할 구조]
 - summary.period, summary.overview, summary.budget_status, summary.top_categories
+- summary.budget_status는 budget, spent, remaining, message를 포함할 것
+- summary.top_categories 각 항목은 category, amount, percentage를 포함할 것
 - weakness_analysis.impulse_spending, weakness_analysis.leakage_areas
+- weakness_analysis.impulse_spending은 total_amount, percentage_of_total, items를 포함할 것
+- weakness_analysis.impulse_spending.items 각 항목은 description, reason, amount를 포함할 것
+- weakness_analysis.leakage_areas 각 항목은 pattern, frequency, monthly_total, potential_savings를 포함할 것
 - yuntaek_analysis.current_score, yuntaek_analysis.previous_score, yuntaek_analysis.score_level, yuntaek_analysis.score_message, yuntaek_analysis.factors
+- yuntaek_analysis.factors 각 항목은 name, current_score, max_score, improvement_tip을 포함할 것
 - next_month_strategy.priority_tasks
+- next_month_strategy.priority_tasks 각 항목은 rank, title, current_state, target_state, action_steps, expected_savings를 포함할 것
 - expert_summary.overall_assessment, expert_summary.key_achievement, expert_summary.key_improvement_area, expert_summary.professional_advice
 
 [제약]

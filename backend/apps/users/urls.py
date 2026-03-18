@@ -6,7 +6,13 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .views import ProfileView, YuntaekScoreView, MonthlyReportView, GameRewardView
+from .views import (
+    ProfileView,
+    YuntaekScoreView,
+    MonthlyReportView,
+    DevYuntaekRegenerateView,
+    GameRewardView,
+)
 from .oauth_views import GoogleLoginView
 
 urlpatterns = [
@@ -22,6 +28,7 @@ urlpatterns = [
     # 윤택지수 API
     path('yuntaek-score/', YuntaekScoreView.as_view(), name='yuntaek_score'),
     path('yuntaek-report/', MonthlyReportView.as_view(), name='yuntaek_report'),
+    path('yuntaek-regenerate/', DevYuntaekRegenerateView.as_view(), name='yuntaek_regenerate'),
 
     # 게임 보상 API
     path('game-reward/', GameRewardView.as_view(), name='game_reward'),

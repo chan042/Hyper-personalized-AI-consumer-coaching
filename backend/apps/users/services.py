@@ -116,8 +116,28 @@ def get_cached_score_snapshot(user, year, month):
     return None, monthly_report
 
 
+def get_cached_report_content(user, year, month):
+    """저장된 월간 리포트를 조회합니다."""
+    from apps.users.models import MonthlyReport
+
+    monthly_report = MonthlyReport.objects.filter(
+        user=user,
+        year=year,
+        month=month,
+    ).first()
+
+    if (
+        monthly_report
+        and isinstance(monthly_report.report_content, dict)
+        and monthly_report.report_content
+    ):
+        return monthly_report.report_content, monthly_report
+
+    return None, monthly_report
+
+
 def save_score_snapshot(user, year, month, score_data):
-    """윤택지수 스냅샷을 저장합니다."""
+    """윤택지수 스냅샷을 저장합니다. 이미 생성된 스냅샷은 덮어쓰지 않습니다."""
     from apps.users.models import MonthlyReport
 
     normalized_score = {
@@ -126,9 +146,10 @@ def save_score_snapshot(user, year, month, score_data):
         'year': year,
         'month': month,
         'breakdown': score_data.get('breakdown', {}),
+        'analysis_warnings': score_data.get('analysis_warnings', []),
     }
 
-    monthly_report, _ = MonthlyReport.objects.update_or_create(
+    monthly_report, created = MonthlyReport.objects.get_or_create(
         user=user,
         year=year,
         month=month,
@@ -139,12 +160,38 @@ def save_score_snapshot(user, year, month, score_data):
             'score_error': '',
         },
     )
+
+    if created:
+        return monthly_report
+
+    if (
+        monthly_report.score_status == MonthlyReport.ScoreStatus.READY
+        and isinstance(monthly_report.score_snapshot, dict)
+        and monthly_report.score_snapshot
+    ):
+        return monthly_report
+
+    monthly_report.score_snapshot = normalized_score
+    monthly_report.score_generated_at = timezone.now()
+    monthly_report.score_status = MonthlyReport.ScoreStatus.READY
+    monthly_report.score_error = ''
+    monthly_report.save(update_fields=[
+        'score_snapshot',
+        'score_generated_at',
+        'score_status',
+        'score_error',
+        'updated_at',
+    ])
     return monthly_report
 
 
 def mark_score_snapshot_failed(user, year, month, error_message):
-    """윤택지수 생성 실패 상태를 저장합니다."""
+    """윤택지수 생성 실패 상태를 저장합니다. 완료된 스냅샷은 유지합니다."""
     from apps.users.models import MonthlyReport
+
+    existing_score, existing_report = get_cached_score_snapshot(user, year, month)
+    if existing_score and existing_report:
+        return existing_report
 
     monthly_report, _ = MonthlyReport.objects.update_or_create(
         user=user,
@@ -167,10 +214,9 @@ def ensure_score_snapshot(user, year, month, force_refresh=False):
     """
     from apps.users.yuntaek_score import YuntaekScoreAnalysisError, get_yuntaek_score
 
-    if not force_refresh:
-        cached_score, cached_report = get_cached_score_snapshot(user, year, month)
-        if cached_score:
-            return cached_score, cached_report, True
+    cached_score, cached_report = get_cached_score_snapshot(user, year, month)
+    if cached_score:
+        return cached_score, cached_report, True
 
     try:
         score_data = get_yuntaek_score(user, year, month)
@@ -259,14 +305,25 @@ def collect_report_data(user, year, month, score_data=None):
 
 
 def save_report_cache(user, year, month, report_content):
-    """리포트 캐시 저장 (update_or_create 사용)"""
+    """월간 리포트를 저장합니다. 이미 생성된 리포트는 덮어쓰지 않습니다."""
     from apps.users.models import MonthlyReport
 
-    report, _ = MonthlyReport.objects.update_or_create(
-        user=user, year=year, month=month,
-        defaults={'report_content': report_content}
+    report, created = MonthlyReport.objects.get_or_create(
+        user=user,
+        year=year,
+        month=month,
+        defaults={'report_content': report_content},
     )
-    return report
+
+    if created:
+        return report, True
+
+    if isinstance(report.report_content, dict) and report.report_content:
+        return report, False
+
+    report.report_content = report_content
+    report.save(update_fields=['report_content', 'updated_at'])
+    return report, True
 
 
 def save_report_and_persona(user, year, month, ai_result: dict):
@@ -288,10 +345,10 @@ def save_report_and_persona(user, year, month, ai_result: dict):
     updated_persona = ai_result.get('updated_persona_summary', '')
 
     # 1) 리포트 캐시 저장
-    saved = save_report_cache(user, year, month, report_content)
+    saved, report_was_saved = save_report_cache(user, year, month, report_content)
 
     # 2) 페르소나 요약 업데이트
-    if updated_persona:
+    if updated_persona and report_was_saved:
         user.ai_persona_summary = updated_persona
         user.save(update_fields=['ai_persona_summary'])
         logger.info(
@@ -299,4 +356,77 @@ def save_report_and_persona(user, year, month, ai_result: dict):
             user.id, len(updated_persona),
         )
 
-    return saved, report_content
+    return saved, saved.report_content
+
+
+def force_save_score_snapshot(user, year, month, score_data):
+    """개발용 강제 재생성 경로에서 윤택지수 스냅샷을 덮어씁니다."""
+    from apps.users.models import MonthlyReport
+
+    normalized_score = {
+        'total_score': int(score_data.get('total_score', 0)),
+        'max_score': int(score_data.get('max_score', 100)),
+        'year': year,
+        'month': month,
+        'breakdown': score_data.get('breakdown', {}),
+        'analysis_warnings': score_data.get('analysis_warnings', []),
+    }
+
+    monthly_report, _ = MonthlyReport.objects.update_or_create(
+        user=user,
+        year=year,
+        month=month,
+        defaults={
+            'score_snapshot': normalized_score,
+            'score_generated_at': timezone.now(),
+            'score_status': MonthlyReport.ScoreStatus.READY,
+            'score_error': '',
+        },
+    )
+    return monthly_report
+
+
+def force_save_report_and_persona(user, year, month, ai_result: dict):
+    """개발용 강제 재생성 경로에서 월간 리포트를 덮어씁니다."""
+    from apps.users.models import MonthlyReport
+
+    report_content = ai_result.get('report', ai_result)
+    updated_persona = ai_result.get('updated_persona_summary', '')
+
+    monthly_report, _ = MonthlyReport.objects.update_or_create(
+        user=user,
+        year=year,
+        month=month,
+        defaults={'report_content': report_content},
+    )
+
+    if updated_persona:
+        user.ai_persona_summary = updated_persona
+        user.save(update_fields=['ai_persona_summary'])
+        logger.info(
+            "사용자 %s의 ai_persona_summary 강제 업데이트 완료 (%d자)",
+            user.id, len(updated_persona),
+        )
+
+    return monthly_report, report_content
+
+
+def force_regenerate_monthly_yuntaek_data(user, year, month):
+    """
+    개발용 강제 재생성.
+    기존 월간 스냅샷이 있어도 윤택지수와 리포트를 다시 계산하여 덮어씁니다.
+    """
+    from apps.users.yuntaek_score import get_yuntaek_score
+    from external.ai.client import AIClient
+
+    score_data = get_yuntaek_score(user, year, month)
+    saved_score = force_save_score_snapshot(user, year, month, score_data)
+
+    report_data = collect_report_data(user, year, month, score_data=saved_score.score_snapshot)
+    client = AIClient(purpose="analysis")
+    ai_result = client.generate_monthly_report(report_data)
+    if not ai_result or not isinstance(ai_result, dict):
+        raise ValueError('리포트 형식이 올바르지 않습니다.')
+
+    saved_report, report_content = force_save_report_and_persona(user, year, month, ai_result)
+    return saved_score.score_snapshot, report_content, saved_score, saved_report

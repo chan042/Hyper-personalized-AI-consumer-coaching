@@ -82,6 +82,11 @@ class YuntaekScoreSerializer(serializers.Serializer):
     year = serializers.IntegerField()
     month = serializers.IntegerField()
     breakdown = serializers.DictField(child=serializers.IntegerField())
+    analysis_warnings = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True,
+    )
     generated_at = serializers.DateTimeField(required=False, allow_null=True)
     cached = serializers.BooleanField(required=False)
     is_new_user = serializers.BooleanField(required=False)
