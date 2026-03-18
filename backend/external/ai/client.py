@@ -688,16 +688,14 @@ class AIClient:
             return None, None
 
         selected_model = model or self.model
-        config_kwargs: Dict[str, Any] = {
-            "response_mime_type": "application/json",
-            "temperature": 0.2,
-        }
+        config_kwargs: Dict[str, Any] = {"temperature": 0.2}
 
         if use_web_search:
             config_kwargs["tools"] = [types.Tool(google_search=types.GoogleSearch())]
             if allowed_domains:
                 logger.info("Gemini Google Search는 allowed_domains 필터를 지원하지 않아 무시합니다.")
         else:
+            config_kwargs["response_mime_type"] = "application/json"
             config_kwargs["response_json_schema"] = self._sanitize_schema(
                 response_model.model_json_schema()
             )
@@ -913,8 +911,26 @@ class AIClient:
             result["is_fixed"] = bool(result.get("is_fixed"))
         return result
 
-    def get_advice(self, transaction_list_str: str) -> Optional[dict]:
-        prompt = f"""
+    def _build_coaching_prompt(self, transaction_list_str: str, *, use_web_search: bool) -> str:
+        extra_rules = """
+[웹 검색 사용 규칙]
+- 위치 기반 대안과 키워드 기반 대안은 웹 검색으로 실제 정보가 확인된 경우에만 선택하세요.
+- 검색 결과가 부족하면 행동 변화 제안 또는 누수 소비 방지로 전환하세요.
+- 검색 결과로 확인된 가격, 상호, 후기, 거리 등의 정보만 사용하세요.
+- URL은 본문에 넣지 마세요. 출처는 별도 수집됩니다.
+"""
+        subject_rule = "행동 변화 제안 | 누수 소비 방지 | 위치 기반 대안 | 키워드 기반 대안 중 하나"
+
+        if not use_web_search:
+            extra_rules = """
+[추가 규칙]
+- 지금은 웹 검색을 사용할 수 없으므로 subject는 행동 변화 제안 또는 누수 소비 방지 중 하나만 선택하세요.
+- 실제 상호, 가격, 후기, 거리 정보는 추정해서 쓰지 마세요.
+- 위치 기반 대안과 키워드 기반 대안은 선택하지 마세요.
+"""
+            subject_rule = "행동 변화 제안 | 누수 소비 방지 중 하나"
+
+        return f"""
 [역할]
 당신은 '두둑' 서비스의 AI 소비 코치입니다.
 사용자의 소비 취향을 존중하면서 만족도 높은 대안이나 실천 가능한 행동 변화를 제안하세요.
@@ -928,11 +944,7 @@ class AIClient:
 - 위치 기반 대안
 - 키워드 기반 대안
 
-[웹 검색 사용 규칙]
-- 위치 기반 대안과 키워드 기반 대안은 웹 검색으로 실제 정보가 확인된 경우에만 선택하세요.
-- 검색 결과가 부족하면 행동 변화 제안 또는 누수 소비 방지로 전환하세요.
-- 검색 결과로 확인된 가격, 상호, 후기, 거리 등의 정보만 사용하세요.
-- URL은 본문에 넣지 마세요. 출처는 별도 수집됩니다.
+{extra_rules}
 
 [출력 규칙]
 - analysis는 100자 이내
@@ -944,7 +956,7 @@ class AIClient:
 [반환 형식]
 반드시 아래 JSON 객체만 반환하세요.
 {{
-  "subject": "행동 변화 제안 | 누수 소비 방지 | 위치 기반 대안 | 키워드 기반 대안 중 하나",
+  "subject": "{subject_rule}",
   "title": "10자 이내 코칭 제목",
   "coaching_content": "100자 이내 코칭 문장",
   "analysis": "100자 이내 소비 분석",
@@ -954,13 +966,24 @@ class AIClient:
 JSON 외의 설명, 코드블록, URL 본문 삽입은 금지합니다.
 """
 
+    def get_advice(self, transaction_list_str: str) -> Optional[dict]:
+        prompt = self._build_coaching_prompt(transaction_list_str, use_web_search=True)
+
         result, response = self._parse(
             prompt,
             CoachingAdviceResponse,
             use_web_search=True,
         )
         if not result:
-            return None
+            logger.warning("코칭 생성용 웹 검색 응답 파싱에 실패해 비검색 모드로 재시도합니다.")
+            fallback_prompt = self._build_coaching_prompt(transaction_list_str, use_web_search=False)
+            result, response = self._parse(
+                fallback_prompt,
+                CoachingAdviceResponse,
+                use_web_search=False,
+            )
+            if not result:
+                return None
 
         result["sources"] = self._extract_search_sources(response)
         return result
