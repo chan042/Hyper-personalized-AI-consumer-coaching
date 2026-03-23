@@ -7,7 +7,7 @@
  * - 캐릭터를 선택한 후 이름을 입력합니다.
  * - 완료 후 메인 페이지로 이동합니다.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { updateProfile } from '@/lib/api/auth';
@@ -52,7 +52,7 @@ const questions = [
     {
         id: 'monthly_budget',
         question: '한 달 예산은 얼마인가요?',
-        placeholder: '예: 2000000',
+        placeholder: '예: 500,000',
         suffix: '원',
         type: 'number'
     },
@@ -70,6 +70,7 @@ export default function UserInfoPage() {
     // questions.length + 1: 캐릭터 이름 (마자막)
     const [currentStep, setCurrentStep] = useState(0);
     const [answers, setAnswers] = useState({});
+    const [draftAnswers, setDraftAnswers] = useState({});
     const [inputValue, setInputValue] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -86,6 +87,65 @@ export default function UserInfoPage() {
     // 현재 단계가 질문 단계인지 확인
     const isQuestionStep = currentStep < questions.length;
     const currentQuestion = isQuestionStep ? questions[currentStep] : null;
+
+    const isBudgetQuestion = (question) => question?.id === 'monthly_budget';
+
+    const formatBudgetInput = (value) => {
+        const digits = String(value ?? '').replace(/\D/g, '');
+
+        if (!digits) {
+            return '';
+        }
+
+        return Number(digits).toLocaleString('ko-KR');
+    };
+
+    const parseQuestionValue = (question, value) => {
+        if (question.type !== 'number') {
+            return value;
+        }
+
+        if (isBudgetQuestion(question)) {
+            const digits = String(value ?? '').replace(/\D/g, '');
+            return digits ? Number(digits) : 0;
+        }
+
+        return Number(value);
+    };
+
+    const getQuestionValue = (question) => {
+        const draftValue = draftAnswers[question.id];
+        if (draftValue !== undefined && draftValue !== null) {
+            return draftValue;
+        }
+
+        const savedValue = answers[question.id];
+        if (savedValue === undefined || savedValue === null) {
+            return '';
+        }
+
+        if (isBudgetQuestion(question)) {
+            return formatBudgetInput(savedValue);
+        }
+
+        return String(savedValue);
+    };
+
+    const handleInputChange = (value) => {
+        const nextValue = isBudgetQuestion(currentQuestion)
+            ? formatBudgetInput(value)
+            : value;
+
+        setInputValue(nextValue);
+        setDraftAnswers(prev => ({
+            ...prev,
+            [currentQuestion.id]: nextValue
+        }));
+
+        if (isBudgetQuestion(currentQuestion)) {
+            return;
+        }
+    };
 
     // 캐릭터 선택 처리 (두 번 누르면 선택 해제)
     const handleCharacterSelect = (characterId) => {
@@ -133,15 +193,14 @@ export default function UserInfoPage() {
 
     // 질문 답변 제출 처리 (다음 단계로 이동)
     const handleQuestionSubmit = () => {
+        const currentValue = getQuestionValue(currentQuestion);
+
         // 현재 답변 저장
         const newAnswers = {
             ...answers,
-            [currentQuestion.id]: currentQuestion.type === 'number'
-                ? Number(inputValue)
-                : inputValue
+            [currentQuestion.id]: parseQuestionValue(currentQuestion, currentValue)
         };
         setAnswers(newAnswers);
-        setInputValue('');
         setError('');
 
         // 다음 질문 또는 캐릭터 선택 단계로 이동
@@ -155,11 +214,41 @@ export default function UserInfoPage() {
             [currentQuestion.id]: value
         };
         setAnswers(newAnswers);
+        setDraftAnswers(prev => ({
+            ...prev,
+            [currentQuestion.id]: value
+        }));
         setError('');
 
         // 다음 질문 또는 캐릭터 선택 단계로 이동
         setCurrentStep(prev => prev + 1);
     };
+
+    const handleBack = () => {
+        setError('');
+
+        if (currentStep === 0) {
+            router.back();
+            return;
+        }
+
+        const previousStep = currentStep - 1;
+        setCurrentStep(previousStep);
+    };
+
+    useEffect(() => {
+        if (!isQuestionStep) {
+            setInputValue('');
+            return;
+        }
+
+        if (currentQuestion.type === 'select') {
+            setInputValue('');
+            return;
+        }
+
+        setInputValue(getQuestionValue(currentQuestion));
+    }, [currentStep, isQuestionStep, currentQuestion, answers, draftAnswers]);
 
     // Enter 키 처리
     const handleKeyDown = (e) => {
@@ -193,12 +282,15 @@ export default function UserInfoPage() {
                             <Image
                                 src={char.image}
                                 alt={char.name}
-                                width={80}
-                                height={80}
-                                style={{ objectFit: 'contain' }}
+                                width={160}
+                                height={160}
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'contain'
+                                }}
                             />
                         </div>
-                        <span style={styles.characterName}>{char.name}</span>
                     </div>
                 ))}
             </div>
@@ -275,7 +367,10 @@ export default function UserInfoPage() {
                         <button
                             key={option.value}
                             onClick={() => handleSelect(option.value)}
-                            style={styles.optionButton}
+                            style={{
+                                ...styles.optionButton,
+                                ...(answers[currentQuestion.id] === option.value ? styles.optionButtonSelected : {})
+                            }}
                             disabled={loading}
                         >
                             {option.label}
@@ -285,12 +380,16 @@ export default function UserInfoPage() {
             ) : (
                 <div style={styles.inputContainer}>
                     <input
-                        type={currentQuestion.type}
+                        type={isBudgetQuestion(currentQuestion) ? 'text' : currentQuestion.type}
                         value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
+                        onChange={(e) => handleInputChange(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder={currentQuestion.placeholder}
-                        style={styles.input}
+                        inputMode={isBudgetQuestion(currentQuestion) ? 'numeric' : undefined}
+                        style={{
+                            ...styles.input,
+                            ...(currentQuestion.suffix ? styles.inputWithSuffix : {})
+                        }}
                         autoFocus
                         disabled={loading}
                     />
@@ -342,6 +441,21 @@ export default function UserInfoPage() {
                 {currentStep === questions.length && renderCharacterSelection()}
                 {currentStep === questions.length + 1 && renderCharacterNaming()}
             </div>
+
+            <div style={styles.bottomNav}>
+                <button
+                    type="button"
+                    onClick={handleBack}
+                    style={{
+                        ...styles.backButton,
+                        ...(loading ? styles.backButtonDisabled : {})
+                    }}
+                    disabled={loading}
+                    aria-label="이전 단계로 이동"
+                >
+                    &lt;
+                </button>
+            </div>
         </div>
     );
 }
@@ -363,6 +477,25 @@ const styles = {
         marginBottom: '2rem',
         textAlign: 'left',
         width: '100%',
+    },
+    backButton: {
+        width: '2.5rem',
+        height: '2.5rem',
+        borderRadius: '999px',
+        border: '1px solid rgba(148, 163, 184, 0.24)',
+        backgroundColor: '#FFFFFF',
+        color: 'var(--text-main)',
+        fontSize: '1.05rem',
+        fontWeight: '700',
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
+    },
+    backButtonDisabled: {
+        opacity: 0.5,
+        cursor: 'not-allowed',
     },
     progress: {
         width: '100%',
@@ -391,6 +524,13 @@ const styles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+    },
+    bottomNav: {
+        width: '100%',
+        display: 'flex',
+        justifyContent: 'flex-start',
+        paddingTop: '1rem',
+        paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
     },
     question: {
         fontSize: '1.4rem',
@@ -421,7 +561,9 @@ const styles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '1rem',
+        justifyContent: 'center',
+        padding: '0.75rem',
+        aspectRatio: '1 / 1',
         borderRadius: '16px',
         borderWidth: '2px',
         borderStyle: 'solid',
@@ -435,28 +577,22 @@ const styles = {
         borderColor: 'var(--primary)',
         backgroundColor: 'rgba(72, 187, 120, 0.1)',
         boxShadow: '0 4px 12px rgba(47, 133, 90, 0.2)',
+        transform: 'scale(1.04)',
     },
     characterImageWrapper: {
-        width: '100px',
-        height: '100px',
-        borderRadius: '50%',
-        backgroundColor: '#f0f9ff',
+        width: '88%',
+        height: '88%',
+        backgroundColor: 'transparent',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: '0.75rem',
         overflow: 'hidden',
-    },
-    characterName: {
-        fontSize: '0.875rem',
-        fontWeight: '600',
-        color: 'var(--text-main)',
     },
     selectedCharacterPreview: {
         width: '140px',
         height: '140px',
         borderRadius: '50%',
-        backgroundColor: '#f0f9ff',
+        backgroundColor: 'transparent',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -475,6 +611,10 @@ const styles = {
         backgroundColor: 'transparent',
         textAlign: 'center',
         outline: 'none',
+    },
+    inputWithSuffix: {
+        paddingLeft: '3rem',
+        paddingRight: '3rem',
     },
     suffix: {
         position: 'absolute',
@@ -501,6 +641,11 @@ const styles = {
         borderRadius: 'var(--radius-md)',
         cursor: 'pointer',
         transition: 'all 0.2s ease',
+    },
+    optionButtonSelected: {
+        borderColor: 'var(--primary)',
+        backgroundColor: 'rgba(72, 187, 120, 0.1)',
+        boxShadow: '0 4px 12px rgba(47, 133, 90, 0.12)',
     },
     nextButton: {
         width: '100%',
