@@ -9,7 +9,8 @@ class User(AbstractUser):
     """
     # 이메일 기반 인증 설정
     email = models.EmailField(unique=True, verbose_name='이메일')
-    
+    username = models.CharField(max_length=150, verbose_name='사용자명')
+
     USERNAME_FIELD = 'email'  # 로그인 시 이메일 사용
     REQUIRED_FIELDS = ['username']  # createsuperuser 시 필요한 필드
     
