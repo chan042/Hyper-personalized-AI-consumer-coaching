@@ -26,6 +26,17 @@ class DuduChatService:
     def __init__(self):
         self.ai_client = AIClient(purpose="coaching")
 
+    def _get_assistant_name(self, user) -> str:
+        """사용자가 설정한 두둑이 이름을 상담사 이름으로 사용합니다."""
+        for candidate in (
+            getattr(user, "character_name", None),
+            getattr(user, "username", None),
+            getattr(user, "email", "").split("@")[0] if getattr(user, "email", None) else None,
+        ):
+            if candidate and str(candidate).strip():
+                return str(candidate).strip()
+        return "두둑이"
+
     # ------------------------------------------------------------------ #
     # 컨텍스트 수집
     # ------------------------------------------------------------------ #
@@ -46,10 +57,10 @@ class DuduChatService:
             decade = (user.age // 10) * 10
             age_group = f"{decade}대"
 
-        display_name = user.character_name or user.username or user.email.split("@")[0]
+        assistant_name = self._get_assistant_name(user)
 
         user_profile = {
-            "name": display_name,
+            "name": assistant_name,
             "age_group": age_group,
             "job": user.job or "미입력",
             "hobbies": hobbies,
@@ -62,6 +73,7 @@ class DuduChatService:
         active_challenges = self._get_active_challenges(user)
 
         return {
+            "assistant_name": assistant_name,
             "user_profile": user_profile,
             "financial_status": financial_status,
             "active_challenges": active_challenges,
@@ -124,6 +136,7 @@ class DuduChatService:
         rules = config["core_rules"]
         guidelines = config.get("response_guidelines", {})
         few_shots = config.get("few_shot_examples", [])
+        assistant_name = context.get("assistant_name") or identity.get("name", "두둑이")
 
         # 퓨샷 예시 구성
         few_shot_text = ""
@@ -131,7 +144,7 @@ class DuduChatService:
             few_shot_text += (
                 f"\n[예시 {i}]\n"
                 f"사용자: {ex['user_input']}\n"
-                f"두두: {ex['agent_response']}\n"
+                f"{assistant_name}: {ex['agent_response']}\n"
             )
 
         # 챌린지 텍스트
@@ -147,7 +160,7 @@ class DuduChatService:
         up = context["user_profile"]
 
         system_prompt = f"""
-당신은 '{identity['name']}'입니다.
+당신은 '{assistant_name}'입니다.
 역할: {identity['role']}
 
 [말투 및 태도]
@@ -156,8 +169,12 @@ class DuduChatService:
 [핵심 규칙]
 {chr(10).join(f"{r}" for r in rules)}
 
+[이름 규칙]
+- 사용자가 설정한 두둑이 이름은 '{assistant_name}'입니다.
+- 자신을 소개하거나 지칭할 때는 항상 '{assistant_name}'이라는 이름을 사용하세요.
+
 [현재 사용자 정보]
-- 이름: {up['name']}
+- 두둑이 이름: {up['name']}
 - 나이대: {up['age_group']}
 - 직업: {up['job']}
 - 취미: {', '.join(up['hobbies']) if up['hobbies'] else '미입력'}
@@ -167,7 +184,7 @@ class DuduChatService:
 - 진행 중 챌린지: {challenges_text}
 
 [응답 가이드라인]
-- 최대 길이: {guidelines.get('max_length', '200자 이내')}
+- 최대 길이: {guidelines.get('max_length', '150자 이내')}
 - 구조: {guidelines.get('structure', '공감 → 상황 언급 → 대안 제시')}
 - 이모지: {guidelines.get('emoji_usage', '자연스럽게 1~2개')}
 - 금지 표현: {', '.join(guidelines.get('forbidden', []))}
@@ -175,7 +192,7 @@ class DuduChatService:
 [응답 예시]
 {few_shot_text}
 
-위 정보를 바탕으로 사용자의 메시지에 두두의 페르소나로 답변하세요.
+위 정보를 바탕으로 사용자의 메시지에 '{assistant_name}'의 페르소나로 답변하세요.
 답변은 자연스러운 대화체로, 공감을 먼저 표현한 뒤 상황에 맞는 조언을 제공하세요.
 """.strip()
 

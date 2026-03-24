@@ -45,6 +45,7 @@ class CoachingAdviceView(APIView):
                 "coaching_content": c.coaching_content,
                 "estimated_savings": c.estimated_savings,
                 "sources": c.sources,
+                "has_generated_challenge": c.has_generated_challenge,
                 "created_at": c.created_at
             })
             

@@ -5,7 +5,7 @@ export default function ChatMessage({ message, characterType }) {
     const normalizedCharacterType = characterType?.startsWith('char_')
         ? characterType
         : `char_${characterType || 'cat'}`;
-    const chatbotAvatarSrc = `/images/characters/${normalizedCharacterType}/headset.png?v=20260225`;
+    const chatbotAvatarSrc = `/images/characters/${normalizedCharacterType}/headset.png?v=20260324`;
 
     return (
         <div

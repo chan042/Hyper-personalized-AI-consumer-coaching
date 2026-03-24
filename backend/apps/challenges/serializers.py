@@ -5,6 +5,8 @@ from calendar import monthrange
 from django.db.models import Sum
 import random
 import uuid
+
+from django.db import transaction
 from .models import ChallengeTemplate, UserChallenge, ChallengeDailyLog
 from .constants import (
     CONDITION_TYPE_AMOUNT_LIMIT,
@@ -848,17 +850,28 @@ class CoachingChallengeStartSerializer(BaseChallengeStartSerializer):
         user = self.context['request'].user
         coaching_id = validated_data.pop('coaching_id', None)
 
-        # 코칭 객체 조회
-        source_coaching = None
-        if coaching_id:
-            from apps.coaching.models import Coaching
-            try:
-                source_coaching = Coaching.objects.get(id=coaching_id, user=user)
-            except Coaching.DoesNotExist:
-                pass
+        with transaction.atomic():
+            # 코칭 객체 조회 및 중복 생성 방지
+            source_coaching = None
+            if coaching_id:
+                from apps.coaching.models import Coaching
 
-        return self._create_user_challenge(
-            validated_data,
-            source_coaching=source_coaching,
-            generated_by='gpt_coaching'
-        )
+                try:
+                    source_coaching = Coaching.objects.select_for_update().get(id=coaching_id, user=user)
+                except Coaching.DoesNotExist as exc:
+                    raise serializers.ValidationError({'error': '코칭을 찾을 수 없습니다.'}) from exc
+
+                if source_coaching.has_generated_challenge:
+                    raise serializers.ValidationError({'error': '이미 챌린지가 생성된 코칭 카드입니다.'})
+
+            user_challenge = self._create_user_challenge(
+                validated_data,
+                source_coaching=source_coaching,
+                generated_by='gpt_coaching'
+            )
+
+            if source_coaching:
+                source_coaching.has_generated_challenge = True
+                source_coaching.save(update_fields=['has_generated_challenge'])
+
+            return user_challenge

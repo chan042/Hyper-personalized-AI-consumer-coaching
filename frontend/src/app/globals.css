@@ -239,12 +239,15 @@ button {
 .loading-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(4px);
-  z-index: 50;
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.88), rgba(240, 253, 250, 0.92));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 1200;
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 1.5rem;
 }
 
 .loading-content {

@@ -301,6 +301,12 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        if coaching.has_generated_challenge:
+            return Response(
+                {'error': '이미 챌린지가 생성된 코칭 카드입니다.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # 코칭 데이터를 dict로 변환
         coaching_data = {
             'id': coaching.id,

@@ -4,8 +4,11 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APITestCase
 
 from apps.coaching.models import Coaching
+from apps.challenges.models import UserChallenge
 from apps.transactions.models import Transaction
 from external.ai.client import AIClient, CoachingAdviceResponse
 
@@ -120,3 +123,78 @@ class CoachingSignalTests(TestCase):
         self.assertEqual(coaching.title, "커피줄임")
         self.assertEqual(coaching.estimated_savings, 4500)
         mock_ai_client.get_advice.assert_called_once()
+
+
+class CoachingChallengeGenerationTests(APITestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username='coach-api-user',
+            email='coach-api@example.com',
+            password='password123',
+        )
+        self.client.force_authenticate(user=self.user)
+        self.coaching = Coaching.objects.create(
+            user=self.user,
+            title='커피 줄이기',
+            subject='행동 변화 제안',
+            analysis='카페 지출이 반복되고 있어요.',
+            coaching_content='이번 주는 커피를 한 번 덜 사보세요.',
+            estimated_savings=4500,
+            sources=[],
+        )
+        self.challenge_payload = {
+            'coaching_id': self.coaching.id,
+            'name': '카페 줄이기 챌린지',
+            'description': '일주일 동안 카페 지출 줄이기',
+            'difficulty': 'normal',
+            'duration_days': 7,
+            'base_points': 100,
+            'success_conditions': ['카페 지출 10,000원 이하로 유지하기'],
+            'target_amount': 10000,
+            'target_categories': ['all'],
+            'target_keywords': [],
+            'condition_type': 'amount_limit',
+        }
+
+    def test_coaching_advice_includes_generated_challenge_flag(self):
+        self.coaching.has_generated_challenge = True
+        self.coaching.save(update_fields=['has_generated_challenge'])
+
+        response = self.client.get('/api/coaching/advice/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertTrue(response.data[0]['has_generated_challenge'])
+
+    def test_start_from_coaching_marks_coaching_as_generated(self):
+        response = self.client.post('/api/challenges/my/start_from_coaching/', self.challenge_payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.coaching.refresh_from_db()
+
+        self.assertTrue(self.coaching.has_generated_challenge)
+        self.assertEqual(UserChallenge.objects.filter(source_coaching=self.coaching).count(), 1)
+
+    def test_start_from_coaching_rejects_duplicate_generation(self):
+        first_response = self.client.post('/api/challenges/my/start_from_coaching/', self.challenge_payload, format='json')
+        second_response = self.client.post('/api/challenges/my/start_from_coaching/', self.challenge_payload, format='json')
+
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(second_response.data['error'], '이미 챌린지가 생성된 코칭 카드입니다.')
+
+    @patch('apps.challenges.views.AIClient')
+    def test_generate_from_coaching_rejects_used_card(self, mock_ai_client_class):
+        self.coaching.has_generated_challenge = True
+        self.coaching.save(update_fields=['has_generated_challenge'])
+
+        response = self.client.post(
+            '/api/challenges/my/generate_from_coaching/',
+            {'coaching_id': self.coaching.id, 'difficulty': 'normal'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], '이미 챌린지가 생성된 코칭 카드입니다.')
+        mock_ai_client_class.assert_not_called()

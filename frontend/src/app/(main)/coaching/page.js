@@ -6,9 +6,10 @@ import SavingsSummary from '@/components/coaching/SavingsSummary';
 import CoachingCardList from '@/components/coaching/CoachingCardList';
 import CompletedCoachingList from '@/components/coaching/CompletedCoachingList';
 import AIGeneratedChallengeModal from '@/components/challenge/AIGeneratedChallengeModal';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { getCoachingAdvice } from '@/lib/api/coaching';
 import { generateChallengeFromCoaching, startChallengeFromCoaching } from '@/lib/api/challenge';
-import { ShoppingBag, MapPin, Droplets, Zap, Lightbulb, Sparkles, Tag } from 'lucide-react';
+import { MapPin, Droplets, Lightbulb, Sparkles, Tag } from 'lucide-react';
 
 export default function CoachingPage() {
     const router = useRouter();
@@ -20,6 +21,7 @@ export default function CoachingPage() {
     const [showAIPreviewModal, setShowAIPreviewModal] = useState(false);
     const [aiGeneratedChallenge, setAiGeneratedChallenge] = useState(null);
     const [isSavingAI, setIsSavingAI] = useState(false);
+    const [isGeneratingChallenge, setIsGeneratingChallenge] = useState(false);
     const [currentCoachingId, setCurrentCoachingId] = useState(null);
 
     const getIconForSubject = (subject) => {
@@ -51,6 +53,7 @@ export default function CoachingPage() {
                     description: item.coaching_content,
                     estimated_savings: item.estimated_savings,
                     sources: item.sources || [],
+                    has_generated_challenge: item.has_generated_challenge || false,
                     icon: getIconForSubject(item.subject),
                     created_at: item.created_at
                 }));
@@ -74,7 +77,17 @@ export default function CoachingPage() {
 
     // 코칭 기반 챌린지 생성
     const handleStartChallengeFromCoaching = async (coachingData) => {
+        if (isGeneratingChallenge) {
+            return;
+        }
+
+        if (coachingData.has_generated_challenge) {
+            alert('이미 챌린지가 생성된 코칭 카드입니다.');
+            return;
+        }
+
         try {
+            setIsGeneratingChallenge(true);
             setCurrentCoachingId(coachingData.id);
             const generated = await generateChallengeFromCoaching(coachingData.id, 'normal');
             setAiGeneratedChallenge(generated);
@@ -82,6 +95,8 @@ export default function CoachingPage() {
         } catch (err) {
             console.error('코칭 기반 챌린지 생성 실패:', err);
             alert(err.response?.data?.error || '챌린지 생성에 실패했습니다.');
+        } finally {
+            setIsGeneratingChallenge(false);
         }
     };
 
@@ -90,6 +105,11 @@ export default function CoachingPage() {
         setIsSavingAI(true);
         try {
             await startChallengeFromCoaching(currentCoachingId, editedData);
+            setCards(prevCards => prevCards.map(card => (
+                card.id === currentCoachingId
+                    ? { ...card, has_generated_challenge: true }
+                    : card
+            )));
             setShowAIPreviewModal(false);
             setAiGeneratedChallenge(null);
             setCurrentCoachingId(null);
@@ -113,6 +133,13 @@ export default function CoachingPage() {
             backgroundColor: 'var(--background-light)',
             paddingBottom: '6rem'
         }}>
+            {isGeneratingChallenge && (
+                <LoadingOverlay
+                    message="두둑 AI가 챌린지 생성중.."
+                    helperText="이 코칭을 실천하기 좋은 도전으로 만들고 있어요"
+                    showBadge={false}
+                />
+            )}
 
             <main>
                 {/* 이번 달 예상 절약액만 전달 */}

@@ -12,6 +12,7 @@ class Coaching(models.Model):
     coaching_content = models.TextField()  # 코칭 내용
     estimated_savings = models.IntegerField(default=0)  # 예상 절약액
     sources = models.JSONField(default=list, blank=True)  # 웹 검색 출처
+    has_generated_challenge = models.BooleanField(default=False)  # 챌린지 생성 사용 여부
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

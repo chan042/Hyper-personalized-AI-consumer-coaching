@@ -8,15 +8,25 @@ import ChatInput from '@/components/chatbot/ChatInput';
 import { useAuth } from '@/contexts/AuthContext';
 import { createChatSession, sendChatMessage } from '@/lib/api/chatbot';
 
+const INTRO_MESSAGE_ID = 1;
+const DEFAULT_ASSISTANT_NAME = '두둑이';
+
+const createIntroMessage = (assistantName) => ({
+    id: INTRO_MESSAGE_ID,
+    role: 'assistant',
+    content: `안녕하세요! 저는 ${assistantName} 상담사에요. 무엇을 도와드릴까요?`,
+});
+
 export default function ChatbotPage() {
     const router = useRouter();
     const { user, loading } = useAuth();
     const messagesEndRef = useRef(null);
     const sessionIdRef = useRef(null); // 대화 세션 ID 보관
+    const assistantName = user?.character_name?.trim() || DEFAULT_ASSISTANT_NAME;
 
     // 초기 상태에 인사말(assistant) 메시지 하나 추가
     const [messages, setMessages] = useState([
-        { id: 1, role: 'assistant', content: '안녕하세요! 저는 Duduk 상담사에요. 무엇을 도와드릴까요?' }
+        createIntroMessage(DEFAULT_ASSISTANT_NAME)
     ]);
     const [isTyping, setIsTyping] = useState(false);
 
@@ -28,6 +38,23 @@ export default function ChatbotPage() {
     useEffect(() => {
         scrollToBottom();
     }, [messages, isTyping]);
+
+    useEffect(() => {
+        const nextIntroMessage = createIntroMessage(assistantName);
+        setMessages((prev) => {
+            const hasOnlyIntroMessage = (
+                prev.length === 1 &&
+                prev[0].id === INTRO_MESSAGE_ID &&
+                prev[0].role === 'assistant'
+            );
+
+            if (!hasOnlyIntroMessage || prev[0].content === nextIntroMessage.content) {
+                return prev;
+            }
+
+            return [nextIntroMessage];
+        });
+    }, [assistantName]);
 
     // 컴포넌트 마운트 시 대화 세션 생성
     useEffect(() => {
@@ -121,7 +148,7 @@ export default function ChatbotPage() {
                     <ChevronLeft size={24} />
                 </button>
                 <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', marginRight: '40px' }}>
-                    Duduk Chat
+                    {assistantName} 상담사
                 </div>
             </div>
 
@@ -163,7 +190,7 @@ export default function ChatbotPage() {
 
             {/* 하단 입력 영역 */}
             <div style={{ flexShrink: 0 }}>
-                <ChatInput onSendMessage={handleSendMessage} disabled={isTyping} characterName={user?.character_name || '두둑이'} />
+                <ChatInput onSendMessage={handleSendMessage} disabled={isTyping} characterName={assistantName} />
             </div>
 
             <style jsx>{`

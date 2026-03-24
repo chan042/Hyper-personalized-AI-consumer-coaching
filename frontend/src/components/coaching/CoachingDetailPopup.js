@@ -5,6 +5,8 @@ import { X, Coffee, ShoppingBag, MapPin, Droplets, Zap, Lightbulb, Sparkles } fr
 export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChallenge, characterType }) {
     if (!isOpen || !data) return null;
 
+    const isChallengeDisabled = !!data.has_generated_challenge;
+
     // Build character face image path
     let charType = (characterType || 'cat').toLowerCase();
     if (!charType.startsWith('char_')) {
@@ -249,9 +251,10 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                     justifyContent: 'center',
                     paddingBottom: '2rem'
                 }}>
-                    <div className="glow-container">
+                    <div className={`glow-container${isChallengeDisabled ? ' disabled' : ''}`}>
                         <button
                             className="premium-button"
+                            disabled={isChallengeDisabled}
                             onClick={() => {
                                 if (onStartChallenge) {
                                     onStartChallenge(data);
@@ -261,7 +264,7 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                         >
                             <span className="button-content">
                                 <Sparkles size={18} strokeWidth={2} />
-                                이 코칭으로 챌린지 생성
+                                {isChallengeDisabled ? '이미 챌린지 생성 완료' : '이 코칭으로 챌린지 생성'}
                             </span>
                         </button>
                     </div>
@@ -305,6 +308,10 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                        I will keep the hover opacity change but reset blur to 4px to maintain tightness. */
                     filter: blur(4px); 
                 }
+                .glow-container.disabled::before {
+                    opacity: 0;
+                    animation: none;
+                }
                 .premium-button {
                     position: relative;
                     background-color: var(--primary); /* Solid Mint */
@@ -322,12 +329,24 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                     align-items: center;
                     justify-content: center;
                 }
+                .premium-button:disabled {
+                    background-color: #cbd5e1;
+                    color: #f8fafc;
+                    cursor: not-allowed;
+                    filter: none;
+                    transform: none;
+                }
                 .premium-button:hover {
                     transform: scale(0.98);
                     filter: brightness(1.05);
                 }
                 .premium-button:active {
                     transform: scale(0.96);
+                }
+                .premium-button:disabled:hover,
+                .premium-button:disabled:active {
+                    transform: none;
+                    filter: none;
                 }
                 .button-content {
                     display: flex;

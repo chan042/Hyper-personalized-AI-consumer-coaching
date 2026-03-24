@@ -7,7 +7,7 @@
  * - 캐릭터를 선택한 후 이름을 입력합니다.
  * - 완료 후 메인 페이지로 이동합니다.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { updateProfile } from '@/lib/api/auth';
@@ -71,9 +71,9 @@ export default function UserInfoPage() {
     const [currentStep, setCurrentStep] = useState(0);
     const [answers, setAnswers] = useState({});
     const [draftAnswers, setDraftAnswers] = useState({});
-    const [inputValue, setInputValue] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const stepTransitionLockRef = useRef(false);
 
     // 캐릭터 관련 상태
     const [selectedCharacter, setSelectedCharacter] = useState('');
@@ -131,20 +131,32 @@ export default function UserInfoPage() {
         return String(savedValue);
     };
 
+    const currentInputValue = isQuestionStep && currentQuestion?.type !== 'select'
+        ? getQuestionValue(currentQuestion)
+        : '';
+
+    useEffect(() => {
+        stepTransitionLockRef.current = false;
+    }, [currentStep]);
+
+    const goToNextStep = () => {
+        if (stepTransitionLockRef.current) {
+            return;
+        }
+
+        stepTransitionLockRef.current = true;
+        setCurrentStep(currentStep + 1);
+    };
+
     const handleInputChange = (value) => {
         const nextValue = isBudgetQuestion(currentQuestion)
             ? formatBudgetInput(value)
             : value;
 
-        setInputValue(nextValue);
         setDraftAnswers(prev => ({
             ...prev,
             [currentQuestion.id]: nextValue
         }));
-
-        if (isBudgetQuestion(currentQuestion)) {
-            return;
-        }
     };
 
     // 캐릭터 선택 처리 (두 번 누르면 선택 해제)
@@ -163,7 +175,7 @@ export default function UserInfoPage() {
             return;
         }
         setError('');
-        setCurrentStep(prev => prev + 1);
+        goToNextStep();
     };
 
     // 캐릭터 이름 입력 후 완료 (최종 제출)
@@ -193,7 +205,11 @@ export default function UserInfoPage() {
 
     // 질문 답변 제출 처리 (다음 단계로 이동)
     const handleQuestionSubmit = () => {
-        const currentValue = getQuestionValue(currentQuestion);
+        const currentValue = currentInputValue;
+
+        if (!currentValue.trim()) {
+            return;
+        }
 
         // 현재 답변 저장
         const newAnswers = {
@@ -204,7 +220,7 @@ export default function UserInfoPage() {
         setError('');
 
         // 다음 질문 또는 캐릭터 선택 단계로 이동
-        setCurrentStep(prev => prev + 1);
+        goToNextStep();
     };
 
     // 선택형 답변 처리
@@ -221,7 +237,7 @@ export default function UserInfoPage() {
         setError('');
 
         // 다음 질문 또는 캐릭터 선택 단계로 이동
-        setCurrentStep(prev => prev + 1);
+        goToNextStep();
     };
 
     const handleBack = () => {
@@ -232,32 +248,23 @@ export default function UserInfoPage() {
             return;
         }
 
-        const previousStep = currentStep - 1;
-        setCurrentStep(previousStep);
+        stepTransitionLockRef.current = false;
+        setCurrentStep(currentStep - 1);
     };
-
-    useEffect(() => {
-        if (!isQuestionStep) {
-            setInputValue('');
-            return;
-        }
-
-        if (currentQuestion.type === 'select') {
-            setInputValue('');
-            return;
-        }
-
-        setInputValue(getQuestionValue(currentQuestion));
-    }, [currentStep, isQuestionStep, currentQuestion, answers, draftAnswers]);
 
     // Enter 키 처리
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            if (isQuestionStep && currentQuestion.type !== 'select' && inputValue.trim()) {
-                handleQuestionSubmit();
-            } else if (currentStep === questions.length + 1 && characterName.trim()) {
-                handleCharacterNameSubmit();
-            }
+        if (e.key !== 'Enter' || e.nativeEvent.isComposing || e.repeat) {
+            return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (isQuestionStep && currentQuestion.type !== 'select' && currentInputValue.trim()) {
+            handleQuestionSubmit();
+        } else if (currentStep === questions.length + 1 && characterName.trim()) {
+            handleCharacterNameSubmit();
         }
     };
 
@@ -296,6 +303,7 @@ export default function UserInfoPage() {
             </div>
 
             <button
+                type="button"
                 onClick={handleCharacterNext}
                 disabled={!selectedCharacter}
                 style={{
@@ -341,6 +349,7 @@ export default function UserInfoPage() {
             </div>
 
             <button
+                type="button"
                 onClick={handleCharacterNameSubmit}
                 disabled={!characterName.trim() || loading}
                 style={{
@@ -365,6 +374,7 @@ export default function UserInfoPage() {
                 <div style={styles.optionsContainer}>
                     {currentQuestion.options.map((option) => (
                         <button
+                            type="button"
                             key={option.value}
                             onClick={() => handleSelect(option.value)}
                             style={{
@@ -381,7 +391,7 @@ export default function UserInfoPage() {
                 <div style={styles.inputContainer}>
                     <input
                         type={isBudgetQuestion(currentQuestion) ? 'text' : currentQuestion.type}
-                        value={inputValue}
+                        value={currentInputValue}
                         onChange={(e) => handleInputChange(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder={currentQuestion.placeholder}
@@ -401,12 +411,13 @@ export default function UserInfoPage() {
 
             {currentQuestion.type !== 'select' && (
                 <button
+                    type="button"
                     onClick={handleQuestionSubmit}
-                    disabled={!inputValue.trim() || loading}
+                    disabled={!currentInputValue.trim() || loading}
                     style={{
                         ...styles.nextButton,
-                        opacity: !inputValue.trim() || loading ? 0.5 : 1,
-                        cursor: !inputValue.trim() || loading ? 'not-allowed' : 'pointer'
+                        opacity: !currentInputValue.trim() || loading ? 0.5 : 1,
+                        cursor: !currentInputValue.trim() || loading ? 'not-allowed' : 'pointer'
                     }}
                 >
                     다음
