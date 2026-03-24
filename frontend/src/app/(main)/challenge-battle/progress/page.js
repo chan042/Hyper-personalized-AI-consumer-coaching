@@ -1,76 +1,157 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, User } from 'lucide-react';
+import { ChevronRight, User } from 'lucide-react';
+
 import MissionDetailModal from '@/components/challenge-battle/MissionDetailModal';
+import { getCurrentBattleProgress } from '@/lib/api/battle';
+
+
+const PROGRESS_REFRESH_MS = 10000;
+
+function getMissionDisplayStatus(status) {
+    switch (status) {
+        case 'WON':
+            return '완료됨';
+        case 'DRAW':
+            return '무승부';
+        case 'EXPIRED':
+            return '종료됨';
+        default:
+            return '진행중';
+    }
+}
+
+function getMissionSummaryText(mission) {
+    if (mission.status === 'WON') {
+        return `${mission.winner_name || '상대'} 성공`;
+    }
+    if (mission.status === 'DRAW') {
+        return '동시 달성';
+    }
+    if (mission.status === 'EXPIRED') {
+        return '종료됨';
+    }
+    return '';
+}
 
 export default function BattleProgressPage() {
     const router = useRouter();
+    const [battleData, setBattleData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
     const [selectedMission, setSelectedMission] = useState(null);
+    const hasLoadedRef = useRef(false);
 
-    // 하드코딩된 대결 진행 중 상태 데이터
-    const battleData = {
-        dDay: 7,
-        me: {
-            name: '김윤택',
-            score: 1,
-            isWinning: true
-        },
-        opponent: {
-            name: '이배틀',
-            score: 0,
-            isWinning: false
-        },
-        missions: [
-            {
-                id: 1,
-                title: '매일 5,000보 걷기',
-                description: '건강을 위해 매일 5,000보를 걷고 스마트워치나 앱 기록을 캡처해 인증하세요.',
-                status: '진행중'
-            },
-            {
-                id: 2,
-                title: '경제 기사 1개 읽기',
-                description: '오늘의 주요 경제 뉴스를 읽고 한 줄 요약을 남겨주세요.',
-                status: '진행중'
-            },
-            {
-                id: 3,
-                title: '물 2L 마시기',
-                description: '하루 동안 물 2리터를 마시고 인증샷을 올려주세요.',
-                status: '완료됨',
-                winner: '김윤택'
+    useEffect(() => {
+        let cancelled = false;
+
+        async function loadBattleProgress() {
+            try {
+                if (!cancelled && !hasLoadedRef.current) {
+                    setLoading(true);
+                }
+
+                const data = await getCurrentBattleProgress();
+                if (!cancelled) {
+                    setBattleData(data);
+                    setError('');
+                    hasLoadedRef.current = true;
+                }
+            } catch (requestError) {
+                if (cancelled) {
+                    return;
+                }
+
+                if (requestError?.response?.status === 404) {
+                    router.replace('/challenge-battle/search?screen=intro');
+                    return;
+                }
+
+                setError(
+                    requestError?.response?.data?.detail ||
+                    '대결 진행 정보를 불러오지 못했습니다.'
+                );
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
             }
-        ]
-    };
+        }
 
-    const hasFinishedMissions = battleData.missions.some(m => m.status === '완료됨');
+        loadBattleProgress();
+
+        const intervalId = window.setInterval(loadBattleProgress, PROGRESS_REFRESH_MS);
+        const handleFocus = () => loadBattleProgress();
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                loadBattleProgress();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(intervalId);
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [router]);
+
+    const ongoingMissions = useMemo(
+        () => (battleData?.missions || []).filter((mission) => mission.status === 'OPEN'),
+        [battleData]
+    );
+    const finishedMissions = useMemo(
+        () => (battleData?.missions || []).filter((mission) => mission.status !== 'OPEN'),
+        [battleData]
+    );
+
+    if (loading && !battleData) {
+        return (
+            <div style={styles.container}>
+                <div style={styles.centerMessage}>대결 진행 정보를 불러오는 중입니다...</div>
+            </div>
+        );
+    }
+
+    if (!battleData) {
+        return (
+            <div style={styles.container}>
+                <div style={styles.centerMessage}>{error || '대결 정보를 찾지 못했습니다.'}</div>
+            </div>
+        );
+    }
+
+    const isTie = battleData.me.current_score === battleData.opponent.current_score;
+    const isMeWinning = battleData.me.current_score > battleData.opponent.current_score;
+    const leadName = isTie ? null : (isMeWinning ? battleData.me.name : battleData.opponent.name);
 
     return (
         <div style={styles.container}>
             <div style={styles.content}>
-                
-                {/* 상단 D-Day */}
                 <div style={styles.topSection}>
-                    <p style={styles.dDaySubtitle}>대결 종료까지</p>
-                    <h1 style={styles.dDayTitle}>D-{battleData.dDay}</h1>
+                    <p style={styles.dDaySubtitle}>
+                        {battleData.status === 'WAITING_FOR_SCORE' ? '결과 계산 중' : '대결 종료까지'}
+                    </p>
+                    <h1 style={styles.dDayTitle}>
+                        {battleData.status === 'WAITING_FOR_SCORE' ? '집계 중' : `D-${battleData.d_day}일`}
+                    </h1>
                 </div>
 
-                {/* 중앙 프로필 경쟁 영역 */}
                 <div style={styles.battleArena}>
-                    {/* 내 프로필 */}
                     <div style={styles.profileCol}>
                         <div style={styles.profileAvatar}>
                             <User size={32} color="var(--primary)" />
                         </div>
                         <span style={styles.profileName}>{battleData.me.name} (나)</span>
                     </div>
-                    
-                    {/* VS */}
+
                     <div style={styles.vsBadge}>VS</div>
 
-                    {/* 상대 프로필 */}
                     <div style={styles.profileCol}>
                         <div style={styles.profileAvatar}>
                             <User size={32} color="var(--primary)" />
@@ -82,72 +163,85 @@ export default function BattleProgressPage() {
                 <div style={styles.battleStatus}>
                     <p style={styles.statusText}>
                         <span style={styles.highlightText}>
-                            {battleData.me.score} : {battleData.opponent.score}
-                        </span> 으로 
-                        {' '}{battleData.me.isWinning ? battleData.me.name : battleData.opponent.name}님이 승리 중!
+                            {battleData.me.current_score} : {battleData.opponent.current_score}
+                        </span>
+                        {' '}
+                        {isTie ? '현재 동점이에요.' : `${leadName}님이 앞서고 있어요.`}
                     </p>
-                    {!hasFinishedMissions && (
-                         <p style={styles.encourageText}>
-                            {battleData.opponent.name}님보다 먼저 미션에 성공해봐요!
+                    {battleData.status === 'WAITING_FOR_SCORE' ? (
+                        <p style={styles.encourageText}>월말 점수 집계가 끝나면 결과 페이지로 넘어갑니다.</p>
+                    ) : finishedMissions.length === 0 ? (
+                        <p style={styles.encourageText}>
+                            {battleData.opponent.name}님보다 먼저 미션을 성공해보세요.
                         </p>
-                    )}
+                    ) : null}
                 </div>
 
-                {/* 미션 목록 */}
+                {error && <p style={styles.inlineError}>{error}</p>}
+
                 <div style={styles.missionSection}>
-                    
-                    {/* 진행 중인 미션 */}
                     <div style={styles.missionGroup}>
                         <h3 style={styles.groupTitle}>진행 중인 미션</h3>
                         <div style={styles.missionList}>
-                            {battleData.missions.filter(m => m.status === '진행중').map(mission => (
-                                <div key={mission.id} style={styles.missionCard} onClick={() => setSelectedMission(mission)}>
-                                    <div style={styles.missionCardContent}>
-                                        <div style={styles.missionHeader}>
-                                             <span style={styles.badgeOngoing}>ONGOING</span>
+                            {ongoingMissions.length > 0 ? (
+                                ongoingMissions.map((mission) => (
+                                    <div
+                                        key={mission.id}
+                                        style={styles.missionCard}
+                                        onClick={() => setSelectedMission(mission)}
+                                    >
+                                        <div style={styles.missionCardContent}>
+                                            <div style={styles.missionHeader}>
+                                                <span style={styles.badgeOngoing}>ONGOING</span>
+                                            </div>
+                                            <h4 style={styles.missionCardTitle}>{mission.title}</h4>
                                         </div>
-                                        <h4 style={styles.missionCardTitle}>{mission.title}</h4>
+                                        <ChevronRight size={20} color="var(--text-guide)" />
                                     </div>
-                                    <ChevronRight size={20} color="var(--text-guide)" />
-                                </div>
-                            ))}
+                                ))
+                            ) : (
+                                <div style={styles.emptyMissionCard}>현재 진행 중인 미션이 없습니다.</div>
+                            )}
                         </div>
                     </div>
 
-                    {/* 완료된 미션 */}
                     <div style={styles.missionGroup}>
                         <h3 style={styles.groupTitle}>완료된 미션</h3>
                         <div style={styles.missionList}>
-                            {battleData.missions.filter(m => m.status === '완료됨').map(mission => (
-                                <div key={mission.id} style={{...styles.missionCard, opacity: 0.7}} onClick={() => setSelectedMission(mission)}>
-                                    <div style={styles.missionCardContent}>
-                                        <div style={styles.missionHeader}>
-                                             <span style={styles.badgeFinished}>FINISHED</span>
+                            {finishedMissions.length > 0 ? (
+                                finishedMissions.map((mission) => (
+                                    <div
+                                        key={mission.id}
+                                        style={{ ...styles.missionCard, opacity: 0.78 }}
+                                        onClick={() => setSelectedMission(mission)}
+                                    >
+                                        <div style={styles.missionCardContent}>
+                                            <div style={styles.missionHeader}>
+                                                <span style={styles.badgeFinished}>
+                                                    {getMissionDisplayStatus(mission.status)}
+                                                </span>
+                                            </div>
+                                            <h4 style={styles.missionCardTitle}>{mission.title}</h4>
                                         </div>
-                                        <h4 style={styles.missionCardTitle}>{mission.title}</h4>
+                                        <div style={styles.missionRightArea}>
+                                            <span style={styles.winnerSummary}>{getMissionSummaryText(mission)}</span>
+                                            <ChevronRight size={20} color="var(--text-guide)" />
+                                        </div>
                                     </div>
-                                    <div style={styles.missionRightArea}>
-                                        <span style={styles.winnerSummary}>{mission.winner} 성공</span>
-                                        <ChevronRight size={20} color="var(--text-guide)" />
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            ) : (
+                                <div style={styles.emptyMissionCard}>아직 완료된 미션이 없습니다.</div>
+                            )}
                         </div>
                     </div>
-
                 </div>
             </div>
 
-            {/* 미션 상세 모달 */}
-            <MissionDetailModal 
-                isOpen={!!selectedMission} 
+            <MissionDetailModal
+                isOpen={!!selectedMission}
                 onClose={() => setSelectedMission(null)}
                 mission={selectedMission || {}}
             />
-            {/* 임시로 결과 페이지 넘어가기 버튼 (테스트용) */}
-            <div style={styles.testNavArea}>
-                 <button onClick={() => router.push('/challenge-battle/result')} style={styles.testNavBtn}>테스트: 결과보기</button>
-            </div>
         </div>
     );
 }
@@ -155,39 +249,26 @@ export default function BattleProgressPage() {
 const styles = {
     container: {
         background: '#f8fafc',
-        height: '100vh',
-        overflow: 'hidden',
+        minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
     },
-    header: {
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-        display: 'flex',
-        alignItems: 'center',
-        padding: '1rem',
-        background: '#f8fafc',
-        flexShrink: 0,
+    content: {
+        flex: 1,
+        padding: '1.5rem',
+        paddingTop: '0.5rem',
+        paddingBottom: 'calc(108px + env(safe-area-inset-bottom, 0px))',
     },
-    backButton: {
-        background: 'none',
-        border: 'none',
-        padding: '8px',
-        cursor: 'pointer',
+    centerMessage: {
+        flex: 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    headerSpacer: {
-        flex: 1,
-    },
-    content: {
-        flex: 1,
-        overflowY: 'auto',
-        padding: '1.5rem',
-        paddingTop: '0.5rem',
-        paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', 
+        color: 'var(--text-sub)',
+        fontSize: '1rem',
+        fontWeight: '600',
+        padding: '2rem',
+        textAlign: 'center',
     },
     topSection: {
         textAlign: 'center',
@@ -210,19 +291,15 @@ const styles = {
     battleArena: {
         background: 'white',
         borderRadius: 'var(--radius-lg)',
-        padding: '2.5rem 1rem 1.5rem 1rem',
+        padding: '1.5rem 1rem',
         boxShadow: 'var(--shadow-md)',
         display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'space-around',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '1.25rem',
         marginBottom: '1rem',
-        position: 'relative',
     },
     vsBadge: {
-        position: 'absolute',
-        top: '1rem',
-        left: '50%',
-        transform: 'translateX(-50%)',
         background: '#f1f5f9',
         color: 'var(--text-sub)',
         padding: '4px 12px',
@@ -230,11 +307,15 @@ const styles = {
         fontSize: '0.9rem',
         fontWeight: '800',
         letterSpacing: '1px',
+        alignSelf: 'center',
+        flexShrink: 0,
     },
     profileCol: {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        flex: 1,
+        maxWidth: '120px',
     },
     profileAvatar: {
         width: '72px',
@@ -274,6 +355,13 @@ const styles = {
         marginTop: '0.5rem',
         fontWeight: '600',
     },
+    inlineError: {
+        margin: '0 0 1.25rem',
+        fontSize: '0.88rem',
+        fontWeight: '600',
+        color: '#ef4444',
+        textAlign: 'center',
+    },
     missionSection: {
         display: 'flex',
         flexDirection: 'column',
@@ -306,9 +394,15 @@ const styles = {
         cursor: 'pointer',
         border: '1px solid transparent',
         transition: 'all 0.2s',
-        ':hover': {
-             borderColor: 'var(--primary-light)',
-        }
+    },
+    emptyMissionCard: {
+        background: 'white',
+        borderRadius: 'var(--radius-md)',
+        padding: '1.25rem',
+        boxShadow: 'var(--shadow-sm)',
+        color: 'var(--text-sub)',
+        fontSize: '0.95rem',
+        fontWeight: '600',
     },
     missionCardContent: {
         display: 'flex',
@@ -355,19 +449,4 @@ const styles = {
         margin: 0,
         marginTop: '0.25rem',
     },
-    testNavArea: {
-         padding: '1rem',
-         display: 'flex',
-         justifyContent: 'center',
-    },
-    testNavBtn: {
-          background: '#e2e8f0',
-          border: 'none',
-          padding: '8px 16px',
-          borderRadius: '20px',
-          fontSize: '0.9rem',
-          cursor: 'pointer',
-          fontWeight: '600',
-          color: 'var(--text-main)',
-    }
 };

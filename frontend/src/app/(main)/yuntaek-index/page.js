@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useYuntaekScore, useYuntaekReport, getTargetYearMonth, clearYuntaekCache } from '@/hooks/useYuntaekData';
 import { regenerateYuntaekData } from '@/lib/api/yuntaek';
+import { getBattleEntry } from '@/lib/api/battle';
 import YuntaekScoreCard from '@/components/yuntaek/YuntaekScoreCard';
 import ReportSummary from '@/components/yuntaek/ReportSummary';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -13,6 +14,7 @@ import { Swords } from 'lucide-react';
 export default function YuntaekIndexPage() {
     const router = useRouter();
     const [isRegenerating, setIsRegenerating] = useState(false);
+    const [isBattleEntering, setIsBattleEntering] = useState(false);
     const [regenError, setRegenError] = useState('');
     const { score, details, scoreData, isNewUser: scoreNewUser, loading: scoreLoading, error: scoreError, fromCache: scoreFromCache } = useYuntaekScore();
     const { reportSummary, isNewUser: reportNewUser, loading: reportLoading, error: reportError, fromCache: reportFromCache } = useYuntaekReport();
@@ -42,6 +44,51 @@ export default function YuntaekIndexPage() {
         }
     }
 
+    async function handleBattleEntry() {
+        try {
+            setIsBattleEntering(true);
+            const entry = await getBattleEntry();
+
+            if (entry.next_screen === 'progress') {
+                router.push('/challenge-battle/progress');
+                return;
+            }
+
+            if (entry.next_screen === 'result') {
+                const resultUrl = entry.battle_id
+                    ? `/challenge-battle/result2?battleId=${entry.battle_id}`
+                    : '/challenge-battle/result2';
+                router.push(resultUrl);
+                return;
+            }
+
+            if (entry.next_screen === 'search' && entry.view_mode) {
+                const params = new URLSearchParams({
+                    screen: entry.view_mode,
+                });
+
+                if (entry.battle_id) params.set('battleId', String(entry.battle_id));
+                if (entry.category) params.set('category', entry.category);
+                if (entry.opponent_display_name) params.set('opponentName', entry.opponent_display_name);
+                if (entry.opponent_battle_code) params.set('opponentBattleCode', entry.opponent_battle_code);
+                if (entry.request_deadline_at) params.set('requestDeadlineAt', entry.request_deadline_at);
+                if (typeof entry.can_accept === 'boolean') params.set('canAccept', String(entry.can_accept));
+                if (typeof entry.can_reject === 'boolean') params.set('canReject', String(entry.can_reject));
+                if (typeof entry.can_cancel === 'boolean') params.set('canCancel', String(entry.can_cancel));
+
+                router.push(`/challenge-battle/search?${params.toString()}`);
+                return;
+            }
+
+            router.push('/challenge-battle/search?screen=intro');
+        } catch (error) {
+            console.error('배틀 진입 경로 조회 실패:', error);
+            router.push('/challenge-battle/search?screen=intro');
+        } finally {
+            setIsBattleEntering(false);
+        }
+    }
+
     const devActions = showDevRegenerate && (
         <div style={styles.devPanel}>
             <div>
@@ -68,6 +115,7 @@ export default function YuntaekIndexPage() {
         return (
             <div className="yuntaek-page-container">
                 {isRegenerating && <LoadingOverlay message="윤택지수와 리포트를 재생성하는 중입니다..." />}
+                {isBattleEntering && <LoadingOverlay message="대결 화면으로 이동 중입니다..." />}
                 {devActions}
                 {regenError && <p style={styles.devError}>{regenError}</p>}
                 <p style={{ color: '#ef4444', textAlign: 'center', marginTop: '2rem' }}>{scoreError}</p>
@@ -79,6 +127,7 @@ export default function YuntaekIndexPage() {
         <div className="yuntaek-page-container">
             {loading && <LoadingOverlay message="AI가 소비 내역을 분석하고 있습니다..." />}
             {isRegenerating && <LoadingOverlay message="윤택지수와 리포트를 재생성하는 중입니다..." />}
+            {isBattleEntering && <LoadingOverlay message="대결 화면으로 이동 중입니다..." />}
             {devActions}
             {regenError && <p style={styles.devError}>{regenError}</p>}
 
@@ -102,8 +151,9 @@ export default function YuntaekIndexPage() {
             {/* 윤택지수 대결하기 플로팅 버튼 */}
             <button
                 className="floating-battle-btn"
-                onClick={() => router.push('/challenge-battle/search')}
+                onClick={handleBattleEntry}
                 style={styles.floatingBattleButton}
+                disabled={isBattleEntering}
             >
                 <Swords size={20} />
                 <span>윤택지수 대결하기</span>

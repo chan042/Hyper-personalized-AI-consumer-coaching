@@ -1,8 +1,19 @@
-"use client";
+﻿"use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, User } from 'lucide-react';
+import { Copy, RefreshCw, Search, User } from 'lucide-react';
+
+import {
+    acceptBattleRequest,
+    cancelBattleRequest,
+    createBattleRequest,
+    getBattleProfile,
+    getBattleEntry,
+    issueBattleCode,
+    lookupBattleUser,
+    rejectBattleRequest,
+} from '@/lib/api/battle';
 
 const categories = [
     { id: 'alternative', label: '대안 행동 실현도' },
@@ -20,8 +31,8 @@ const guideSlides = [
     },
     {
         number: '2',
-        title: '시작 가능 기간',
-        desc: "• 매월 1일~15일까지만 시작할 수 있어요.\n• 기간이 지나면 다음 달에 다시 참여할 수 있어요.",
+        title: '신청과 진행 기간',
+        desc: "• 대결 신청은 매월 1일~15일까지만 가능해요.\n• 시작된 대결은 월말 윤택지수 결과가 나오기 전까지 진행돼요.",
         image: '/images/characters/char_dog/face_surprise.png',
     },
     {
@@ -32,23 +43,68 @@ const guideSlides = [
     },
     {
         number: '4',
-        title: '대결 기준',
-        desc: "• 4가지 항목 중 하나를 선택해 경쟁할 수 있어요.\n• 만약 모든 사용자가 미션에 성공하지 않는다면 보너스 점수 없이 기존 항목 점수로 대결하게 돼요.",
+        title: '대안 행동 실현도 미션',
+        desc: "• AI 코칭카드를 챌린지로 먼저 만들어 시작해보세요.\n• AI 코칭카드로 만든 챌린지 1개, 2개를 상대보다 먼저 성공하면 보너스 점수를 받아요.",
         image: '/images/characters/char_dog/face_money.png',
     },
     {
         number: '5',
+        title: '성장 미션',
+        desc: "• 교육/학습 카테고리 거래 1건 먼저 등록\n• 교육/학습 카테고리 누적 20,000원 먼저 달성\n• 교육/학습 카테고리 거래 3건 먼저 달성",
+        image: '/images/characters/char_dog/face_happy.png',
+    },
+    {
+        number: '6',
+        title: '건강 점수 미션',
+        desc: "• 의료/건강 카테고리 거래 1건 먼저 등록\n• 카페/간식 카테고리 3일 연속 무지출 먼저 달성\n• 술/유흥 카테고리 7일 무지출 먼저 달성",
+        image: '/images/characters/char_dog/face_basic.png',
+    },
+    {
+        number: '7',
+        title: '챌린지 미션',
+        desc: "• 3일 연속 무지출 챌린지 성공\n• 3만원의 행복 챌린지 성공\n• 무00의 날 챌린지 성공",
+        image: '/images/characters/char_dog/fly.png',
+    },
+    {
+        number: '8',
         title: '점수 반영 안내',
         desc: "• 대결 보너스 점수는 결과에만 쓰이며 실제 윤택지수 리포트 점수엔 포함되지 않아요.\n• 대결에서 최종 승리하면 500포인트를 받아요!",
         image: '/images/characters/char_dog/fly.png',
     },
 ];
 
-const defaultPreviewProfile = {
-    name: '김윤택',
-    id: 'yuntaek123',
-    image: '/images/characters/char_dog/face_basic.png',
-};
+const previewProfileImage = '/images/characters/char_dog/face_basic.png';
+
+const REQUEST_SCREEN_REFRESH_MS = 1500;
+
+function formatDateTime(value) {
+    if (!value) {
+        return '-';
+    }
+
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Seoul',
+            month: 'numeric',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hourCycle: 'h23',
+        }).formatToParts(new Date(value));
+
+        const readPart = (type) => parts.find((part) => part.type === type)?.value || '';
+        const month = readPart('month');
+        const day = readPart('day');
+        const hour24 = Number(readPart('hour'));
+        const minute = readPart('minute');
+        const meridiem = hour24 >= 12 ? '오후' : '오전';
+        const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+
+        return `${month}. ${day}. ${meridiem} ${hour12}:${minute}`;
+    } catch {
+        return value;
+    }
+}
 
 export default function BattleSearchPage() {
     const router = useRouter();
@@ -59,42 +115,116 @@ export default function BattleSearchPage() {
     const [searchedUsers, setSearchedUsers] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState(null);
+    const [profile, setProfile] = useState(null);
+    const [profileLoading, setProfileLoading] = useState(true);
+    const [profileError, setProfileError] = useState('');
+    const [searchError, setSearchError] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
+    const [isIssuingCode, setIsIssuingCode] = useState(false);
+    const [isSubmittingBattle, setIsSubmittingBattle] = useState(false);
+    const [isUpdatingRequest, setIsUpdatingRequest] = useState(false);
+    const [copiedCode, setCopiedCode] = useState(false);
 
-    const currentScreen =
-        searchParams.get('screen') ||
-        (searchParams.get('preview') === 'received' ? 'received' : 'intro');
+    const currentScreen = searchParams.get('screen') || 'intro';
     const previewProfile = {
-        name: searchParams.get('name') || defaultPreviewProfile.name,
-        id: searchParams.get('id') || defaultPreviewProfile.id,
-        image: defaultPreviewProfile.image,
+        name: searchParams.get('opponentName') || '',
+        id: searchParams.get('opponentBattleCode') || '',
+        image: previewProfileImage,
     };
-    const previewDisplayName = previewProfile.name.endsWith('님')
-        ? previewProfile.name
-        : `${previewProfile.name}님`;
+    const previewDisplayName = previewProfile.name
+        ? (previewProfile.name.endsWith('님') ? previewProfile.name : `${previewProfile.name}님`)
+        : '';
+    const previewCategory = categories.find((item) => item.id === searchParams.get('category'))?.label || '';
+    const requestDeadlineAt = searchParams.get('requestDeadlineAt') || '';
+    const currentBattleId = searchParams.get('battleId') || '';
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function loadBattleProfile() {
+            try {
+                setProfileLoading(true);
+                setProfileError('');
+                const data = await getBattleProfile();
+                if (!cancelled) {
+                    setProfile(data);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setProfileError(
+                        error?.response?.data?.detail ||
+                        '배틀 프로필을 불러오지 못했습니다.'
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setProfileLoading(false);
+                }
+            }
+        }
+
+        loadBattleProfile();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        const shouldResetSelectionState =
+            currentScreen === 'intro' ||
+            (currentScreen === 'selection' && !currentBattleId);
+
+        if (!shouldResetSelectionState) {
+            return;
+        }
+
+        setSearchQuery('');
+        setSearchedUsers([]);
+        setSelectedUserId(null);
+        setSelectedCategory(null);
+        setSearchError('');
+    }, [currentBattleId, currentScreen]);
 
     const moveToScreen = (screen, options = {}) => {
         const {
+            battleId,
             name,
             id,
+            category,
+            requestDeadlineAt,
             clearPreview = false,
             resetGuide = false,
         } = options;
         const params = new URLSearchParams(searchParams.toString());
 
         params.set('screen', screen);
-        params.delete('preview');
 
         if (clearPreview) {
-            params.delete('name');
-            params.delete('id');
+            params.delete('opponentName');
+            params.delete('opponentBattleCode');
+            params.delete('battleId');
+            params.delete('category');
+            params.delete('requestDeadlineAt');
         }
 
         if (name) {
-            params.set('name', name);
+            params.set('opponentName', name);
         }
 
         if (id) {
-            params.set('id', id);
+            params.set('opponentBattleCode', id);
+        }
+
+        if (battleId) {
+            params.set('battleId', String(battleId));
+        }
+
+        if (category) {
+            params.set('category', category);
+        }
+
+        if (requestDeadlineAt) {
+            params.set('requestDeadlineAt', requestDeadlineAt);
         }
 
         if (resetGuide) {
@@ -104,32 +234,141 @@ export default function BattleSearchPage() {
         router.replace(`/challenge-battle/search?${params.toString()}`);
     };
 
-    const handleSearch = () => {
-        if (!searchQuery.trim()) {
+    const moveByBattleEntry = (entry) => {
+        if (entry?.next_screen === 'progress') {
+            router.replace('/challenge-battle/progress');
             return;
         }
 
-        if (searchQuery === '김윤택') {
-            setSearchedUsers([
-                {
-                    name: '김윤택',
-                    id: 'yuntaek123',
-                    age: 28,
-                },
-            ]);
+        if (entry?.next_screen === 'result') {
+            const resultUrl = entry.battle_id
+                ? `/challenge-battle/result2?battleId=${entry.battle_id}`
+                : '/challenge-battle/result2';
+            router.replace(resultUrl);
             return;
         }
 
-        setSearchedUsers([
-            {
-                name: `${searchQuery}님`,
-                id: `user_${Math.floor(Math.random() * 10000)}`,
-                age: Math.floor(Math.random() * 15) + 20,
-            },
-        ]);
+        if (entry?.next_screen === 'search' && entry?.view_mode) {
+            moveToScreen(entry.view_mode, {
+                battleId: entry.battle_id,
+                name: entry.opponent_display_name,
+                id: entry.opponent_battle_code,
+                category: entry.category,
+                requestDeadlineAt: entry.request_deadline_at,
+            });
+            return;
+        }
+
+        moveToScreen('intro', { clearPreview: true });
     };
 
-    const handleApplyBattle = () => {
+    const hasPendingPreviewParams = Boolean(
+        searchParams.get('opponentName') &&
+        searchParams.get('opponentBattleCode') &&
+        searchParams.get('category') &&
+        searchParams.get('requestDeadlineAt')
+    );
+
+    useEffect(() => {
+        const isGuideScreen = currentScreen === 'guide';
+        if (isGuideScreen) {
+            return;
+        }
+
+        const isPendingScreen = currentScreen === 'request_pending' || currentScreen === 'request_received';
+        let cancelled = false;
+
+        async function syncBattleEntryScreen() {
+            try {
+                const entry = await getBattleEntry();
+                if (cancelled) {
+                    return;
+                }
+
+                if (isPendingScreen) {
+                    const isSamePendingScreen =
+                        entry?.next_screen === 'search' &&
+                        entry?.view_mode === currentScreen &&
+                        String(entry?.battle_id || '') === currentBattleId;
+
+                    if (!isSamePendingScreen || !hasPendingPreviewParams) {
+                        moveByBattleEntry(entry);
+                    }
+                    return;
+                }
+
+                const hasBattleTransition =
+                    entry?.next_screen === 'progress' ||
+                    entry?.next_screen === 'result' ||
+                    (entry?.next_screen === 'search' && entry?.view_mode);
+
+                if (hasBattleTransition) {
+                    moveByBattleEntry(entry);
+                }
+            } catch {
+                // Ignore and keep the current screen; action handlers still surface request errors.
+            }
+        }
+
+        syncBattleEntryScreen();
+
+        const intervalId = window.setInterval(syncBattleEntryScreen, REQUEST_SCREEN_REFRESH_MS);
+        const handleFocus = () => syncBattleEntryScreen();
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                syncBattleEntryScreen();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(intervalId);
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [currentBattleId, currentScreen, hasPendingPreviewParams]);
+
+    const handleSearch = async () => {
+        const normalizedCode = searchQuery.trim().toUpperCase();
+        if (!normalizedCode) {
+            setSearchError('배틀 ID를 입력해주세요.');
+            setSearchedUsers([]);
+            setSelectedUserId(null);
+            return;
+        }
+
+        try {
+            setIsSearching(true);
+            setSearchError('');
+            const user = await lookupBattleUser(normalizedCode);
+            setSearchedUsers([
+                {
+                    name: user.display_name,
+                    id: user.battle_code,
+                },
+            ]);
+            setSelectedUserId(user.battle_code);
+        } catch (error) {
+            setSearchedUsers([]);
+            setSelectedUserId(null);
+
+            const responseData = error?.response?.data;
+            if (responseData?.code === 'SELF_CHALLENGE_NOT_ALLOWED') {
+                setSearchError('내 배틀 ID로는 대결할 수 없어요.');
+            } else if (error?.response?.status === 404) {
+                setSearchError('입력한 배틀 ID를 찾지 못했어요.');
+            } else {
+                setSearchError(responseData?.detail || '검색 중 오류가 발생했어요.');
+            }
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const handleApplyBattle = async () => {
         if (searchedUsers.length === 0 || !selectedUserId) {
             alert('먼저 대결할 친구를 검색하고 선택해주세요.');
             return;
@@ -140,11 +379,91 @@ export default function BattleSearchPage() {
             return;
         }
 
-        const selectedUser = searchedUsers.find((user) => user.id === selectedUserId);
-        moveToScreen('sent', {
-            name: selectedUser?.name || '친구',
-            id: selectedUser?.id || 'battle_user',
-        });
+        try {
+            setIsSubmittingBattle(true);
+            setSearchError('');
+
+            const entry = await createBattleRequest({
+                opponent_battle_code: selectedUserId,
+                category: selectedCategory,
+            });
+            moveByBattleEntry(entry);
+        } catch (error) {
+            const responseData = error?.response?.data;
+            setSearchError(
+                responseData?.detail ||
+                responseData?.code ||
+                '대결 신청 중 오류가 발생했어요.'
+            );
+        } finally {
+            setIsSubmittingBattle(false);
+        }
+    };
+
+    const handleIssueCode = async () => {
+        try {
+            setIsIssuingCode(true);
+            setProfileError('');
+            const updated = await issueBattleCode();
+            setProfile(updated);
+            setCopiedCode(false);
+        } catch (error) {
+            setProfileError(
+                error?.response?.data?.detail ||
+                '배틀 ID 재생성에 실패했습니다.'
+            );
+        } finally {
+            setIsIssuingCode(false);
+        }
+    };
+
+    const handleCopyBattleCode = async () => {
+        if (!profile?.battle_code || !navigator?.clipboard) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(profile.battle_code);
+            setCopiedCode(true);
+            window.setTimeout(() => setCopiedCode(false), 1500);
+        } catch {
+            setCopiedCode(false);
+        }
+    };
+
+    const handleRequestAction = async (action) => {
+        const battleId = searchParams.get('battleId');
+        if (!battleId) {
+            setProfileError('대결 정보를 찾지 못했습니다.');
+            return;
+        }
+
+        try {
+            setIsUpdatingRequest(true);
+            setProfileError('');
+
+            let entry;
+            if (action === 'accept') {
+                entry = await acceptBattleRequest(battleId);
+            } else if (action === 'reject') {
+                entry = await rejectBattleRequest(battleId);
+            } else if (action === 'cancel') {
+                entry = await cancelBattleRequest(battleId);
+            } else {
+                entry = await getBattleEntry();
+            }
+
+            moveByBattleEntry(entry);
+        } catch (error) {
+            const responseData = error?.response?.data;
+            setProfileError(
+                responseData?.detail ||
+                responseData?.code ||
+                '대결 요청 처리 중 오류가 발생했어요.'
+            );
+        } finally {
+            setIsUpdatingRequest(false);
+        }
     };
 
     const animationStyles = (
@@ -291,41 +610,32 @@ export default function BattleSearchPage() {
         );
     }
 
-    if (currentScreen === 'sent' || currentScreen === 'received') {
-        const isReceivedScreen = currentScreen === 'received';
+    if (currentScreen === 'request_pending' || currentScreen === 'request_received') {
+        const isReceivedScreen = currentScreen === 'request_received';
+        const isPendingPreviewReady = Boolean(currentBattleId && hasPendingPreviewParams);
+
+        if (!isPendingPreviewReady) {
+            return (
+                <>
+                    <div style={{ ...styles.container, overflow: 'hidden' }}>
+                        <div style={styles.previewContent}>
+                            <span style={styles.previewBadge}>
+                                {isReceivedScreen ? '받은 신청' : '신청 완료'}
+                            </span>
+                            <div style={styles.previewTitleBlock}>
+                                <p style={styles.previewSubtitle}>대결 정보를 불러오는 중이에요.</p>
+                            </div>
+                        </div>
+                    </div>
+                    {animationStyles}
+                </>
+            );
+        }
 
         return (
             <>
                 <div style={{ ...styles.container, overflow: 'hidden' }}>
                     <div style={styles.previewContent}>
-                        <div style={styles.previewTabs}>
-                            {[
-                                { id: 'sent', label: '신청 후 화면' },
-                                { id: 'received', label: '신청 받은 화면' },
-                            ].map((tab) => {
-                                const isActive = currentScreen === tab.id;
-
-                                return (
-                                    <button
-                                        key={tab.id}
-                                        type="button"
-                                        style={{
-                                            ...styles.previewTab,
-                                            ...(isActive ? styles.previewTabActive : {}),
-                                        }}
-                                        onClick={() =>
-                                            moveToScreen(tab.id, {
-                                                name: previewProfile.name,
-                                                id: previewProfile.id,
-                                            })
-                                        }
-                                    >
-                                        {tab.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-
                         <span style={styles.previewBadge}>
                             {isReceivedScreen ? '받은 신청' : '신청 완료'}
                         </span>
@@ -342,7 +652,7 @@ export default function BattleSearchPage() {
                             <p style={styles.previewSubtitle}>
                                 {isReceivedScreen
                                     ? '승낙해 대결을 시작해보세요.'
-                                    : '친구가 승낙하면 대결이 시작돼요.'}
+                                    : '상대의 응답을 기다리는 중이에요.'}
                             </p>
                         </div>
 
@@ -358,18 +668,29 @@ export default function BattleSearchPage() {
                                 <span style={styles.previewProfileLabel}>
                                     {isReceivedScreen ? '신청한 사용자' : '대결 상대'}
                                 </span>
-                                <strong style={styles.previewProfileName}>{previewProfile.name}</strong>
-                                <span style={styles.previewProfileId}>ID: {previewProfile.id}</span>
+                                <strong style={styles.previewProfileName}>{previewProfile.name || '상대방'}</strong>
+                                {previewProfile.id && (
+                                    <span style={styles.previewProfileId}>배틀 ID: {previewProfile.id}</span>
+                                )}
+                                {previewCategory && (
+                                    <span style={styles.previewProfileId}>항목: {previewCategory}</span>
+                                )}
+                                {requestDeadlineAt && (
+                                    <span style={styles.previewProfileId}>응답 마감: {formatDateTime(requestDeadlineAt)}</span>
+                                )}
                             </div>
                         </div>
                     </div>
+
+                    {profileError && <p style={{ ...styles.inlineError, marginTop: '0.5rem' }}>{profileError}</p>}
 
                     <div style={styles.introBottom}>
                         {isReceivedScreen && (
                             <button
                                 type="button"
                                 style={styles.introTextBtn}
-                                onClick={() => moveToScreen('intro', { clearPreview: true, resetGuide: true })}
+                                onClick={() => handleRequestAction('reject')}
+                                disabled={isUpdatingRequest}
                             >
                                 거절하기
                             </button>
@@ -377,16 +698,12 @@ export default function BattleSearchPage() {
                         <button
                             type="button"
                             style={styles.introPrimaryBtn}
-                            onClick={() => {
-                                if (isReceivedScreen) {
-                                    router.push('/challenge-battle/progress');
-                                    return;
-                                }
-
-                                moveToScreen('selection', { clearPreview: true });
-                            }}
+                            onClick={() => handleRequestAction(isReceivedScreen ? 'accept' : 'cancel')}
+                            disabled={isUpdatingRequest}
                         >
-                            {isReceivedScreen ? '승낙하기' : '취소하기'}
+                            {isUpdatingRequest
+                                ? '처리 중...'
+                                : (isReceivedScreen ? '승낙하기' : '취소하기')}
                         </button>
                     </div>
                 </div>
@@ -399,6 +716,38 @@ export default function BattleSearchPage() {
         <>
             <div style={styles.container}>
                 <div style={styles.content}>
+                    <div style={styles.battleCodeCard}>
+                        <div>
+                            <span style={styles.battleCodeLabel}>나의 배틀 ID</span>
+                            <div style={styles.battleCodeValue}>
+                                {profileLoading ? '불러오는 중...' : (profile?.battle_code || '-')}
+                            </div>
+                            {copiedCode && <div style={styles.copySuccessText}>복사 완료</div>}
+                        </div>
+                        <div style={styles.battleCodeActions}>
+                            <button
+                                type="button"
+                                style={styles.battleCodeIconButton}
+                                onClick={handleCopyBattleCode}
+                                disabled={!profile?.battle_code}
+                                title="배틀 ID 복사"
+                            >
+                                <Copy size={16} />
+                            </button>
+                            <button
+                                type="button"
+                                style={styles.battleCodeIconButton}
+                                onClick={handleIssueCode}
+                                disabled={isIssuingCode}
+                                title="배틀 ID 재생성"
+                            >
+                                <RefreshCw size={16} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {profileError && <p style={styles.inlineError}>{profileError}</p>}
+
                     <h2 style={styles.mainInstructionLine}>대결 상대를 검색해 선택해주세요.</h2>
 
                     <div style={styles.searchSection}>
@@ -406,16 +755,18 @@ export default function BattleSearchPage() {
                             <Search size={20} color="var(--text-guide)" style={styles.searchIcon} />
                             <input
                                 type="text"
-                                placeholder="사용자명 혹은 이메일 검색"
+                                placeholder="상대의 배틀 ID 검색"
                                 value={searchQuery}
-                                onChange={(event) => setSearchQuery(event.target.value)}
+                                onChange={(event) => setSearchQuery(event.target.value.toUpperCase())}
                                 onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
                                 style={styles.searchInput}
                             />
                             <button type="button" onClick={handleSearch} style={styles.searchButton}>
-                                검색
+                                {isSearching ? '검색중' : '검색'}
                             </button>
                         </div>
+
+                        {searchError && <p style={styles.inlineError}>{searchError}</p>}
 
                         {searchedUsers.length > 0 && (
                             <div style={styles.userList}>
@@ -440,7 +791,7 @@ export default function BattleSearchPage() {
                                                 </div>
                                                 <div style={styles.userDetails}>
                                                     <span style={styles.userName}>{user.name}</span>
-                                                    <span style={styles.userMeta}>ID: {user.id}</span>
+                                                    <span style={styles.userMeta}>배틀 ID: {user.id}</span>
                                                 </div>
                                             </div>
                                             <button
@@ -499,16 +850,16 @@ export default function BattleSearchPage() {
                         style={{
                             ...styles.applyButton,
                             background:
-                                !selectedUserId || !selectedCategory ? '#cbd5e1' : 'var(--primary)',
+                                !selectedUserId || !selectedCategory || isSubmittingBattle ? '#cbd5e1' : 'var(--primary)',
                             boxShadow:
-                                !selectedUserId || !selectedCategory
+                                !selectedUserId || !selectedCategory || isSubmittingBattle
                                     ? 'none'
                                     : '0 4px 12px rgba(20, 184, 166, 0.3)',
                         }}
                         onClick={handleApplyBattle}
-                        disabled={!selectedUserId || !selectedCategory}
+                        disabled={!selectedUserId || !selectedCategory || isSubmittingBattle}
                     >
-                        대결 신청
+                        {isSubmittingBattle ? '신청 중...' : '대결 신청'}
                     </button>
                 </div>
             </div>
@@ -541,6 +892,59 @@ const styles = {
         marginBottom: '1.5rem',
         marginTop: '0.5rem',
         lineHeight: 1.4,
+    },
+    battleCodeCard: {
+        background: 'white',
+        borderRadius: 'var(--radius-md)',
+        padding: '1rem',
+        boxShadow: 'var(--shadow-sm)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '1rem',
+        marginBottom: '1rem',
+    },
+    battleCodeLabel: {
+        display: 'block',
+        fontSize: '0.8rem',
+        fontWeight: '700',
+        color: 'var(--text-guide)',
+        marginBottom: '0.35rem',
+    },
+    battleCodeValue: {
+        fontSize: '1.15rem',
+        fontWeight: '800',
+        color: 'var(--text-main)',
+        letterSpacing: '0.08em',
+    },
+    battleCodeActions: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+    },
+    battleCodeIconButton: {
+        width: '36px',
+        height: '36px',
+        borderRadius: '999px',
+        border: '1px solid #e2e8f0',
+        background: 'white',
+        color: 'var(--text-sub)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+    },
+    copySuccessText: {
+        marginTop: '0.3rem',
+        fontSize: '0.78rem',
+        fontWeight: '700',
+        color: 'var(--primary)',
+    },
+    inlineError: {
+        margin: '0 0 1rem',
+        fontSize: '0.88rem',
+        fontWeight: '600',
+        color: '#ef4444',
     },
     introContent: {
         flex: 1,

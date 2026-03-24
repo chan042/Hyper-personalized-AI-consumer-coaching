@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'apps.transactions',
     'apps.coaching',
     'apps.challenges',
+    'apps.battles',
     'apps.shop',
     'apps.notifications',
     'apps.chatbot',

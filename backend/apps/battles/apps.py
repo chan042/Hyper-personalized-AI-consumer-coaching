@@ -1,0 +1,10 @@
+from django.apps import AppConfig
+
+
+class BattlesConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.battles"
+    verbose_name = "battle"
+
+    def ready(self):
+        import apps.battles.signals  # noqa: F401

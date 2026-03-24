@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { MessageCircle, Target, TrendingUp } from 'lucide-react';
+import { MessageCircle, Target, TrendingUp, Trophy } from 'lucide-react';
 
 export function formatRelativeDate(dateString) {
     const date = new Date(dateString);
@@ -22,6 +22,7 @@ const ICON_MAP = {
     COACHING: <MessageCircle size={24} color="var(--primary)" />,
     MONTHLY_REPORT: <TrendingUp size={24} color="var(--success)" />,
     CHALLENGE: <Target size={24} color="var(--primary)" />,
+    BATTLE: <Trophy size={24} color="var(--accent-1)" />,
 };
 
 export default function NotificationCard({ notification, onClick }) {

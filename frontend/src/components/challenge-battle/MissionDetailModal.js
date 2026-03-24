@@ -1,7 +1,45 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { X, CheckCircle } from 'lucide-react';
+import { CheckCircle, X } from 'lucide-react';
+
+
+function getStatusBadgeLabel(status) {
+    switch (status) {
+        case 'WON':
+            return '완료됨';
+        case 'DRAW':
+            return '무승부';
+        case 'EXPIRED':
+            return '종료됨';
+        default:
+            return '진행중';
+    }
+}
+
+function getStatusSummary(mission) {
+    if (mission.status === 'WON') {
+        return (
+            <p style={styles.finishedText}>
+                <span style={styles.winnerName}>{mission.winner_name || '상대'}</span> 성공
+            </p>
+        );
+    }
+
+    if (mission.status === 'DRAW') {
+        return <p style={styles.finishedText}>두 사용자가 동시에 달성했습니다.</p>;
+    }
+
+    if (mission.status === 'EXPIRED') {
+        return <p style={styles.finishedText}>대결 기간이 끝나 이 미션은 종료되었습니다.</p>;
+    }
+
+    return (
+        <p style={styles.ongoingText}>
+            먼저 성공해서 3점의 보너스 점수를 확보해보세요!
+        </p>
+    );
+}
 
 export default function MissionDetailModal({ isOpen, onClose, mission }) {
     const [isVisible, setIsVisible] = useState(false);
@@ -9,33 +47,46 @@ export default function MissionDetailModal({ isOpen, onClose, mission }) {
     useEffect(() => {
         if (isOpen) {
             setIsVisible(true);
-            // 배경 스크롤만 차단하고 앱 프레임 중심은 유지한다.
             document.body.style.overflow = 'hidden';
         } else {
-            setTimeout(() => {
+            const timer = window.setTimeout(() => {
                 setIsVisible(false);
                 document.body.style.overflow = '';
             }, 300);
+            return () => {
+                window.clearTimeout(timer);
+                document.body.style.overflow = '';
+            };
         }
+
         return () => {
             document.body.style.overflow = '';
         };
     }, [isOpen]);
 
-    if (!isVisible && !isOpen) return null;
+    if (!isVisible && !isOpen) {
+        return null;
+    }
+
+    const isFinished = mission.status && mission.status !== 'OPEN';
 
     return (
-        <div style={{
-            ...styles.overlay,
-            opacity: isOpen ? 1 : 0,
-            pointerEvents: isOpen ? 'auto' : 'none',
-        }} onClick={onClose}>
-            <div style={{
-                ...styles.modalContainer,
-                transform: isOpen ? 'scale(1)' : 'scale(0.95)',
+        <div
+            style={{
+                ...styles.overlay,
                 opacity: isOpen ? 1 : 0,
-            }} onClick={e => e.stopPropagation()}>
-                {/* Header */}
+                pointerEvents: isOpen ? 'auto' : 'none',
+            }}
+            onClick={onClose}
+        >
+            <div
+                style={{
+                    ...styles.modalContainer,
+                    transform: isOpen ? 'scale(1)' : 'scale(0.95)',
+                    opacity: isOpen ? 1 : 0,
+                }}
+                onClick={(event) => event.stopPropagation()}
+            >
                 <div style={styles.header}>
                     <h3 style={styles.title}>미션 상세</h3>
                     <button onClick={onClose} style={styles.closeButton}>
@@ -43,27 +94,23 @@ export default function MissionDetailModal({ isOpen, onClose, mission }) {
                     </button>
                 </div>
 
-                {/* Content */}
                 <div style={styles.content}>
                     <div style={styles.statusBadge(mission.status)}>
-                        {mission.status === '진행중' ? 'ONGOING' : 'FINISHED'}
+                        {getStatusBadgeLabel(mission.status)}
                     </div>
                     <h2 style={styles.missionTitle}>{mission.title}</h2>
                     <p style={styles.missionDescription}>{mission.description}</p>
-                    
-                    {/* Status Content */}
+
                     <div style={styles.statusSection}>
-                        {mission.status === '진행중' ? (
-                            <div style={styles.ongoingContainer}>
-                                <div style={styles.ongoingIcon}>🏃</div>
-                                <p style={styles.ongoingText}>먼저 달성해서 우위를 점하세요!</p>
-                            </div>
-                        ) : (
+                        {isFinished ? (
                             <div style={styles.finishedContainer}>
                                 <CheckCircle size={28} color="var(--primary)" style={styles.finishedIcon} />
-                                <p style={styles.finishedText}>
-                                    <span style={styles.winnerName}>{mission.winner}</span>님이 달성했습니다!
-                                </p>
+                                {getStatusSummary(mission)}
+                            </div>
+                        ) : (
+                            <div style={styles.ongoingContainer}>
+                                <div style={styles.ongoingIcon}>목표</div>
+                                {getStatusSummary(mission)}
                             </div>
                         )}
                     </div>
@@ -139,8 +186,8 @@ const styles = {
         borderRadius: '20px',
         fontSize: '0.8rem',
         fontWeight: '700',
-        color: status === '진행중' ? '#3b82f6' : 'var(--text-sub)',
-        backgroundColor: status === '진행중' ? '#eff6ff' : '#f1f5f9',
+        color: status === 'OPEN' ? '#3b82f6' : 'var(--text-sub)',
+        backgroundColor: status === 'OPEN' ? '#eff6ff' : '#f1f5f9',
     }),
     missionTitle: {
         fontSize: '1.4rem',
@@ -166,16 +213,22 @@ const styles = {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '0.5rem',
+        gap: '0.75rem',
     },
     ongoingIcon: {
-        fontSize: '2rem',
+        fontSize: '1rem',
+        fontWeight: '700',
+        color: 'var(--primary)',
+        background: 'rgba(20, 184, 166, 0.12)',
+        borderRadius: '999px',
+        padding: '0.4rem 0.8rem',
     },
     ongoingText: {
         fontSize: '1.05rem',
         fontWeight: '600',
         color: 'var(--text-main)',
         margin: 0,
+        textAlign: 'center',
     },
     finishedContainer: {
         display: 'flex',
@@ -188,13 +241,14 @@ const styles = {
         marginBottom: '0.25rem',
     },
     finishedText: {
-        fontSize: '1.1rem',
+        fontSize: '1.05rem',
         color: 'var(--text-main)',
         margin: 0,
         textAlign: 'center',
+        lineHeight: 1.5,
     },
     winnerName: {
         fontWeight: '700',
         color: 'var(--primary)',
-    }
+    },
 };
