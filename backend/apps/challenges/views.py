@@ -1,3 +1,10 @@
+"""
+- 템플릿 조회
+- User Chanllenge CRUD
+- AI 생성 미리보기/저장
+- 사진 업로드
+- 대시보드 API
+"""
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -339,9 +346,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def start_from_coaching(self, request):
         """
-        코칭 기반 AI 챌린지 시작 (수정 후 저장)
-
-        generate_from_coaching으로 생성된 챌린지를 사용자가 수정한 후 시작합니다.
+        코칭 기반 AI 챌린지 시작
         """
         serializer = CoachingChallengeStartSerializer(
             data=request.data,

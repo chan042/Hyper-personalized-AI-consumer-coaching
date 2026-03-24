@@ -1,3 +1,7 @@
+"""
+- 만료된 챌린지 최종 판정
+- ready -> active 전환
+"""
 from apps.challenges.constants import CONDITION_TYPE_DAILY_CHECK
 from apps.challenges.models import UserChallenge
 from apps.challenges.services.daily_check_sync import (
@@ -15,6 +19,7 @@ from apps.challenges.services.lifecycle import (
 
 
 def finalize_expired_challenge(user_challenge, reference=None, dry_run=False):
+    """만료된 챌린지 최종 판정"""
     if getattr(user_challenge, "status", None) != "active":
         return False
 
@@ -49,6 +54,7 @@ def finalize_expired_challenge(user_challenge, reference=None, dry_run=False):
 
 
 def activate_started_ready_challenges_for_user(user, reference=None, dry_run=False):
+    """ready -> active 전환"""
     today = resolve_reference_date(reference)
     ready_challenges = UserChallenge.objects.filter(user=user, status="ready").select_related("user")
 
@@ -64,6 +70,7 @@ def activate_started_ready_challenges_for_user(user, reference=None, dry_run=Fal
 
 
 def finalize_expired_challenges_for_user(user, reference=None, dry_run=False):
+    """만료된 챌린지 정리"""
     today = resolve_reference_date(reference)
     active_challenges = UserChallenge.objects.filter(user=user, status="active").select_related("user")
 
@@ -76,6 +83,7 @@ def finalize_expired_challenges_for_user(user, reference=None, dry_run=False):
 
 
 def refresh_user_challenge_states(user, reference=None, dry_run=False):
+    """조회 시점의 상태 동기화"""
     today = resolve_reference_date(reference)
     activated_count = activate_started_ready_challenges_for_user(user, reference=today, dry_run=dry_run)
     finalized_count = finalize_expired_challenges_for_user(user, reference=today, dry_run=dry_run)

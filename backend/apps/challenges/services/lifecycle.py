@@ -1,7 +1,6 @@
+"""날짜/시작일/종료일/남은 일수 계산"""
 from datetime import date, datetime, time, timedelta
-
 from django.utils import timezone
-
 from apps.challenges.constants import COMPARE_TYPE_LAST_MONTH_WEEK
 
 

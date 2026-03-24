@@ -240,7 +240,7 @@ DUDU_PROMPT_CONFIG = {
             },
         ],
         "response_guidelines": {
-            "max_length": "150자 이내로 간결하게 작성 (대화체에 맞게)",
+            "max_length": "200자 이내로 간결하게 작성 (대화체에 맞게)",
             "structure": "1) 공감/인정 → 2) 재정 상황 언급(필요 시) → 3) 구체적 대안 또는 격려",
             "emoji_usage": "자연스럽게 1~2개 사용하여 친근감 표현",
             "forbidden": [
@@ -345,7 +345,7 @@ class NumericConstraints(AIBaseModel):
 
 class ChallengeResponse(AIBaseModel):
     name: str = ""
-    difficulty: str = "normal"
+    difficulty: str = ""
     description: str = ""
     success_conditions: List[str] = Field(default_factory=list)
     numeric_constraints: NumericConstraints = Field(default_factory=NumericConstraints)

@@ -1,3 +1,8 @@
+"""
+- 템플릿/사용자 챌린지 직렬화
+- 템플릿 시작, 커스텀 생성, AI 저장 로직
+- 비교형 챌린지 기준 금액 계산
+"""
 from rest_framework import serializers
 from django.utils import timezone
 from datetime import timedelta, date
@@ -92,16 +97,6 @@ class ChallengeTemplateSerializer(serializers.ModelSerializer):
             'is_available', 'unavailable_reason',
             'is_active', 'display_order', 'created_at'
         ]
-
-    def get_remaining_event_time(self, obj):
-        """이벤트 챌린지의 남은 시간 (초 단위)"""
-        if obj.source_type != 'event' or not obj.event_end_at:
-            return None
-        now = timezone.now()
-        if now > obj.event_end_at:
-            return 0
-        delta = obj.event_end_at - now
-        return int(delta.total_seconds())
 
     def get_is_available(self, obj):
         request = self.context.get('request')

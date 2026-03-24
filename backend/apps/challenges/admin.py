@@ -22,7 +22,7 @@ class ChallengeTemplateAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('기본 정보', {
-            'fields': ('name', 'description', 'icon', 'icon_color', 'source_type', 'difficulty')
+            'fields': ('name', 'description', 'source_type', 'difficulty')
         }),
         ('보상', {
             'fields': ('base_points', 'points_formula', 'max_points', 'has_penalty', 'penalty_formula', 'max_penalty', 'bonus_condition', 'bonus_points')
@@ -63,7 +63,7 @@ class UserChallengeAdmin(admin.ModelAdmin):
             'fields': ('user', 'source_type', 'template', 'source_coaching')
         }),
         ('챌린지 정보', {
-            'fields': ('name', 'description', 'icon', 'icon_color', 'difficulty')
+            'fields': ('name', 'description', 'difficulty')
         }),
         ('기간', {
             'fields': ('duration_days', 'started_at', 'ends_at')

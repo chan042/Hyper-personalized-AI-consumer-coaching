@@ -1,5 +1,7 @@
+"""
+daily_check 타입 챌린지의 로그와 DailySpendingConfirmation 동기화
+"""
 from datetime import timedelta
-
 from django.utils import timezone
 
 from apps.challenges.constants import CONDITION_TYPE_DAILY_CHECK

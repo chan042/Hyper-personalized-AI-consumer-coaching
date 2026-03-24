@@ -18,12 +18,8 @@ class ChallengeTemplate(models.Model):
     """
     챌린지 템플릿 (두둑/이벤트)
     - 두둑 챌린지: 플랫폼에서 제공하는 기본 챌린지
-    - 이벤트 챌린지: 기간 한정 특별 챌린지
     """
-    SOURCE_TYPE_CHOICES = [
-        ('duduk', '두둑 챌린지'),
-        ('event', '이벤트 챌린지'),
-    ]
+    SOURCE_TYPE_CHOICES = ('duduk', '두둑 챌린지')
     
     DIFFICULTY_CHOICES = [
         ('easy', '쉬움'),
@@ -81,11 +77,6 @@ class ChallengeTemplate(models.Model):
 
     # 프론트 표시 설정 - JSONB
     display_config = models.JSONField(verbose_name='프론트 표시 설정', default=dict, blank=True)
-
-    # 이벤트 전용
-    event_start_at = models.DateTimeField(blank=True, null=True, verbose_name='이벤트 시작일')
-    event_end_at = models.DateTimeField(blank=True, null=True, verbose_name='이벤트 종료일')
-    event_banner_url = models.CharField(max_length=500, blank=True, null=True, verbose_name='이벤트 배너 URL')
     
     is_active = models.BooleanField(default=True, verbose_name='활성화 여부')
     display_order = models.IntegerField(default=0, verbose_name='표시 순서')
@@ -101,28 +92,16 @@ class ChallengeTemplate(models.Model):
     def __str__(self):
         return f"[{self.get_source_type_display()}] {self.name}"
 
-    @property
-    def is_event_active(self):
-        """이벤트 챌린지가 현재 활성 상태인지 확인"""
-        if self.source_type != 'event':
-            return True
-        now = timezone.now()
-        if self.event_start_at and self.event_end_at:
-            return self.event_start_at <= now <= self.event_end_at
-        return False
-
 
 class UserChallenge(models.Model):
     """
     사용자 챌린지 (모든 유형 통합)
     - 두둑 챌린지: 템플릿 기반
-    - 이벤트 챌린지: 템플릿 기반
     - 사용자 커스텀 챌린지: 직접 설정
     - AI 맞춤 챌린지: 코칭 기반 자동 생성
     """
     SOURCE_TYPE_CHOICES = [
         ('duduk', '두둑 챌린지'),
-        ('event', '이벤트 챌린지'),
         ('custom', '사용자 커스텀'),
         ('ai', 'AI 맞춤'),
     ]

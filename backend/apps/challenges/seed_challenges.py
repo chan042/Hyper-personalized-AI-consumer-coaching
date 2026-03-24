@@ -209,14 +209,14 @@ DUDUK_CHALLENGE_TEMPLATES = [
         "success_conditions": {
             "type": "zero_spend",
             "target_amount": 0,
-            "categories": ["식비", "카페", "술/유흥"],
+            "categories": ["식비", "카페/간식", "술/유흥"],
             "comparison": "eq"
         },
         "user_inputs": None,
         "requires_daily_check": False,
         "requires_photo": False,
         "success_description": [
-            "식사, 카페, 술 카테고리 지출 0원",
+            "식사, 카페/간식, 술/유흥 카테고리 지출 0원",
             "장보기를 위한 생활 카테고리 지출 허용"
         ],
         "display_config": {

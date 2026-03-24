@@ -1,3 +1,8 @@
+"""
+- 거래 저장 시 챌린지 진행률 자동 반영
+- 챌린지 유형별 즉시 실패 판정
+- 성공 여부 평가
+"""
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
