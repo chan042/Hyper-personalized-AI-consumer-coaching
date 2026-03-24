@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from django.conf import settings
 
 class Coaching(models.Model):
@@ -17,6 +18,56 @@ class Coaching(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.subject} ({self.created_at})"
+
+
+class CoachingGenerationRequest(models.Model):
+    """
+    지출 저장 후 비동기로 처리할 코칭 생성 요청 배치.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "대기 중"
+        PROCESSING = "processing", "처리 중"
+        COMPLETED = "completed", "완료"
+        FAILED = "failed", "실패"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="coaching_generation_requests",
+    )
+    coaching = models.OneToOneField(
+        "Coaching",
+        on_delete=models.SET_NULL,
+        related_name="generation_request",
+        null=True,
+        blank=True,
+    )
+    start_after_transaction_id = models.BigIntegerField(null=True, blank=True)
+    end_transaction_id = models.BigIntegerField(unique=True)
+    transaction_count = models.PositiveIntegerField(default=3)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    last_error = models.TextField(blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=Q(status="processing"),
+                name="uniq_processing_coaching_request_per_user",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user} - {self.end_transaction_id} ({self.status})"
 
 class CoachingFeedback(models.Model):
     """
