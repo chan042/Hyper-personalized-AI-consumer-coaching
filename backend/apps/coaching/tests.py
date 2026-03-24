@@ -7,7 +7,11 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.coaching.models import Coaching
+from apps.coaching.models import Coaching, CoachingGenerationRequest
+from apps.coaching.services import (
+    process_pending_coaching_generation_requests,
+    schedule_coaching_generation_requests,
+)
 from apps.challenges.models import UserChallenge
 from apps.transactions.models import Transaction
 from external.ai.client import AIClient, CoachingAdviceResponse
@@ -94,19 +98,92 @@ class CoachingSignalTests(TestCase):
             password="password123",
         )
 
-    @patch("apps.coaching.signals.AIClient")
-    def test_creates_coaching_after_third_transaction(self, mock_ai_client_class):
-        mock_ai_client = mock_ai_client_class.return_value
-        mock_ai_client.get_advice.return_value = {
-            "subject": "행동 변화 제안",
-            "title": "커피줄임",
-            "coaching_content": "이번 주는 커피 횟수를 한 번만 줄여보세요.",
-            "analysis": "카페 소비가 반복되고 있어요.",
-            "estimated_savings": 4500,
-            "sources": [],
-        }
+    @patch("apps.coaching.tasks.run_coaching_generation_queue.delay")
+    def test_third_transaction_creates_generation_request_after_commit(self, mock_delay):
+        with self.captureOnCommitCallbacks(execute=True):
+            transactions = [
+                Transaction.objects.create(
+                    user=self.user,
+                    category="카페/간식",
+                    item=f"아메리카노 {index + 1}",
+                    store="테스트카페",
+                    amount=4500,
+                    date=timezone.now(),
+                )
+                for index in range(3)
+            ]
 
-        for index in range(3):
+        generation_requests = CoachingGenerationRequest.objects.filter(user=self.user)
+
+        self.assertEqual(Coaching.objects.filter(user=self.user).count(), 0)
+        self.assertEqual(generation_requests.count(), 1)
+        self.assertEqual(generation_requests.get().start_after_transaction_id, None)
+        self.assertEqual(generation_requests.get().end_transaction_id, transactions[-1].id)
+        mock_delay.assert_called_once_with(self.user.id)
+
+    @patch("apps.coaching.signals.schedule_coaching_generation_requests")
+    def test_schedule_failure_does_not_break_transaction_save(self, mock_schedule):
+        mock_schedule.side_effect = RuntimeError("queue unavailable")
+
+        with self.captureOnCommitCallbacks(execute=True):
+            transaction = Transaction.objects.create(
+                user=self.user,
+                category="카페/간식",
+                item="아메리카노",
+                store="테스트카페",
+                amount=4500,
+                date=timezone.now(),
+            )
+
+        self.assertTrue(
+            Transaction.objects.filter(id=transaction.id, user=self.user).exists()
+        )
+
+
+class CoachingGenerationQueueTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username="coach-queue-user",
+            email="coach-queue@example.com",
+            password="password123",
+        )
+
+    @patch("apps.coaching.tasks.run_coaching_generation_queue.delay")
+    def test_schedule_creates_requests_in_batches_of_three(self, mock_delay):
+        transactions = [
+            Transaction.objects.create(
+                user=self.user,
+                category="카페/간식",
+                item=f"아메리카노 {index + 1}",
+                store="테스트카페",
+                amount=4500,
+                date=timezone.now(),
+            )
+            for index in range(6)
+        ]
+
+        created_request_ids = schedule_coaching_generation_requests(self.user.id)
+        generation_requests = list(
+            CoachingGenerationRequest.objects.filter(user=self.user).order_by("end_transaction_id")
+        )
+
+        self.assertEqual(len(created_request_ids), 2)
+        self.assertEqual(len(generation_requests), 2)
+        self.assertEqual(generation_requests[0].start_after_transaction_id, None)
+        self.assertEqual(generation_requests[0].end_transaction_id, transactions[2].id)
+        self.assertEqual(generation_requests[1].start_after_transaction_id, transactions[2].id)
+        self.assertEqual(generation_requests[1].end_transaction_id, transactions[5].id)
+        mock_delay.assert_called_once_with(self.user.id)
+
+    @patch("apps.coaching.services.AIClient")
+    @patch("apps.coaching.tasks.run_coaching_generation_queue.delay")
+    def test_processes_queued_requests_sequentially_without_duplicates(
+        self,
+        mock_delay,
+        mock_ai_client_class,
+    ):
+        for index in range(6):
             Transaction.objects.create(
                 user=self.user,
                 category="카페/간식",
@@ -116,13 +193,102 @@ class CoachingSignalTests(TestCase):
                 date=timezone.now(),
             )
 
-        coaching = Coaching.objects.get(user=self.user)
+        schedule_coaching_generation_requests(self.user.id)
 
-        self.assertEqual(Coaching.objects.filter(user=self.user).count(), 1)
-        self.assertEqual(coaching.subject, "행동 변화 제안")
-        self.assertEqual(coaching.title, "커피줄임")
-        self.assertEqual(coaching.estimated_savings, 4500)
-        mock_ai_client.get_advice.assert_called_once()
+        mock_ai_client = mock_ai_client_class.return_value
+        mock_ai_client.get_advice.side_effect = [
+            {
+                "subject": "행동 변화 제안",
+                "title": "코칭1",
+                "coaching_content": "첫 번째 코칭",
+                "analysis": "첫 번째 분석",
+                "estimated_savings": 3000,
+                "sources": [],
+            },
+            {
+                "subject": "행동 변화 제안",
+                "title": "코칭2",
+                "coaching_content": "두 번째 코칭",
+                "analysis": "두 번째 분석",
+                "estimated_savings": 5000,
+                "sources": [],
+            },
+        ]
+
+        first_run_result = process_pending_coaching_generation_requests(self.user.id)
+        second_run_result = process_pending_coaching_generation_requests(self.user.id)
+
+        coachings = list(Coaching.objects.filter(user=self.user).order_by("id"))
+        generation_requests = list(
+            CoachingGenerationRequest.objects.filter(user=self.user).order_by("end_transaction_id")
+        )
+
+        self.assertEqual(first_run_result["processed_request_ids"], [generation_requests[0].id, generation_requests[1].id])
+        self.assertEqual(first_run_result["failed_request_ids"], [])
+        self.assertEqual(second_run_result["processed_request_ids"], [])
+        self.assertEqual(len(coachings), 2)
+        self.assertEqual(coachings[0].title, "코칭1")
+        self.assertEqual(coachings[1].title, "코칭2")
+        self.assertTrue(
+            all(
+                generation_request.status == CoachingGenerationRequest.Status.COMPLETED
+                for generation_request in generation_requests
+            )
+        )
+        self.assertEqual(mock_ai_client.get_advice.call_count, 2)
+        mock_delay.assert_called_once_with(self.user.id)
+
+    @patch("apps.coaching.tasks.run_coaching_generation_queue.delay")
+    def test_existing_coaching_defines_initial_boundary(self, mock_delay):
+        old_transactions = [
+            Transaction.objects.create(
+                user=self.user,
+                category="카페/간식",
+                item=f"기존 아메리카노 {index + 1}",
+                store="테스트카페",
+                amount=4500,
+                date=timezone.now(),
+            )
+            for index in range(3)
+        ]
+        Coaching.objects.create(
+            user=self.user,
+            title="기존 코칭",
+            subject="행동 변화 제안",
+            analysis="기존 분석",
+            coaching_content="기존 코칭 내용",
+            estimated_savings=4500,
+            sources=[],
+        )
+
+        for index in range(2):
+            Transaction.objects.create(
+                user=self.user,
+                category="카페/간식",
+                item=f"새 아메리카노 {index + 1}",
+                store="테스트카페",
+                amount=4500,
+                date=timezone.now(),
+            )
+
+        self.assertEqual(schedule_coaching_generation_requests(self.user.id), [])
+
+        third_new_transaction = Transaction.objects.create(
+            user=self.user,
+            category="카페/간식",
+            item="새 아메리카노 3",
+            store="테스트카페",
+            amount=4500,
+            date=timezone.now(),
+        )
+
+        created_request_ids = schedule_coaching_generation_requests(self.user.id)
+        generation_request = CoachingGenerationRequest.objects.get(id=created_request_ids[0])
+
+        self.assertEqual(len(created_request_ids), 1)
+        self.assertEqual(generation_request.start_after_transaction_id, old_transactions[-1].id)
+        self.assertEqual(generation_request.end_transaction_id, third_new_transaction.id)
+        mock_delay.assert_called_once_with(self.user.id)
 
 
 class CoachingChallengeGenerationTests(APITestCase):

@@ -1,60 +1,37 @@
+import logging
+
+from django.db import transaction as db_transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
 from apps.transactions.models import Transaction
-from apps.coaching.models import Coaching
-from external.ai.client import AIClient
+
+from .services import schedule_coaching_generation_requests
+
+
+logger = logging.getLogger(__name__)
+
+
+def _schedule_coaching_generation_requests_safely(user_id):
+    try:
+        schedule_coaching_generation_requests(user_id)
+    except Exception:
+        logger.exception(
+            "Failed to enqueue coaching generation requests after transaction save (user_id=%s)",
+            user_id,
+        )
+
 
 @receiver(post_save, sender=Transaction)
-def generate_coaching_if_needed(sender, instance, created, **kwargs):
+def enqueue_coaching_generation_if_needed(sender, instance, created, **kwargs):
     """
-    지출 내역이 저장될 때마다 호출되어 코칭 생성 조건을 검사하고 실행함
+    소비 저장이 커밋된 뒤 코칭 생성 요청 배치를 DB에 적재하고,
+    실제 AI 코칭 생성은 Celery가 백그라운드에서 처리한다.
     """
     if not created:
         return
 
-    user = instance.user
-    
-    try:
-        # 마지막 코칭 생성 시간 조회
-        last_coaching = Coaching.objects.filter(user=user).order_by('-created_at').first()
-        
-        # 마지막 코칭 이후의 지출 내역 조회
-        if last_coaching:
-            new_transactions = Transaction.objects.filter(user=user, created_at__gt=last_coaching.created_at).order_by('-created_at')
-        else:
-            new_transactions = Transaction.objects.filter(user=user).order_by('-created_at')
-
-        # !테스트 중에는 1로 수정!
-        # 10건 이상이면 코칭 생성
-        if new_transactions.count() >= 3:
-            context_transactions = Transaction.objects.filter(user=user).order_by('-created_at')[:3]
-            transaction_list_str = ""
-            for t in context_transactions:
-                transaction_list_str += f"- {t.date.strftime('%Y-%m-%d')} {t.category} / {t.item} ({t.store}) / {t.amount}원\n"
-
-            client = AIClient(purpose="coaching")
-            advice_data = client.get_advice(transaction_list_str)
-            
-            if advice_data:
-                coaching = Coaching.objects.create(
-                    user=user,
-                    subject=advice_data.get('subject', '소비 분석'),
-                    title=advice_data.get('title', '소비 코칭'),
-                    analysis=advice_data.get('analysis', ''),
-                    coaching_content=advice_data.get('coaching_content', ''),
-                    estimated_savings=advice_data.get('estimated_savings', 0),
-                    sources=advice_data.get('sources', []),
-                )
-                
-                # 알림 생성
-                from apps.notifications.services import create_coaching_notification
-                create_coaching_notification(user, coaching)
-                
-                # 코칭 카드 최대 4개 유지 (오래된 것 삭제)
-                coachings = Coaching.objects.filter(user=user).order_by('-created_at')
-                if coachings.count() > 4:
-                    # 5번째 이후의 코칭 삭제 (최신 4개만 유지)
-                    ids_to_keep = list(coachings[:4].values_list('id', flat=True))
-                    Coaching.objects.filter(user=user).exclude(id__in=ids_to_keep).delete()
-    except Exception as e:
-        print(f"Auto Coaching Signal Error: {e}")
+    user_id = instance.user_id
+    db_transaction.on_commit(
+        lambda: _schedule_coaching_generation_requests_safely(user_id)
+    )
