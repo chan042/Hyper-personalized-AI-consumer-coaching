@@ -291,15 +291,18 @@ export const cancelChallenge = async (id) => {
 };
 
 /**
- * 챌린지 다시하기
+ * 챌린지 재도전
  * @param {number} id
+ * @param {object} userInputValues
  */
-export const retryChallenge = async (id) => {
+export const restartChallenge = async (id, userInputValues = {}) => {
     try {
-        const response = await client.post(`/api/challenges/my/${id}/retry/`);
+        const response = await client.post(`/api/challenges/my/${id}/restart/`, {
+            user_input_values: userInputValues,
+        });
         return transformUserChallenge(response.data);
     } catch (error) {
-        console.error('Retry Challenge Error:', error);
+        console.error('Restart Challenge Error:', error);
         throw error;
     }
 };

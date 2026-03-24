@@ -20,7 +20,7 @@ import ChallengeCard from '@/components/challenge/ChallengeCard';
 import {
     getChallengeDashboard,
     startChallenge,
-    retryChallenge,
+    restartChallenge,
     cancelChallenge,
     generateAIChallenge,
     startAIChallenge,
@@ -374,11 +374,26 @@ export default function ChallengePage() {
         }
     };
 
-    const handleRetryChallenge = async (challenge) => {
+    const handleRestartChallenge = async (challenge, userInputs = {}) => {
         try {
-            // 다시하기 API 호출
             const challengeId = challenge.userChallengeId || challenge.id;
-            await retryChallenge(challengeId);
+            const normalizedInputs = Object.entries(userInputs || {}).reduce((acc, [key, value]) => {
+                if (value === '' || value === null || value === undefined) {
+                    return acc;
+                }
+
+                const inputMeta = (challenge.userInputs || []).find((input) => input.key === key);
+                if (inputMeta?.type === 'number' || key === 'compare_week') {
+                    const parsed = Number(value);
+                    acc[key] = Number.isNaN(parsed) ? value : parsed;
+                    return acc;
+                }
+
+                acc[key] = value;
+                return acc;
+            }, {});
+
+            await restartChallenge(challengeId, normalizedInputs);
             await fetchChallenges();
             setSelectedChallenge(null);
             alert('챌린지를 다시 시작합니다!');
@@ -534,7 +549,6 @@ export default function ChallengePage() {
                                         challenge={challenge}
                                         onClick={handleCardClick}
                                         onStart={handleStartChallenge}
-                                        onRetry={handleRetryChallenge}
                                         onClaimReward={handleClaimReward}
                                         isOngoing={true}
                                     />
@@ -554,7 +568,6 @@ export default function ChallengePage() {
                                         challenge={challenge}
                                         onClick={handleCardClick}
                                         onStart={handleStartChallenge}
-                                        onRetry={handleRetryChallenge}
                                         onClaimReward={handleClaimReward}
                                     />
                                 ))}
@@ -572,7 +585,6 @@ export default function ChallengePage() {
                                         challenge={challenge}
                                         onClick={handleCardClick}
                                         onStart={handleStartChallenge}
-                                        onRetry={handleRetryChallenge}
                                         onClaimReward={handleClaimReward}
                                         isOngoing={activeTab === 'ongoing'}
                                     />
@@ -604,7 +616,7 @@ export default function ChallengePage() {
                     challenge={selectedChallenge}
                     onClose={handleCloseModal}
                     onStart={handleStartChallenge}
-                    onRetry={handleRetryChallenge}
+                    onRetry={handleRestartChallenge}
                     onCancel={handleCancelChallenge}
                     onDelete={handleDeleteChallenge}
                     onPhotoUpload={handlePhotoUpload}

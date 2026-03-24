@@ -16,7 +16,7 @@ import {
 import { useChallenge } from './useChallenge';
 
 
-export default function ChallengeCard({ challenge, onStart, onRetry, onClaimReward, onClick, isOngoing }) {
+export default function ChallengeCard({ challenge, onClaimReward, onClick, isOngoing }) {
     const { user } = useAuth();
     const characterType = user?.character_type || 'ham';
 
@@ -46,10 +46,10 @@ export default function ChallengeCard({ challenge, onStart, onRetry, onClaimRewa
         if (isReady) return;
         if (isCompleted) {
             onClaimReward?.(challenge);
+        } else if (isFailed) {
+            onClick?.(challenge);
         } else if (isActive || progressPercent > 0) {
             onClick?.(challenge);
-        } else if (isFailed) {
-            onRetry?.(challenge);
         } else {
             onClick?.(challenge);
         }

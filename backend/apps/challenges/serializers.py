@@ -4,6 +4,7 @@ from datetime import timedelta, date
 from calendar import monthrange
 from django.db.models import Sum
 import random
+import uuid
 from .models import ChallengeTemplate, UserChallenge, ChallengeDailyLog
 from .constants import (
     CONDITION_TYPE_AMOUNT_LIMIT,
@@ -162,6 +163,7 @@ class UserChallengeSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     remaining_days = serializers.IntegerField(read_only=True)
     template_name = serializers.SerializerMethodField()
+    user_inputs = serializers.SerializerMethodField()
     
     class Meta:
         model = UserChallenge
@@ -171,6 +173,7 @@ class UserChallengeSerializer(serializers.ModelSerializer):
             'difficulty', 'difficulty_display',
             'duration_days', 'started_at', 'ends_at', 'remaining_days',
             'success_conditions', 'user_input_values', 'system_generated_values',
+            'user_inputs',
             'success_description',
             'display_config', 'progress',
             'requires_daily_check', 'requires_photo', 'photo_frequency', 'photo_description',
@@ -189,12 +192,16 @@ class UserChallengeSerializer(serializers.ModelSerializer):
     def get_template_name(self, obj):
         return obj.template.name if obj.template else None
 
+    def get_user_inputs(self, obj):
+        return obj.template.user_inputs if obj.template else []
+
 
 class UserChallengeListSerializer(serializers.ModelSerializer):
     """사용자 챌린지 목록용 간략 직렬화"""
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     difficulty_display = serializers.CharField(source='get_difficulty_display', read_only=True)
     remaining_days = serializers.IntegerField(read_only=True)
+    user_inputs = serializers.SerializerMethodField()
 
     class Meta:
         model = UserChallenge
@@ -202,12 +209,16 @@ class UserChallengeListSerializer(serializers.ModelSerializer):
             'id', 'source_type', 'template', 'name', 'description',
             'difficulty', 'difficulty_display', 'started_at', 'ends_at', 'remaining_days',
             'duration_days', 'display_config', 'progress',
+            'user_inputs',
             'requires_photo', 'requires_daily_check', 'photo_description',
             'success_description',
             'status', 'status_display',
             'base_points', 'earned_points', 'attempt_number',
             'completed_at'
         ]
+
+    def get_user_inputs(self, obj):
+        return obj.template.user_inputs if obj.template else []
 
 
 class UserChallengeCreateSerializer(serializers.Serializer):
@@ -256,6 +267,8 @@ class UserChallengeCreateSerializer(serializers.Serializer):
         user = self.context['request'].user
         template = validated_data['template']
         user_input_values = validated_data.get('user_input_values', {})
+        explicit_previous_attempt = validated_data.pop('previous_attempt', None)
+        attempt_group_id = validated_data.pop('attempt_group_id', None)
 
         now = timezone.now()
 
@@ -270,16 +283,23 @@ class UserChallengeCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("이미 진행 중인 동일 챌린지가 있습니다.")
 
         # 이전 시도 횟수 확인
-        previous_attempts = UserChallenge.objects.filter(
-            user=user,
-            template=template
-        ).order_by('-attempt_number').first()
-
         attempt_number = 1
         previous_attempt = None
-        if previous_attempts:
-            attempt_number = previous_attempts.attempt_number + 1
-            previous_attempt = previous_attempts
+        if explicit_previous_attempt is not None:
+            previous_attempt = explicit_previous_attempt
+            attempt_number = previous_attempt.attempt_number + 1
+            attempt_group_id = attempt_group_id or previous_attempt.attempt_group_id
+        else:
+            previous_attempts = UserChallenge.objects.filter(
+                user=user,
+                template=template
+            ).order_by('-attempt_number').first()
+            if previous_attempts:
+                attempt_number = previous_attempts.attempt_number + 1
+                previous_attempt = previous_attempts
+                attempt_group_id = attempt_group_id or previous_attempts.attempt_group_id
+
+        attempt_group_id = attempt_group_id or uuid.uuid4()
 
         # success_conditions에 사용자 입력값 병합
         success_conditions = template.success_conditions.copy()
@@ -360,7 +380,9 @@ class UserChallengeCreateSerializer(serializers.Serializer):
             display_config=template.display_config,
             progress=initial_progress,
             attempt_number=attempt_number,
+            attempt_group_id=attempt_group_id,
             previous_attempt=previous_attempt,
+            is_current_attempt=True,
             status=initial_status,
         )
 
@@ -594,6 +616,8 @@ class CustomChallengeCreateSerializer(serializers.Serializer):
             progress=progress,
             base_points=100,
             success_description=[f"{validated_data['duration_days']}일간 목표 금액 이하 지출"],
+            attempt_group_id=uuid.uuid4(),
+            is_current_attempt=True,
             status='saved',
         )
 
@@ -796,10 +820,17 @@ class BaseChallengeStartSerializer(serializers.Serializer):
             progress=progress,
             base_points=validated_data['base_points'],
             success_description=success_description,
+            attempt_group_id=uuid.uuid4(),
+            is_current_attempt=True,
             status='saved',
         )
 
         return user_challenge
+
+
+class RestartChallengeSerializer(serializers.Serializer):
+    """실패 챌린지 재도전 요청용 직렬화"""
+    user_input_values = serializers.JSONField(required=False, default=dict)
 
 
 class AIChallengeStartSerializer(BaseChallengeStartSerializer):

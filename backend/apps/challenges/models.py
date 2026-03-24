@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from django.db import models, transaction
 from django.db.models import F, Value
@@ -240,6 +241,8 @@ class UserChallenge(models.Model):
     
     # 재도전
     attempt_number = models.IntegerField(default=1, verbose_name='시도 횟수')
+    attempt_group_id = models.UUIDField(default=uuid.uuid4, editable=False, verbose_name='시도 그룹 ID')
+    is_current_attempt = models.BooleanField(default=True, verbose_name='현재 시도 여부')
     previous_attempt = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,
@@ -258,6 +261,8 @@ class UserChallenge(models.Model):
         verbose_name_plural = '사용자 챌린지 목록'
         indexes = [
             models.Index(fields=['user', 'status']),
+            models.Index(fields=['user', 'status', 'is_current_attempt'], name='chal_usr_stat_curr_idx'),
+            models.Index(fields=['attempt_group_id'], name='chal_attempt_grp_idx'),
             models.Index(fields=['ends_at']),
         ]
 

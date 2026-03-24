@@ -1,8 +1,10 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from django.db.models import Sum, OuterRef, Subquery
 from datetime import timedelta
@@ -11,7 +13,7 @@ from .models import ChallengeTemplate, UserChallenge, ChallengeDailyLog
 from .services.photo_verification import PhotoVerificationService
 from .services.finalization import refresh_user_challenge_states
 from .services.lifecycle import resolve_challenge_start_at
-from .services.progress_factory import build_initial_progress_for_user_challenge
+from .services.restart import restart_user_challenge
 from .constants import (
     CONDITION_TYPE_PHOTO_VERIFICATION,
 )
@@ -22,6 +24,7 @@ from .serializers import (
     UserChallengeCreateSerializer, CustomChallengeCreateSerializer,
     ChallengeDailyLogSerializer,
     UserPointsSerializer,
+    RestartChallengeSerializer,
     AIChallengGenerateSerializer, AIChallengePreviewSerializer, AIChallengeStartSerializer,
     CoachingChallengeGenerateSerializer, CoachingChallengePreviewSerializer, CoachingChallengeStartSerializer,
     _get_template_availability
@@ -44,7 +47,8 @@ def _get_template_queryset_for_user(user, tab=None):
 
     latest_challenge = UserChallenge.objects.filter(
         user=user,
-        template=OuterRef('pk')
+        template=OuterRef('pk'),
+        is_current_attempt=True,
     ).order_by('-created_at')
 
     return queryset.annotate(
@@ -117,7 +121,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
     GET /api/challenges/my/<id>/ - 내 챌린지 상세
     POST /api/challenges/my/ - 템플릿 기반 챌린지 시작
     POST /api/challenges/my/<id>/cancel/ - 챌린지 취소
-    POST /api/challenges/my/<id>/retry/ - 챌린지 재도전
+    POST /api/challenges/my/<id>/restart/ - 챌린지 재도전
     """
     permission_classes = [IsAuthenticated]
     
@@ -128,12 +132,16 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
             return UserChallengeCreateSerializer
         elif self.action == 'create_custom':
             return CustomChallengeCreateSerializer
+        elif self.action == 'restart':
+            return RestartChallengeSerializer
         return UserChallengeSerializer
     
     def get_queryset(self):
         refresh_user_challenge_states(self.request.user)
 
         queryset = UserChallenge.objects.filter(user=self.request.user)
+        if self.action == 'list':
+            queryset = queryset.filter(is_current_attempt=True)
         status_filter = self.request.query_params.get('status')
         source_type = self.request.query_params.get('source_type')
         
@@ -384,47 +392,29 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         return Response({'message': '챌린지가 취소되었습니다.'})
 
     @action(detail=True, methods=['post'])
-    def retry(self, request, pk=None):
+    def restart(self, request, pk=None):
         """챌린지 재도전"""
         user_challenge = self.get_object()
+        serializer = RestartChallengeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if user_challenge.status == 'active':
+        try:
+            restarted = restart_user_challenge(
+                source_challenge=user_challenge,
+                request=request,
+                user_input_values=serializer.validated_data.get('user_input_values', {}),
+            )
+        except (DjangoValidationError, DRFValidationError) as exc:
+            detail = getattr(exc, 'detail', None)
+            message = detail if detail is not None else exc.messages if hasattr(exc, 'messages') else str(exc)
             return Response(
-                {'error': '이미 진행 중인 챌린지입니다.'},
+                {'error': message},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 챌린지 상태 초기화
-        now = timezone.now()
-        duration_days = user_challenge.duration_days
-        start_at = resolve_challenge_start_at(user_challenge.success_conditions or {}, now)
-
-        user_challenge.status = 'active' if start_at <= now else 'ready'
-        user_challenge.started_at = start_at
-        user_challenge.ends_at = start_at + timezone.timedelta(days=duration_days - 1)
-        user_challenge.attempt_number += 1
-        user_challenge.final_spent = None
-        user_challenge.earned_points = 0
-        user_challenge.penalty_points = 0
-        user_challenge.bonus_earned = False
-        user_challenge.completed_at = None
-
-        # progress 초기화
-        new_progress = build_initial_progress_for_user_challenge(user_challenge)
-        user_challenge.progress = new_progress
-
-        # 랜덤 예산 챌린지: 새 랜덤 예산 생성
-        display_config = user_challenge.display_config or {}
-        if display_config.get('progress_type') == 'random_budget':
-            system_values = user_challenge.system_generated_values or {}
-            system_values['random_budget'] = new_progress.get('target', 0)
-            user_challenge.system_generated_values = system_values
-
-        user_challenge.save()
-
         return Response(
-            UserChallengeSerializer(user_challenge).data,
-            status=status.HTTP_200_OK
+            UserChallengeSerializer(restarted).data,
+            status=status.HTTP_201_CREATED
         )
 
     @action(detail=True, methods=['post'])
@@ -561,7 +551,10 @@ class ChallengeDashboardView(APIView):
         templates_duduk = _get_template_queryset_for_user(user, tab='duduk')
         templates_event = _get_template_queryset_for_user(user, tab='event')
 
-        user_challenges = UserChallenge.objects.filter(user=user).order_by('-started_at')
+        user_challenges = UserChallenge.objects.filter(
+            user=user,
+            is_current_attempt=True,
+        ).order_by('-started_at')
         active = user_challenges.filter(status='active')
         ready = user_challenges.filter(status='ready')
         ongoing = user_challenges.filter(status__in=['active', 'ready'])

@@ -117,11 +117,16 @@ export default function ChallengeDetailModal({
         }, 1600);
     };
 
-    const isNotStarted = !isActive && !isFailed && !isCompleted;
+    const isTemplateChallenge =
+        !!challenge?.templateId || challenge?.sourceType === 'duduk' || challenge?.sourceType === 'event';
+    const templateReferenceId = challenge?.templateId || (isTemplateChallenge ? challenge?.id : null);
+    const isTemplateRestart = isFailed && isTemplateChallenge && !!templateReferenceId;
+    const canConfigureInputs = !isActive && !isCompleted && !isReady && (!isFailed || isTemplateRestart);
     const isCompareTemplate =
-        isNotStarted &&
+        canConfigureInputs &&
+        isTemplateChallenge &&
         challenge?.displayConfig?.progress_type === 'compare' &&
-        !!challenge?.id;
+        !!templateReferenceId;
     const compareType = challenge?.successConditions?.compare_type;
     const shouldShowComparePreview =
         isCompareTemplate && (compareType === 'last_month_week' || compareType === 'fixed_expense');
@@ -129,10 +134,10 @@ export default function ChallengeDetailModal({
     const shouldShowFixedExpensePreview = isCompareTemplate && compareType === 'fixed_expense';
 
     const fetchComparePreview = async (nextInputValues) => {
-        if (!shouldShowComparePreview) return;
+        if (!shouldShowComparePreview || !templateReferenceId) return;
         try {
             setIsComparePreviewLoading(true);
-            const preview = await previewTemplateInput(challenge.id, nextInputValues || {});
+            const preview = await previewTemplateInput(templateReferenceId, nextInputValues || {});
             setComparePreview(preview);
         } catch (e) {
             setComparePreview(null);
@@ -228,6 +233,19 @@ export default function ChallengeDetailModal({
         });
 
         return normalized;
+    };
+
+    const validateRequiredInputs = () => {
+        if (!challenge?.userInputs) return true;
+
+        for (const input of challenge.userInputs) {
+            if (input.required && !inputValues[input.key]) {
+                alert(`${input.label}을(를) 입력해주세요.`);
+                return false;
+            }
+        }
+
+        return true;
     };
 
     return (
@@ -451,7 +469,7 @@ export default function ChallengeDetailModal({
                         })()}
 
                         {/* User Inputs (Not Started) */}
-                        {!isActive && !isFailed && !isCompleted && challenge.userInputs && challenge.userInputs.some(i => FORBIDDEN_INPUT_KEYS.includes(i.key)) && (
+                        {canConfigureInputs && challenge.userInputs && challenge.userInputs.some(i => FORBIDDEN_INPUT_KEYS.includes(i.key)) && (
                             <div style={styles.sectionContainer}>
                                 <h3 style={styles.sectionTitle}>
                                     요일별 금지 카테고리 설정 <span style={styles.requiredMark}>*</span>
@@ -581,7 +599,7 @@ export default function ChallengeDetailModal({
                         )}
 
                         {/* Other User Inputs */}
-                        {!isActive && !isFailed && !isCompleted && challenge.userInputs &&
+                        {canConfigureInputs && challenge.userInputs &&
                             challenge.userInputs.filter(input => !FORBIDDEN_INPUT_KEYS.includes(input.key)).length > 0 && (
                                 <div style={styles.sectionContainer}>
                                     <h3 style={styles.sectionTitle}>추가 설정</h3>
@@ -749,13 +767,8 @@ export default function ChallengeDetailModal({
                                                 }
                                                 return;
                                             }
-                                            if (challenge.userInputs) {
-                                                for (const input of challenge.userInputs) {
-                                                    if (input.required && !inputValues[input.key]) {
-                                                        alert(`${input.label}을(를) 입력해주세요.`);
-                                                        return;
-                                                    }
-                                                }
+                                            if (!validateRequiredInputs()) {
+                                                return;
                                             }
                                             const startValues = buildStartInputValues();
                                             await onStart?.(challenge, startValues);
@@ -763,6 +776,22 @@ export default function ChallengeDetailModal({
                                         disabled={isUnavailable}
                                     >
                                         {isSaved ? '시작하기' : '도전하기'}
+                                    </button>
+                                </div>
+                            )}
+                            {isTemplateRestart && (
+                                <div style={styles.buttonRow}>
+                                    <button
+                                        style={{ ...styles.primaryButton, background: '#EF4444' }}
+                                        onClick={async () => {
+                                            if (!validateRequiredInputs()) {
+                                                return;
+                                            }
+                                            const startValues = buildStartInputValues();
+                                            await onRetry?.(challenge, startValues);
+                                        }}
+                                    >
+                                        재도전
                                     </button>
                                 </div>
                             )}
@@ -775,13 +804,12 @@ export default function ChallengeDetailModal({
                                 </button>
                             )}
                             {/* Failed */}
-                            {isFailed && (
+                            {isFailed && !isTemplateRestart && (
                                 <div style={styles.buttonRow}>
                                     <button
                                         style={{ ...styles.primaryButton, background: '#EF4444' }}
-                                        onClick={() => {
-                                            onRetry?.(challenge);
-                                            onClose();
+                                        onClick={async () => {
+                                            await onRetry?.(challenge);
                                         }}
                                     >
                                         재도전
