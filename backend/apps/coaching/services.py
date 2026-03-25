@@ -32,6 +32,16 @@ def _build_transaction_context(transactions):
     )
 
 
+def _build_user_coaching_context(user):
+    spending_to_improve = (getattr(user, "spending_to_improve", "") or "").strip()
+    if not spending_to_improve:
+        return {}
+
+    return {
+        "spending_to_improve": spending_to_improve,
+    }
+
+
 def _cleanup_old_coachings(user_id, keep=MAX_COACHINGS_PER_USER):
     coaching_ids_to_keep = list(
         Coaching.objects.filter(user_id=user_id)
@@ -172,7 +182,10 @@ def _generate_coaching_for_request(generation_request):
 
     transaction_list_str = _build_transaction_context(context_transactions)
 
-    advice_data = AIClient(purpose="coaching").get_advice(transaction_list_str)
+    advice_data = AIClient(purpose="coaching").get_advice(
+        transaction_list_str,
+        user_context=_build_user_coaching_context(generation_request.user),
+    )
     if not advice_data:
         raise ValueError("AI 코칭 생성에 실패했습니다.")
 
@@ -181,6 +194,7 @@ def _generate_coaching_for_request(generation_request):
         subject=advice_data.get("subject", "소비 분석"),
         title=advice_data.get("title", "소비 코칭"),
         analysis=advice_data.get("analysis", ""),
+        generation_reason=advice_data.get("generation_reason", ""),
         coaching_content=advice_data.get("coaching_content", ""),
         estimated_savings=advice_data.get("estimated_savings", 0),
         sources=advice_data.get("sources", []),

@@ -295,7 +295,6 @@ def collect_report_data(user, year, month, score_data=None):
         'job': user.job or '',
         'hobbies': user.hobbies or '',
         'marital_status': user.get_marital_status_display(),
-        'has_children': user.has_children,
         'self_development_field': user.self_development_field or '',
         'ai_persona_summary': getattr(user, 'ai_persona_summary', ''),
     }

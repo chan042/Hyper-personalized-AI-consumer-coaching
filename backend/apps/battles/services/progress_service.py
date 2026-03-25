@@ -73,8 +73,10 @@ def _battle_end_at(battle, tzinfo=None):
 def _participant_payload(participant, fallback_user):
     mission_won_count = participant.mission_won_count if participant else 0
     mission_bonus_score = participant.mission_bonus_score if participant else 0
+    profile_snapshot = (participant.profile_snapshot or {}) if participant else {}
     return {
         "name": get_battle_display_name(fallback_user),
+        "character_type": profile_snapshot.get("character_type") or fallback_user.character_type,
         "mission_won_count": mission_won_count,
         "mission_bonus_score": mission_bonus_score,
         "current_score": mission_won_count,

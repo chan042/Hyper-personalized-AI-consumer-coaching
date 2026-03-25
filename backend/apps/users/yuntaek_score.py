@@ -350,7 +350,12 @@ class YuntaekScoreCalculator:
         if total_spent == 0:
             return 0
         
-        growth_amount = self.ai_client.analyze_growth_spending(self.user.id, self.year, self.month)
+        growth_amount = self.ai_client.analyze_growth_spending(
+            self.user.id,
+            self.year,
+            self.month,
+            self_development_field=self.user.self_development_field or "",
+        )
         if growth_amount is None:
             raise YuntaekScoreAnalysisError('성장 소비 분석에 실패했습니다.')
 

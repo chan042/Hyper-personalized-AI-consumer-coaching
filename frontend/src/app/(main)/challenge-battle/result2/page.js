@@ -2,12 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { User, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import { confirmBattleResult, getBattleResult } from "@/lib/api/battle";
 
 
 const RESULT_REFRESH_MS = 10000;
+const DEFAULT_CHARACTER_TYPE = "char_cat";
+
+function getCharacterImagePath(characterType, imageName = "face_basic") {
+    const normalizedCharacterType = String(characterType || DEFAULT_CHARACTER_TYPE).trim().toLowerCase();
+    const resolvedCharacterType = normalizedCharacterType.startsWith("char_")
+        ? normalizedCharacterType
+        : `char_${normalizedCharacterType || "cat"}`;
+    const resolvedImageName = String(imageName || "face_basic").replace(/\.png$/i, "");
+
+    return `/images/characters/${resolvedCharacterType}/${resolvedImageName}.png`;
+}
 
 const CATEGORY_META = {
     alternative: {
@@ -246,9 +257,13 @@ export default function BattleResultPage() {
 
     const isDraw = resultData.is_draw;
     const myName = resultData.me.name;
-    const opponentName = resultData.opponent.name;
     const winnerName = isDraw ? null : resultData.winner_name;
-    const loserName = isDraw ? null : winnerName === myName ? opponentName : myName;
+    const winnerParticipant = isDraw
+        ? resultData.me
+        : (winnerName === myName ? resultData.me : resultData.opponent);
+    const loserParticipant = isDraw
+        ? resultData.opponent
+        : (winnerName === myName ? resultData.opponent : resultData.me);
 
     return (
         <div style={styles.container}>
@@ -266,10 +281,14 @@ export default function BattleResultPage() {
                                     animation: isDraw ? "none" : "pulse 2s infinite",
                                 }}
                             >
-                                <User size={40} color="#ffffff" />
+                                <img
+                                    src={getCharacterImagePath(winnerParticipant.character_type, "face_happy")}
+                                    alt={`${winnerParticipant.name} 캐릭터`}
+                                    style={styles.profileAvatarWinnerImage}
+                                />
                             </div>
                             <span style={styles.profileNameWinner}>
-                                {isDraw ? myName : winnerName}
+                                {winnerParticipant.name}
                             </span>
                         </div>
 
@@ -277,10 +296,14 @@ export default function BattleResultPage() {
 
                         <div style={styles.profileColLoser}>
                             <div style={styles.profileAvatarLoser}>
-                                <User size={28} color="#94a3b8" />
+                                <img
+                                    src={getCharacterImagePath(loserParticipant.character_type, isDraw ? "face_happy" : "face_basic")}
+                                    alt={`${loserParticipant.name} 캐릭터`}
+                                    style={styles.profileAvatarLoserImage}
+                                />
                             </div>
                             <span style={styles.profileNameLoser}>
-                                {isDraw ? opponentName : loserName}
+                                {loserParticipant.name}
                             </span>
                         </div>
                     </div>
@@ -560,6 +583,12 @@ const styles = {
         justifyContent: "center",
         marginBottom: "0.5rem",
         border: "2px solid white",
+        overflow: "hidden",
+    },
+    profileAvatarWinnerImage: {
+        width: "62px",
+        height: "62px",
+        objectFit: "contain",
     },
     profileNameWinner: {
         fontSize: "1rem",
@@ -584,6 +613,12 @@ const styles = {
         justifyContent: "center",
         marginBottom: "0.5rem",
         boxShadow: "inset 0 2px 4px rgba(0,0,0,0.05)",
+        overflow: "hidden",
+    },
+    profileAvatarLoserImage: {
+        width: "42px",
+        height: "42px",
+        objectFit: "contain",
     },
     profileNameLoser: {
         fontSize: "0.85rem",

@@ -40,6 +40,7 @@ class BattleProfileMeView(APIView):
         payload = {
             "battle_code": profile.battle_code,
             "display_name": get_battle_display_name(request.user),
+            "character_type": request.user.character_type,
             "is_enabled": profile.is_enabled,
             "active_battle": serialize_battle_summary(profile.active_battle),
             "pending_result_battle": serialize_battle_summary(profile.pending_result_battle),
@@ -57,6 +58,7 @@ class BattleProfileIssueCodeView(APIView):
         payload = {
             "battle_code": profile.battle_code,
             "display_name": get_battle_display_name(request.user),
+            "character_type": request.user.character_type,
             "is_enabled": profile.is_enabled,
             "active_battle": serialize_battle_summary(profile.active_battle),
             "pending_result_battle": serialize_battle_summary(profile.pending_result_battle),
@@ -90,6 +92,7 @@ class BattleUserLookupView(APIView):
         payload = {
             "battle_code": profile.battle_code,
             "display_name": get_battle_display_name(profile.user),
+            "character_type": profile.user.character_type,
         }
         serializer = BattleLookupSerializer(payload)
         return Response(serializer.data)

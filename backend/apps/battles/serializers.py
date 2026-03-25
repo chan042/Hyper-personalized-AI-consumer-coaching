@@ -14,6 +14,7 @@ class BattleSummarySerializer(serializers.Serializer):
 class BattleProfileSerializer(serializers.Serializer):
     battle_code = serializers.CharField()
     display_name = serializers.CharField()
+    character_type = serializers.CharField()
     is_enabled = serializers.BooleanField()
     active_battle = BattleSummarySerializer(allow_null=True)
     pending_result_battle = BattleSummarySerializer(allow_null=True)
@@ -22,6 +23,7 @@ class BattleProfileSerializer(serializers.Serializer):
 class BattleLookupSerializer(serializers.Serializer):
     battle_code = serializers.CharField()
     display_name = serializers.CharField()
+    character_type = serializers.CharField()
 
 
 class BattleRequestCreateSerializer(serializers.Serializer):
@@ -37,6 +39,7 @@ class BattleEntrySerializer(serializers.Serializer):
     category = serializers.CharField(required=False, allow_blank=True)
     opponent_display_name = serializers.CharField(required=False, allow_blank=True)
     opponent_battle_code = serializers.CharField(required=False, allow_blank=True)
+    opponent_character_type = serializers.CharField(required=False)
     request_deadline_at = serializers.DateTimeField(required=False, allow_null=True)
     can_accept = serializers.BooleanField(required=False)
     can_reject = serializers.BooleanField(required=False)
@@ -55,6 +58,7 @@ class BattleCurrentSerializer(serializers.Serializer):
 
 class BattleProgressParticipantSerializer(serializers.Serializer):
     name = serializers.CharField()
+    character_type = serializers.CharField()
     mission_won_count = serializers.IntegerField()
     mission_bonus_score = serializers.IntegerField()
     current_score = serializers.IntegerField()
@@ -87,6 +91,7 @@ class BattleProgressSerializer(serializers.Serializer):
 
 class BattleResultParticipantSerializer(serializers.Serializer):
     name = serializers.CharField()
+    character_type = serializers.CharField()
     mission_won_count = serializers.IntegerField()
     mission_bonus_score = serializers.IntegerField()
     official_base_score = serializers.IntegerField(allow_null=True)

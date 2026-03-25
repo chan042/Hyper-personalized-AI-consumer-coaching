@@ -25,7 +25,6 @@ class User(AbstractUser):
         ('MARRIED', '기혼'),
     ]
     marital_status = models.CharField(max_length=10, choices=MARITAL_STATUS_CHOICES, default='SINGLE')
-    has_children = models.BooleanField(default=False) # 자녀 유무
     birth_date = models.DateField(null=True, blank=True) # 생년월일
 
     # 두둑 캐릭터 설정

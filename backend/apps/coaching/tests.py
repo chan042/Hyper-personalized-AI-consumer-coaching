@@ -38,6 +38,7 @@ class AIClientCoachingTests(SimpleTestCase):
                     "title": "커피줄임",
                     "coaching_content": "이번 주는 커피 횟수를 한 번만 줄여보세요.",
                     "analysis": "카페 지출이 반복되고 있어요.",
+                    "generation_reason": "카페 지출이 반복되어 우선 코칭했어요.",
                     "estimated_savings": 4500,
                 }
             )
@@ -67,6 +68,7 @@ class AIClientCoachingTests(SimpleTestCase):
                     "title": "커피줄임",
                     "coaching_content": "이번 주는 테이크아웃을 한 번 줄여보세요.",
                     "analysis": "카페 소비가 잦아요.",
+                    "generation_reason": "카페 소비가 반복되어 먼저 코칭했어요.",
                     "estimated_savings": 4500,
                 },
                 None,
@@ -87,6 +89,40 @@ class AIClientCoachingTests(SimpleTestCase):
         self.assertTrue(calls[0]["use_web_search"])
         self.assertFalse(calls[1]["use_web_search"])
         self.assertIn("위치 기반 대안과 키워드 기반 대안은 선택하지 마세요.", calls[1]["prompt"])
+
+    def test_get_advice_includes_spending_to_improve_priority_context(self):
+        ai_client = self._build_client()
+        captured = {}
+
+        def fake_parse(prompt, response_model, **kwargs):
+            captured["prompt"] = prompt
+            return (
+                {
+                    "subject": "행동 변화 제안",
+                    "title": "배달줄임",
+                    "coaching_content": "이번 주는 배달을 한 번 줄여보세요.",
+                    "analysis": "배달 지출이 반복되고 있어요.",
+                    "generation_reason": "배달 음식 소비를 줄이고 싶다고 입력해 우선 코칭했어요.",
+                    "estimated_savings": 12000,
+                },
+                None,
+            )
+
+        ai_client._parse = fake_parse
+        ai_client._extract_search_sources = lambda response: []
+
+        result = ai_client.get_advice(
+            "- 2026-03-18 식비 / 배달 떡볶이 (배달앱) / 18000원",
+            user_context={"spending_to_improve": "배달 음식"},
+        )
+
+        self.assertEqual(
+            result["generation_reason"],
+            "배달 음식 소비를 줄이고 싶다고 입력해 우선 코칭했어요.",
+        )
+        self.assertIn("개선하고 싶은 소비", captured["prompt"])
+        self.assertIn("배달 음식", captured["prompt"])
+        self.assertIn("generation_reason", captured["prompt"])
 
 
 class CoachingSignalTests(TestCase):
@@ -147,6 +183,7 @@ class CoachingGenerationQueueTests(TestCase):
             username="coach-queue-user",
             email="coach-queue@example.com",
             password="password123",
+            spending_to_improve="배달 음식",
         )
 
     @patch("apps.coaching.tasks.run_coaching_generation_queue.delay")
@@ -238,6 +275,45 @@ class CoachingGenerationQueueTests(TestCase):
         self.assertEqual(mock_ai_client.get_advice.call_count, 2)
         mock_delay.assert_called_once_with(self.user.id)
 
+    @patch("apps.coaching.services.AIClient")
+    @patch("apps.coaching.tasks.run_coaching_generation_queue.delay")
+    def test_process_passes_spending_to_improve_context_and_saves_generation_reason(
+        self,
+        mock_delay,
+        mock_ai_client_class,
+    ):
+        for index in range(3):
+            Transaction.objects.create(
+                user=self.user,
+                category="식비",
+                item=f"배달 음식 {index + 1}",
+                store="배달앱",
+                amount=18000,
+                date=timezone.now(),
+            )
+
+        schedule_coaching_generation_requests(self.user.id)
+
+        mock_ai_client = mock_ai_client_class.return_value
+        mock_ai_client.get_advice.return_value = {
+            "subject": "행동 변화 제안",
+            "title": "배달줄임",
+            "coaching_content": "이번 주는 배달을 한 번 줄여보세요.",
+            "analysis": "배달 지출이 반복되고 있어요.",
+            "generation_reason": "배달 음식 소비를 줄이고 싶다고 입력해 우선 코칭했어요.",
+            "estimated_savings": 12000,
+            "sources": [],
+        }
+
+        result = process_pending_coaching_generation_requests(self.user.id)
+        coaching = Coaching.objects.get(user=self.user)
+
+        self.assertEqual(len(result["processed_request_ids"]), 1)
+        self.assertEqual(coaching.generation_reason, "배달 음식 소비를 줄이고 싶다고 입력해 우선 코칭했어요.")
+        _, kwargs = mock_ai_client.get_advice.call_args
+        self.assertEqual(kwargs["user_context"]["spending_to_improve"], "배달 음식")
+        mock_delay.assert_called_once_with(self.user.id)
+
     @patch("apps.coaching.tasks.run_coaching_generation_queue.delay")
     def test_existing_coaching_defines_initial_boundary(self, mock_delay):
         old_transactions = [
@@ -305,6 +381,7 @@ class CoachingChallengeGenerationTests(APITestCase):
             title='커피 줄이기',
             subject='행동 변화 제안',
             analysis='카페 지출이 반복되고 있어요.',
+            generation_reason='카페 지출이 반복되어 우선 코칭을 생성했어요.',
             coaching_content='이번 주는 커피를 한 번 덜 사보세요.',
             estimated_savings=4500,
             sources=[],
@@ -332,6 +409,7 @@ class CoachingChallengeGenerationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertTrue(response.data[0]['has_generated_challenge'])
+        self.assertEqual(response.data[0]['generation_reason'], '카페 지출이 반복되어 우선 코칭을 생성했어요.')
 
     def test_start_from_coaching_marks_coaching_as_generated(self):
         response = self.client.post('/api/challenges/my/start_from_coaching/', self.challenge_payload, format='json')

@@ -335,6 +335,7 @@ class CoachingAdviceResponse(AIBaseModel):
     title: str = ""
     coaching_content: str = ""
     analysis: str = ""
+    generation_reason: str = ""
     estimated_savings: int = 0
 
 
@@ -911,7 +912,29 @@ class AIClient:
             result["is_fixed"] = bool(result.get("is_fixed"))
         return result
 
-    def _build_coaching_prompt(self, transaction_list_str: str, *, use_web_search: bool) -> str:
+    def _build_coaching_prompt(
+        self,
+        transaction_list_str: str,
+        *,
+        use_web_search: bool,
+        user_context: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        user_context = user_context or {}
+        spending_to_improve = (user_context.get("spending_to_improve") or "").strip()
+        user_goal_section = "[사용자 목표]\n- 개선하고 싶은 소비: 정보 없음"
+        priority_rules = """
+[우선순위 규칙]
+- generation_reason에는 최근 지출 패턴 중 무엇이 반복되어 이 코칭을 생성했는지 한 문장으로 설명하세요.
+"""
+        if spending_to_improve:
+            user_goal_section = f"[사용자 목표]\n- 개선하고 싶은 소비: {spending_to_improve}"
+            priority_rules = f"""
+[우선순위 규칙]
+- 사용자가 개선하고 싶은 소비가 있으면 최근 거래와 직접 연결되는 항목을 최우선으로 코칭하세요.
+- 직접 일치하지 않더라도 같은 습관, 카테고리, 소비 맥락이면 우선 반영하세요.
+- generation_reason에는 "{spending_to_improve}"를 왜 이 코칭과 연결했는지, 어떤 거래 패턴 때문에 우선 생성했는지 한 문장으로 설명하세요.
+"""
+
         extra_rules = """
 [웹 검색 사용 규칙]
 - 위치 기반 대안과 키워드 기반 대안은 웹 검색으로 실제 정보가 확인된 경우에만 선택하세요.
@@ -935,6 +958,9 @@ class AIClient:
 당신은 '두둑' 서비스의 AI 소비 코치입니다.
 사용자의 소비 취향을 존중하면서 만족도 높은 대안이나 실천 가능한 행동 변화를 제안하세요.
 
+[사용자 프로필]
+{user_goal_section}
+
 [지출 내역]
 {transaction_list_str}
 
@@ -944,10 +970,12 @@ class AIClient:
 - 위치 기반 대안
 - 키워드 기반 대안
 
+{priority_rules}
 {extra_rules}
 
 [출력 규칙]
 - analysis는 100자 이내
+- generation_reason는 80자 이내
 - coaching_content는 100자 이내
 - title은 10자 이내
 - estimated_savings는 정수
@@ -960,14 +988,23 @@ class AIClient:
   "title": "10자 이내 코칭 제목",
   "coaching_content": "100자 이내 코칭 문장",
   "analysis": "100자 이내 소비 분석",
+  "generation_reason": "왜 이 코칭을 우선 생성했는지 설명하는 한 문장",
   "estimated_savings": 0
 }}
 
 JSON 외의 설명, 코드블록, URL 본문 삽입은 금지합니다.
 """
 
-    def get_advice(self, transaction_list_str: str) -> Optional[dict]:
-        prompt = self._build_coaching_prompt(transaction_list_str, use_web_search=True)
+    def get_advice(
+        self,
+        transaction_list_str: str,
+        user_context: Optional[Dict[str, Any]] = None,
+    ) -> Optional[dict]:
+        prompt = self._build_coaching_prompt(
+            transaction_list_str,
+            use_web_search=True,
+            user_context=user_context,
+        )
 
         result, response = self._parse(
             prompt,
@@ -976,7 +1013,11 @@ JSON 외의 설명, 코드블록, URL 본문 삽입은 금지합니다.
         )
         if not result:
             logger.warning("코칭 생성용 웹 검색 응답 파싱에 실패해 비검색 모드로 재시도합니다.")
-            fallback_prompt = self._build_coaching_prompt(transaction_list_str, use_web_search=False)
+            fallback_prompt = self._build_coaching_prompt(
+                transaction_list_str,
+                use_web_search=False,
+                user_context=user_context,
+            )
             result, response = self._parse(
                 fallback_prompt,
                 CoachingAdviceResponse,
@@ -1226,20 +1267,37 @@ AI 소비 코칭 분석 결과를 바탕으로 사용자가 실천할 수 있는
             return int(result["total_leakage"])
         return None
 
-    def analyze_growth_spending(self, user_id: int, year: int, month: int) -> Optional[int]:
+    def analyze_growth_spending(
+        self,
+        user_id: int,
+        year: int,
+        month: int,
+        self_development_field: str = "",
+    ) -> Optional[int]:
         transactions_summary = self._get_transactions_summary(user_id, year, month)
         if not transactions_summary or transactions_summary == "이번 달 지출 내역이 없습니다.":
             return 0
 
+        self_development_line = (
+            f"- 사용자의 자기개발 관심 분야: {self_development_field}"
+            if self_development_field
+            else "- 사용자의 자기개발 관심 분야: 정보 없음"
+        )
+
         prompt = f"""
 [역할]
 당신은 소비 패턴을 분석하여 성장 소비를 찾아내는 AI입니다.
+
+[사용자 맥락]
+{self_development_line}
 
 [지출 내역]
 {transactions_summary}
 
 [성장 소비 정의]
 - 교육, 학습, 자기계발, 생산성 도구, 건강한 운동, 전문성 강화에 기여하는 지출
+- 사용자의 자기개발 관심 분야와 직접 연결되는 지출은 더 강하게 성장 소비로 반영
+- 관심 분야 정보가 없더라도 일반적인 교육/학습/운동/생산성 지출은 성장 소비로 인정
 - 단순 오락/여가/사치성 지출은 제외
 """
 
@@ -1264,7 +1322,6 @@ AI 소비 코칭 분석 결과를 바탕으로 사용자가 실천할 수 있는
         job = report_data.get("job", "")
         hobbies = report_data.get("hobbies", "")
         marital_status = report_data.get("marital_status", "")
-        has_children = report_data.get("has_children", False)
         self_dev = report_data.get("self_development_field", "")
         ai_persona_summary = report_data.get("ai_persona_summary", "")
 
@@ -1275,7 +1332,6 @@ AI 소비 코칭 분석 결과를 바탕으로 사용자가 실천할 수 있는
             persona_lines.append(f"- 취미: {hobbies}")
         if marital_status:
             persona_lines.append(f"- 결혼 여부: {marital_status}")
-        persona_lines.append(f"- 자녀 유무: {'있음' if has_children else '없음'}")
         if self_dev:
             persona_lines.append(f"- 자기개발 분야: {self_dev}")
         if ai_persona_summary:

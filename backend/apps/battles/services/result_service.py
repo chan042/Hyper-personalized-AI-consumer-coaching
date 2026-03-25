@@ -329,8 +329,10 @@ def _result_mission_payload(mission):
 
 
 def _participant_result_payload(participant, fallback_user):
+    profile_snapshot = participant.profile_snapshot or {}
     return {
         "name": get_battle_display_name(fallback_user),
+        "character_type": profile_snapshot.get("character_type") or fallback_user.character_type,
         "mission_won_count": participant.mission_won_count,
         "mission_bonus_score": participant.mission_bonus_score,
         "official_base_score": participant.official_base_score,

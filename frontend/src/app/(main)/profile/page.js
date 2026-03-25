@@ -42,6 +42,7 @@ export default function ProfilePage() {
             age: user?.age || '',
             job: user?.job || '',
             hobbies: user?.hobbies || '',
+            self_development_field: user?.self_development_field || '',
             marital_status: user?.marital_status || 'SINGLE',
             monthly_budget: user?.monthly_budget || '',
             spending_to_improve: user?.spending_to_improve || ''
@@ -133,7 +134,7 @@ export default function ProfilePage() {
                 <div style={styles.avatarContainer}>
                     <div style={styles.avatar}>
                         <img
-                            src={`/images/characters/${user?.character_type || 'char_cat'}/face_basic.png`}
+                            src={`/images/characters/${user?.character_type || 'char_cat'}/face_happy.png`}
                             alt="Character"
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                         />
@@ -158,7 +159,7 @@ export default function ProfilePage() {
             <div style={styles.infoBlock} onClick={openInfoModal}>
                 <div style={styles.infoBlockContent}>
                     <span style={styles.infoBlockTitle}>나의 정보</span>
-                    <span style={styles.infoBlockDesc}>나이, 직업, 취미, 예산 등</span>
+                    <span style={styles.infoBlockDesc}>나이, 직업, 취미, 자기계발, 예산 등</span>
                 </div>
                 <ChevronRight size={20} color="var(--text-sub)" />
             </div>
@@ -267,6 +268,19 @@ export default function ProfilePage() {
                                     />
                                 ) : (
                                     <span style={styles.infoItemValue}>{user?.hobbies || '-'}</span>
+                                )}
+                            </div>
+                            <div style={styles.infoItem}>
+                                <span style={styles.infoItemLabel}>자기계발 분야</span>
+                                {isEditing ? (
+                                    <input
+                                        type="text"
+                                        value={editData.self_development_field}
+                                        onChange={(e) => setEditData({ ...editData, self_development_field: e.target.value })}
+                                        style={styles.infoInput}
+                                    />
+                                ) : (
+                                    <span style={styles.infoItemValue}>{user?.self_development_field || '-'}</span>
                                 )}
                             </div>
                             <div style={styles.infoItem}>

@@ -42,6 +42,7 @@ class CoachingAdviceView(APIView):
                 "subject": c.subject,
                 "title": c.title,
                 "analysis": c.analysis,
+                "generation_reason": c.generation_reason,
                 "coaching_content": c.coaching_content,
                 "estimated_savings": c.estimated_savings,
                 "sources": c.sources,

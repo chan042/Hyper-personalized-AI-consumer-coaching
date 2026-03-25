@@ -50,6 +50,7 @@ export default function CoachingPage() {
                     tag: item.subject,
                     title: item.title,
                     analysis: item.analysis,
+                    generation_reason: item.generation_reason || '',
                     description: item.coaching_content,
                     estimated_savings: item.estimated_savings,
                     sources: item.sources || [],

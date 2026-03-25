@@ -2,13 +2,24 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, User } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 import MissionDetailModal from '@/components/challenge-battle/MissionDetailModal';
 import { getCurrentBattleProgress } from '@/lib/api/battle';
 
 
 const PROGRESS_REFRESH_MS = 10000;
+const DEFAULT_CHARACTER_TYPE = 'char_cat';
+
+function getCharacterImagePath(characterType, imageName = 'face_happy') {
+    const normalizedCharacterType = String(characterType || DEFAULT_CHARACTER_TYPE).trim().toLowerCase();
+    const resolvedCharacterType = normalizedCharacterType.startsWith('char_')
+        ? normalizedCharacterType
+        : `char_${normalizedCharacterType || 'cat'}`;
+    const resolvedImageName = String(imageName || 'face_happy').replace(/\.png$/i, '');
+
+    return `/images/characters/${resolvedCharacterType}/${resolvedImageName}.png`;
+}
 
 function getMissionDisplayStatus(status) {
     switch (status) {
@@ -145,7 +156,11 @@ export default function BattleProgressPage() {
                 <div style={styles.battleArena}>
                     <div style={styles.profileCol}>
                         <div style={styles.profileAvatar}>
-                            <User size={32} color="var(--primary)" />
+                            <img
+                                src={getCharacterImagePath(battleData.me.character_type)}
+                                alt={`${battleData.me.name} 캐릭터`}
+                                style={styles.profileAvatarImage}
+                            />
                         </div>
                         <span style={styles.profileName}>{battleData.me.name} (나)</span>
                     </div>
@@ -154,7 +169,11 @@ export default function BattleProgressPage() {
 
                     <div style={styles.profileCol}>
                         <div style={styles.profileAvatar}>
-                            <User size={32} color="var(--primary)" />
+                            <img
+                                src={getCharacterImagePath(battleData.opponent.character_type)}
+                                alt={`${battleData.opponent.name} 캐릭터`}
+                                style={styles.profileAvatarImage}
+                            />
                         </div>
                         <span style={styles.profileName}>{battleData.opponent.name}</span>
                     </div>
@@ -327,6 +346,12 @@ const styles = {
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: '0.5rem',
+        overflow: 'hidden',
+    },
+    profileAvatarImage: {
+        width: '56px',
+        height: '56px',
+        objectFit: 'contain',
     },
     profileName: {
         fontSize: '0.9rem',

@@ -41,6 +41,12 @@ const questions = [
         type: 'text'
     },
     {
+        id: 'self_development_field',
+        question: '관심 있는 자기계발 분야가 있나요?',
+        placeholder: '예: 재테크, 커리어 성장, 운동 습관',
+        type: 'text'
+    },
+    {
         id: 'marital_status',
         question: '결혼 여부를 알려주세요.',
         options: [
@@ -719,7 +725,10 @@ const styles = {
     },
     input: {
         width: '100%',
-        padding: '1rem',
+        paddingTop: '1rem',
+        paddingRight: '1rem',
+        paddingBottom: '1rem',
+        paddingLeft: '1rem',
         fontSize: '1.25rem',
         border: 'none',
         borderBottom: '2px solid var(--primary)',

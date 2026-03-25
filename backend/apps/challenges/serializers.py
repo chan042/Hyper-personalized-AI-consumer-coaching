@@ -107,13 +107,6 @@ class ChallengeTemplateSerializer(serializers.ModelSerializer):
         _, reason = _get_template_availability(obj, request.user)
         return reason
 
-    def get_remaining_event_time(self, obj):
-        remaining = obj.remaining_event_time
-        if not remaining:
-            return None
-        return int(remaining.total_seconds())
-
-
 class ChallengeTemplateListSerializer(serializers.ModelSerializer):
     """챌린지 템플릿 목록용 간략 직렬화"""
     source_type_display = serializers.CharField(source='get_source_type_display', read_only=True)

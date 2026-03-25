@@ -10,8 +10,12 @@ _TEMPLATE_NAMES = {
 
 
 def _challenge_template_id(name):
-    challenge_template = ChallengeTemplate.objects.filter(name=name, is_active=True).order_by("id").first()
-    return challenge_template.id if challenge_template else None
+    return (
+        ChallengeTemplate.objects.filter(name=name, is_active=True)
+        .order_by("id")
+        .values_list("id", flat=True)
+        .first()
+    )
 
 
 def _build_template_definitions():

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Copy, RefreshCw, Search, User } from 'lucide-react';
+import { Copy, RefreshCw, Search } from 'lucide-react';
 
 import {
     acceptBattleRequest,
@@ -22,58 +22,68 @@ const categories = [
     { id: 'challenge', label: '챌린지' },
 ];
 
+const DEFAULT_CHARACTER_TYPE = 'char_cat';
+
+function getCharacterImagePath(characterType, imageName = 'face_basic') {
+    const normalizedCharacterType = String(characterType || DEFAULT_CHARACTER_TYPE).trim().toLowerCase();
+    const resolvedCharacterType = normalizedCharacterType.startsWith('char_')
+        ? normalizedCharacterType
+        : `char_${normalizedCharacterType || 'cat'}`;
+    const resolvedImageName = String(imageName || 'face_basic').replace(/\.png$/i, '');
+
+    return `/images/characters/${resolvedCharacterType}/${resolvedImageName}.png`;
+}
+
 const guideSlides = [
     {
         number: '1',
         title: '진행 방식',
         desc: "• 윤택지수 대결은 1:1 대결이에요.\n• 대결을 신청하고 상대방이 수락하면 시작할 수 있어요.",
-        image: '/images/characters/char_dog/face_basic.png',
+        imageName: 'face_basic',
     },
     {
         number: '2',
         title: '신청과 진행 기간',
         desc: "• 대결 신청은 매월 1일~15일까지만 가능해요.\n• 시작된 대결은 월말 윤택지수 결과가 나오기 전까지 진행돼요.",
-        image: '/images/characters/char_dog/face_surprise.png',
+        imageName: 'face_surprise',
     },
     {
         number: '3',
         title: '대결 규칙',
         desc: "• 선택한 항목에 따라 3개의 미션이 주어져요.\n• 하나의 미션을 성공할 때마다 +3점을 받아요.\n• 총 대결 결과는 기존 점수 + 보너스 점수로 결정돼요.",
-        image: '/images/characters/char_dog/face_happy.png',
+        imageName: 'face_happy',
     },
     {
         number: '4',
         title: '대안 행동 실현도 미션',
         desc: "• AI 코칭카드를 챌린지로 먼저 만들어 시작해보세요.\n• AI 코칭카드로 만든 챌린지 1개, 2개를 상대보다 먼저 성공하면 보너스 점수를 받아요.",
-        image: '/images/characters/char_dog/face_money.png',
+        imageName: 'face_money',
     },
     {
         number: '5',
         title: '성장 미션',
         desc: "• 교육/학습 카테고리 거래 1건 먼저 등록\n• 교육/학습 카테고리 누적 20,000원 먼저 달성\n• 교육/학습 카테고리 거래 3건 먼저 달성",
-        image: '/images/characters/char_dog/face_happy.png',
+        imageName: 'face_happy',
     },
     {
         number: '6',
         title: '건강 점수 미션',
         desc: "• 의료/건강 카테고리 거래 1건 먼저 등록\n• 카페/간식 카테고리 3일 연속 무지출 먼저 달성\n• 술/유흥 카테고리 7일 무지출 먼저 달성",
-        image: '/images/characters/char_dog/face_basic.png',
+        imageName: 'face_basic',
     },
     {
         number: '7',
         title: '챌린지 미션',
         desc: "• 3일 연속 무지출 챌린지 성공\n• 3만원의 행복 챌린지 성공\n• 무00의 날 챌린지 성공",
-        image: '/images/characters/char_dog/fly.png',
+        imageName: 'fly',
     },
     {
         number: '8',
         title: '점수 반영 안내',
         desc: "• 대결 보너스 점수는 결과에만 쓰이며 실제 윤택지수 리포트 점수엔 포함되지 않아요.\n• 대결에서 최종 승리하면 500포인트를 받아요!",
-        image: '/images/characters/char_dog/fly.png',
+        imageName: 'fly',
     },
 ];
-
-const previewProfileImage = '/images/characters/char_dog/face_basic.png';
 
 const REQUEST_SCREEN_REFRESH_MS = 1500;
 
@@ -126,10 +136,11 @@ export default function BattleSearchPage() {
     const [copiedCode, setCopiedCode] = useState(false);
 
     const currentScreen = searchParams.get('screen') || 'intro';
+    const previewCharacterType = searchParams.get('opponentCharacterType') || DEFAULT_CHARACTER_TYPE;
     const previewProfile = {
         name: searchParams.get('opponentName') || '',
         id: searchParams.get('opponentBattleCode') || '',
-        image: previewProfileImage,
+        image: getCharacterImagePath(previewCharacterType),
     };
     const previewDisplayName = previewProfile.name
         ? (previewProfile.name.endsWith('님') ? previewProfile.name : `${previewProfile.name}님`)
@@ -192,6 +203,7 @@ export default function BattleSearchPage() {
             id,
             category,
             requestDeadlineAt,
+            opponentCharacterType,
             clearPreview = false,
             resetGuide = false,
         } = options;
@@ -205,6 +217,7 @@ export default function BattleSearchPage() {
             params.delete('battleId');
             params.delete('category');
             params.delete('requestDeadlineAt');
+            params.delete('opponentCharacterType');
         }
 
         if (name) {
@@ -225,6 +238,10 @@ export default function BattleSearchPage() {
 
         if (requestDeadlineAt) {
             params.set('requestDeadlineAt', requestDeadlineAt);
+        }
+
+        if (opponentCharacterType) {
+            params.set('opponentCharacterType', opponentCharacterType);
         }
 
         if (resetGuide) {
@@ -255,19 +272,13 @@ export default function BattleSearchPage() {
                 id: entry.opponent_battle_code,
                 category: entry.category,
                 requestDeadlineAt: entry.request_deadline_at,
+                opponentCharacterType: entry.opponent_character_type,
             });
             return;
         }
 
         moveToScreen('intro', { clearPreview: true });
     };
-
-    const hasPendingPreviewParams = Boolean(
-        searchParams.get('opponentName') &&
-        searchParams.get('opponentBattleCode') &&
-        searchParams.get('category') &&
-        searchParams.get('requestDeadlineAt')
-    );
 
     useEffect(() => {
         const isGuideScreen = currentScreen === 'guide';
@@ -291,7 +302,7 @@ export default function BattleSearchPage() {
                         entry?.view_mode === currentScreen &&
                         String(entry?.battle_id || '') === currentBattleId;
 
-                    if (!isSamePendingScreen || !hasPendingPreviewParams) {
+                    if (!isSamePendingScreen) {
                         moveByBattleEntry(entry);
                     }
                     return;
@@ -329,7 +340,7 @@ export default function BattleSearchPage() {
             window.removeEventListener('focus', handleFocus);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [currentBattleId, currentScreen, hasPendingPreviewParams]);
+    }, [currentBattleId, currentScreen]);
 
     const handleSearch = async () => {
         const normalizedCode = searchQuery.trim().toUpperCase();
@@ -348,6 +359,7 @@ export default function BattleSearchPage() {
                 {
                     name: user.display_name,
                     id: user.battle_code,
+                    characterType: user.character_type,
                 },
             ]);
             setSelectedUserId(user.battle_code);
@@ -538,6 +550,7 @@ export default function BattleSearchPage() {
 
     if (currentScreen === 'guide') {
         const slide = guideSlides[currentGuideSlide];
+        const guideImage = getCharacterImagePath(profile?.character_type, slide.imageName);
 
         return (
             <>
@@ -567,7 +580,7 @@ export default function BattleSearchPage() {
                         </div>
 
                         <div style={styles.guideImageFixedContainer}>
-                            <img src={slide.image} alt="Step visual" style={styles.guideImage} />
+                            <img src={guideImage} alt="Step visual" style={styles.guideImage} />
                         </div>
                     </div>
 
@@ -612,7 +625,7 @@ export default function BattleSearchPage() {
 
     if (currentScreen === 'request_pending' || currentScreen === 'request_received') {
         const isReceivedScreen = currentScreen === 'request_received';
-        const isPendingPreviewReady = Boolean(currentBattleId && hasPendingPreviewParams);
+        const isPendingPreviewReady = Boolean(currentBattleId);
 
         if (!isPendingPreviewReady) {
             return (
@@ -642,7 +655,7 @@ export default function BattleSearchPage() {
 
                         <div style={styles.previewTitleBlock}>
                             <div style={styles.previewTitleLine}>
-                                <span style={styles.previewTitleName}>{previewDisplayName}</span>
+                                <span style={styles.previewTitleName}>{previewDisplayName || '상대방님'}</span>
                                 <span style={styles.previewTitleText}>
                                     {isReceivedScreen
                                         ? '이 윤택지수 대결을 신청했어요.'
@@ -784,9 +797,10 @@ export default function BattleSearchPage() {
                                         >
                                             <div style={styles.userInfo}>
                                                 <div style={styles.userIconWrapper}>
-                                                    <User
-                                                        size={24}
-                                                        color={isSelected ? 'var(--primary)' : 'var(--text-sub)'}
+                                                    <img
+                                                        src={getCharacterImagePath(user.characterType)}
+                                                        alt={`${user.name} 캐릭터`}
+                                                        style={styles.userCharacterImage}
                                                     />
                                                 </div>
                                                 <div style={styles.userDetails}>
@@ -1290,6 +1304,12 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    userCharacterImage: {
+        width: '36px',
+        height: '36px',
+        objectFit: 'contain',
     },
     userDetails: {
         display: 'flex',

@@ -198,6 +198,7 @@ def get_battle_entry(user):
                 "category": battle.category,
                 "opponent_display_name": get_battle_display_name(opponent),
                 "opponent_battle_code": opponent_profile.battle_code,
+                "opponent_character_type": opponent.character_type,
                 "request_deadline_at": battle.request_deadline_at,
                 "can_accept": not is_requester,
                 "can_reject": not is_requester,

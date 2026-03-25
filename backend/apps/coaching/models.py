@@ -10,6 +10,7 @@ class Coaching(models.Model):
     title = models.CharField(max_length=100, default="소비 코칭")  # 코칭 제목 (분석 요약)
     subject = models.CharField(max_length=50)  # 주제: 행동 변화 제안, 누수 소비, 위치 기반 대안, 키워드 기반 대안
     analysis = models.TextField()  # 소비 분석
+    generation_reason = models.TextField(blank=True, default="")  # 코칭이 우선 생성된 이유
     coaching_content = models.TextField()  # 코칭 내용
     estimated_savings = models.IntegerField(default=0)  # 예상 절약액
     sources = models.JSONField(default=list, blank=True)  # 웹 검색 출처

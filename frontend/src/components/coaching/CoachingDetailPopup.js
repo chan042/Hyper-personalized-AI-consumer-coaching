@@ -189,8 +189,19 @@ export default function CoachingDetailPopup({ isOpen, onClose, data, onStartChal
                                 margin: 0,
                                 fontWeight: '500'
                             }}>
-                                {data.analysis || "분석 내용이 없습니다."}
+                                {data.generation_reason || data.analysis || "생성 이유가 없습니다."}
                             </p>
+                            {data.generation_reason && data.analysis && data.generation_reason !== data.analysis && (
+                                <p style={{
+                                    fontSize: '0.92rem',
+                                    color: '#475569',
+                                    lineHeight: '1.65',
+                                    margin: '0.85rem 0 0 0',
+                                    fontWeight: '400'
+                                }}>
+                                    소비 분석: {data.analysis}
+                                </p>
+                            )}
                         </div>
 
                         {Array.isArray(data.sources) && data.sources.length > 0 && (
