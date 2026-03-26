@@ -1,33 +1,42 @@
 import axios from 'axios';
 
-// 환경변수 기반으로 API URL 선택 (.env.local에서 관리)
-export function getBaseURL() {
+const LOCAL_DEV_FRONTEND_PORTS = new Set(['3000', '3001']);
+
+function getLocalDevBaseURL() {
     if (typeof window === 'undefined') {
-        return process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_127 || 'http://localhost:8000';
+        return null;
     }
 
-    const { protocol, hostname } = window.location;
-    const fallbackBaseURL = `${protocol}//${hostname}:8000`;
+    const { protocol, hostname, port } = window.location;
+    const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
 
-    if (hostname === '127.0.0.1') {
-        return process.env.NEXT_PUBLIC_API_URL_127 || fallbackBaseURL;
+    if (isLocalHost && LOCAL_DEV_FRONTEND_PORTS.has(port)) {
+        return `${protocol}//${hostname}:8000`;
     }
 
-    if (hostname === 'localhost') {
-        return process.env.NEXT_PUBLIC_API_URL || fallbackBaseURL;
-    }
+    return null;
+}
 
-    const configuredBaseURL = process.env.NEXT_PUBLIC_API_URL;
-    if (configuredBaseURL && !configuredBaseURL.includes('localhost') && !configuredBaseURL.includes('127.0.0.1')) {
+// 운영 앱은 NEXT_PUBLIC_API_URL을 우선 사용하고, 웹 로컬 개발에서만 localhost를 추론합니다.
+export function getBaseURL() {
+    const configuredBaseURL = process.env.NEXT_PUBLIC_API_URL?.trim();
+    if (configuredBaseURL) {
         return configuredBaseURL;
     }
 
-    return fallbackBaseURL;
+    const localDevBaseURL = getLocalDevBaseURL();
+    if (localDevBaseURL) {
+        return localDevBaseURL;
+    }
+
+    return 'http://localhost:8000';
 }
 
 const baseURL = getBaseURL();
 
-console.log('[API Client] baseURL:', baseURL);
+if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+    console.log('[API Client] baseURL:', baseURL);
+}
 
 const client = axios.create({
     baseURL: baseURL,

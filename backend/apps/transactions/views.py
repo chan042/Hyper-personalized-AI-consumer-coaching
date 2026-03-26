@@ -16,8 +16,41 @@ import calendar
 from .models import Transaction, MonthlyLog
 from .serializers import TransactionSerializer
 from external.ai.client import AIClient
+from external.clova.client import ClovaOCRClient
 
 User = get_user_model()
+
+
+IMAGE_FORMAT_MAP = {
+    'jpg': 'jpg',
+    'jpeg': 'jpg',
+    'png': 'png',
+    'gif': 'gif',
+    'bmp': 'bmp',
+    'tiff': 'tiff',
+    'tif': 'tiff',
+    'webp': 'webp',
+    'heic': 'heic',
+    'heif': 'heif',
+}
+
+
+def normalize_image_format(raw_format):
+    normalized = str(raw_format or 'jpg').lower().strip()
+    return IMAGE_FORMAT_MAP.get(normalized, 'jpg')
+
+
+def normalize_parsed_transaction_data(parsed_data):
+    return {
+        "amount": parsed_data.get("amount") or 0,
+        "store": parsed_data.get("store") or "",
+        "item": parsed_data.get("item") or "",
+        "category": parsed_data.get("category") or "기타",
+        "date": parsed_data.get("date") or timezone.now().isoformat(),
+        "address": parsed_data.get("address") or "",
+        "memo": parsed_data.get("memo") or "",
+        "is_fixed": bool(parsed_data.get("is_fixed") or False),
+    }
 
 
 class ParseTransactionView(APIView):
@@ -43,6 +76,64 @@ class ParseTransactionView(APIView):
             )
             
         return Response(parsed_data)
+
+
+class ReceiptOCRView(APIView):
+    """
+    영수증 이미지를 OCR + AI 분석하여 구조화된 거래 데이터로 반환하는 뷰
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        image_data = request.data.get('imageData')
+        image_format = normalize_image_format(request.data.get('format'))
+
+        if not image_data:
+            return Response(
+                {"error": "이미지 데이터가 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        ocr_client = ClovaOCRClient()
+        if not ocr_client.is_configured:
+            return Response(
+                {"error": "OCR 서비스 설정 오류: 환경 변수가 설정되지 않았습니다."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        extracted_text = ocr_client.extract_text(
+            image_base64=image_data,
+            image_format=image_format,
+        )
+
+        if not extracted_text:
+            return Response(
+                {"error": "영수증에서 텍스트를 추출할 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        ai_client = AIClient(purpose="analysis")
+        parsed_data = ai_client.analyze_text(extracted_text)
+
+        if not parsed_data:
+            return Response(
+                {"error": "AI 분석 서버가 일시적으로 사용 불가능합니다. 잠시 후 다시 시도해주세요."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
+        if parsed_data.get("error"):
+            return Response(
+                {"error": parsed_data["error"]},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response(
+            {
+                "success": True,
+                "data": normalize_parsed_transaction_data(parsed_data),
+                "rawText": extracted_text,
+            }
+        )
 
 class CreateTransactionView(APIView):
     """

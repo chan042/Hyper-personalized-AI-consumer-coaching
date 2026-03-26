@@ -1,4 +1,5 @@
 import logging
+import os
 
 from django.db import IntegrityError, transaction
 from django.db.models import Max
@@ -15,6 +16,10 @@ logger = logging.getLogger(__name__)
 COACHING_TRIGGER_TRANSACTION_COUNT = 3
 MAX_COACHINGS_PER_USER = 4
 MAX_ERROR_LENGTH = 1000
+
+
+def _get_coaching_task_mode():
+    return os.environ.get("COACHING_TASK_MODE", "async").strip().lower()
 
 
 def _truncate_error_message(message):
@@ -129,9 +134,18 @@ def schedule_coaching_generation_requests(
         created_request_ids.append(generation_request.id)
 
     if created_request_ids:
-        from .tasks import run_coaching_generation_queue
+        coaching_task_mode = _get_coaching_task_mode()
 
-        run_coaching_generation_queue.delay(user_id)
+        if coaching_task_mode == "sync":
+            logger.info(
+                "Processing coaching queue synchronously (user_id=%s)",
+                user_id,
+            )
+            process_pending_coaching_generation_requests(user_id)
+        else:
+            from .tasks import run_coaching_generation_queue
+
+            run_coaching_generation_queue.delay(user_id)
 
     return created_request_ids
 

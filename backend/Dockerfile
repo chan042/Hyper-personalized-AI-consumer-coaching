@@ -22,3 +22,10 @@ RUN pip install -r requirements.txt
 
 # 6. 나머지 모든 소스 코드를 /app 폴더로 복사
 COPY . .
+
+# 7. Cloud Run 시작 스크립트 실행 권한 부여
+RUN chmod +x /app/start.sh
+
+EXPOSE 8080
+
+CMD ["/app/start.sh"]

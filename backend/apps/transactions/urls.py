@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     ParseTransactionView,
+    ReceiptOCRView,
     CreateTransactionView,
     TransactionListView,
     CategoryStatsView,
@@ -11,6 +12,7 @@ from .views import (
 
 urlpatterns = [
     path('parse/', ParseTransactionView.as_view(), name='parse_transaction'),
+    path('ocr/', ReceiptOCRView.as_view(), name='receipt_ocr'),
     path('create/', CreateTransactionView.as_view(), name='create_transaction'),
     path('category-stats/', CategoryStatsView.as_view(), name='category_stats'),
     path('monthly-analysis/', MonthlyAnalysisView.as_view(), name='monthly_analysis'),

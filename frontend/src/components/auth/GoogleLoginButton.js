@@ -26,7 +26,11 @@ function GoogleLoginButtonContent() {
             console.error('Google 로그인 실패');
             alert('Google 로그인에 실패했습니다. 다시 시도해주세요.');
         },
-        ux_mode: 'redirect', // 팝업 대신 리다이렉트 사용 (팝업 차단 문제 해결)
+        onNonOAuthError: (error) => {
+            console.error('Google 로그인 비OAuth 오류:', error);
+            alert('Google 로그인 창을 열 수 없습니다. 브라우저 팝업 설정을 확인해주세요.');
+        },
+        prompt: 'select_account',
     });
 
     return (

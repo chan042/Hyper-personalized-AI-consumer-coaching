@@ -1,8 +1,7 @@
 /**
  * 영수증 OCR 서비스
- * 이미지를 서버 API Route로 전송하여 지출 정보 추출
+ * 이미지를 백엔드 OCR API로 전송하여 지출 정보 추출
  */
-import axios from 'axios';
 import client from './client';
 import { fileToBase64, getImageFormat, validateImageFile } from '../utils/imageUtils';
 
@@ -23,13 +22,9 @@ export const scanReceipt = async (imageFile) => {
         const imageData = await fileToBase64(imageFile);
         const format = getImageFormat(imageFile);
 
-        const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-
-        // Next.js API Route 호출
-        const response = await axios.post('/api/ocr', {
+        const response = await client.post('/api/transactions/ocr/', {
             imageData,
             format,
-            token
         });
 
         return response.data.data;

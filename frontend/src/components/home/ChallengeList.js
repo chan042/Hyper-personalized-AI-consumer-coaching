@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight } from 'lucide-react';
 import ChallengeCard from '@/components/challenge/ChallengeCard';
 import { getOngoingChallenges, getMyChallenges } from '@/lib/api/challenge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,11 +39,7 @@ export default function ChallengeList() {
         fetchChallenges();
     }, [isAuthenticated]);
 
-    const handleMoreClick = () => {
-        router.push('/challenge');
-    };
-
-    const handleCardClick = (challenge) => {
+    const handleCardClick = () => {
         router.push('/challenge');
     };
 
@@ -52,23 +47,8 @@ export default function ChallengeList() {
     if (!isLoading && (!isAuthenticated || challenges.length === 0)) {
         return (
             <div style={{ marginBottom: '0.75rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
+                <div style={{ marginBottom: '0.75rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
                     <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>진행 중인 챌린지</h2>
-                    <button
-                        onClick={handleMoreClick}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            fontSize: '0.85rem',
-                            color: 'var(--text-sub)',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.25rem'
-                        }}>
-                        더보기<ChevronRight size={14} />
-                    </button>
                 </div>
                 <div style={{
                     padding: '2rem 1rem',
@@ -98,23 +78,8 @@ export default function ChallengeList() {
 
     return (
         <div style={{ marginBottom: '0.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
+            <div style={{ marginBottom: '0.75rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
                 <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>진행 중인 챌린지</h2>
-                <button
-                    onClick={handleMoreClick}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        fontSize: '0.85rem',
-                        color: 'var(--text-sub)',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.25rem'
-                    }}>
-                    더보기<ChevronRight size={14} />
-                </button>
             </div>
 
             <div style={{ position: 'relative', margin: '0 -0.5rem' }}>
@@ -148,7 +113,7 @@ export default function ChallengeList() {
                     overflowX: 'auto',
                     padding: '0.25rem 1rem',
                     scrollbarWidth: 'none',
-                    paddingBottom: '1rem',
+                    paddingBottom: '0.25rem',
                     maskImage: 'linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)',
                     WebkitMaskImage: 'linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent)'
                 }}>

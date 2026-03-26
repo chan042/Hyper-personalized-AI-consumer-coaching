@@ -1,0 +1,15 @@
+# frontend/Dockerfile.dev
+#
+# [파일 역할]
+# - 로컬 개발용 프론트엔드(Next.js) 서버 이미지를 생성합니다.
+# - docker-compose 개발 환경에서 사용합니다.
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package.json .
+
+RUN npm install --legacy-peer-deps
+
+COPY . .

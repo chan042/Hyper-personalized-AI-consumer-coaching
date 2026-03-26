@@ -258,7 +258,7 @@ export default function CategorySpending() {
                                 color: 'var(--text-sub)',
                                 lineHeight: '1.4',
                             }}>
-                                눌러서<br />자세히보기
+                                차트를 눌러<br />자세히 보기
                             </div>
                         </>
                     )}
@@ -284,14 +284,9 @@ export default function CategorySpending() {
                             <div style={{ width: '12px', height: '12px', borderRadius: '4px', backgroundColor: item.color }}></div>
                             <span style={{ fontSize: '1rem', color: 'var(--text-main)', fontWeight: '500' }}>{item.name}</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-sub)', fontWeight: '500' }}>
-                                {item.percent.toFixed(1)}%
-                            </span>
-                            <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                                ₩{item.amount.toLocaleString()}
-                            </span>
-                        </div>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-sub)', fontWeight: '500' }}>
+                            {item.percent.toFixed(1)}%
+                        </span>
                     </div>
                 ))}
             </div>

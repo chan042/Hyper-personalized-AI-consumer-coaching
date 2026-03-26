@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 
@@ -96,7 +96,7 @@ function getMissionAccentColor(mission, myName) {
 }
 
 
-export default function BattleResultPage() {
+function BattleResultPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const battleId = searchParams.get("battleId");
@@ -497,6 +497,14 @@ export default function BattleResultPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function BattleResultPage() {
+    return (
+        <Suspense fallback={<div style={{ padding: "24px" }}>로딩 중...</div>}>
+            <BattleResultPageContent />
+        </Suspense>
     );
 }
 

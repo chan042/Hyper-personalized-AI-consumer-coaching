@@ -177,7 +177,6 @@ export default function TotalSpending() {
                             alignItems: 'center',
                             justifyContent: 'center',
                             animation: isAngry ? 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both' : 'fadeInScale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                            filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.05))',
                             marginBottom: '-5px', // 미세 위치 조정
                             marginRight: '-5px',
                             cursor: 'pointer',
@@ -238,7 +237,7 @@ export default function TotalSpending() {
                             fontWeight: '700',
                             fontSize: '14px'
                         }}>
-                            {percentUsed}% 사용
+                            {percentUsed}%
                         </span>
                     </div>
                 </div>

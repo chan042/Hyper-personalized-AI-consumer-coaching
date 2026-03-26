@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Copy, RefreshCw, Search } from 'lucide-react';
 
@@ -116,7 +116,7 @@ function formatDateTime(value) {
     }
 }
 
-export default function BattleSearchPage() {
+function BattleSearchPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -879,6 +879,14 @@ export default function BattleSearchPage() {
             </div>
             {animationStyles}
         </>
+    );
+}
+
+export default function BattleSearchPage() {
+    return (
+        <Suspense fallback={<div style={{ padding: '24px' }}>로딩 중...</div>}>
+            <BattleSearchPageContent />
+        </Suspense>
     );
 }
 

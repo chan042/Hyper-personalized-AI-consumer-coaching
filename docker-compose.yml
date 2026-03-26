@@ -48,7 +48,9 @@ services:
   # 3. 프론트엔드 서버 (Next.js)
   #################
   frontend:
-    build: ./frontend # ./frontend 폴더에 있는 Dockerfile을 사용해 이미지를 직접 빌드
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     command: npm run dev # 컨테이너가 시작될 때 실행할 명령어
     volumes:
       - ./frontend:/app # 내 컴퓨터의 frontend 폴더와 컨테이너의 /app 폴더를 실시간으로 동기화
