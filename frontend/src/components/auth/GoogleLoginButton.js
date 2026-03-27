@@ -2,55 +2,44 @@
 
 /**
  * [파일 역할]
- * - Google OAuth 로그인 버튼 컴포넌트를 제공합니다.
- * - Google ID 토큰을 백엔드로 전송하여 JWT 토큰을 받습니다.
+ * - Google 로그인 버튼 컴포넌트를 제공합니다.
+ * - Google credential(ID token)을 백엔드로 전송하여 JWT 토큰을 받습니다.
  */
-import { useState } from 'react';
-import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import { useAuth } from '@/contexts/AuthContext';
-import Image from 'next/image';
 
 function GoogleLoginButtonContent() {
     const { loginWithGoogle } = useAuth();
-    const [isActive, setIsActive] = useState(false);
-
-    const login = useGoogleLogin({
-        onSuccess: async (tokenResponse) => {
-            try {
-                await loginWithGoogle(tokenResponse.access_token);
-            } catch (error) {
-                console.error('Google 로그인 처리 중 오류:', error);
-            }
-        },
-        onError: () => {
-            console.error('Google 로그인 실패');
-            alert('Google 로그인에 실패했습니다. 다시 시도해주세요.');
-        },
-        onNonOAuthError: (error) => {
-            console.error('Google 로그인 비OAuth 오류:', error);
-            alert('Google 로그인 창을 열 수 없습니다. 브라우저 팝업 설정을 확인해주세요.');
-        },
-        prompt: 'select_account',
-    });
 
     return (
-        <button
-            onClick={() => login()}
-            style={{ ...styles.button, ...(isActive ? styles.buttonActive : {}) }}
-            onMouseDown={() => setIsActive(true)}
-            onMouseUp={() => setIsActive(false)}
-        >
-            <div style={styles.iconWrapper}>
-                <svg width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-                    <path fill="none" d="M0 0h48v48H0z" />
-                </svg>
-            </div>
-            <span style={styles.buttonText}>Google로 시작하기</span>
-        </button>
+        <div style={styles.buttonWrapper}>
+            <GoogleLogin
+                theme="outline"
+                size="large"
+                text="continue_with"
+                shape="pill"
+                width="360"
+                onSuccess={async (credentialResponse) => {
+                    try {
+                        if (!credentialResponse.credential) {
+                            throw new Error('Google credential이 없습니다.');
+                        }
+
+                        await loginWithGoogle({
+                            credential: credentialResponse.credential,
+                            client_id: credentialResponse.clientId,
+                        });
+                    } catch (error) {
+                        console.error('Google 로그인 처리 중 오류:', error);
+                        alert('Google 로그인에 실패했습니다. 다시 시도해주세요.');
+                    }
+                }}
+                onError={() => {
+                    console.error('Google 로그인 실패');
+                    alert('Google 로그인에 실패했습니다. 다시 시도해주세요.');
+                }}
+            />
+        </div>
     );
 }
 
@@ -78,37 +67,11 @@ export default function GoogleLoginButton() {
 }
 
 const styles = {
-    button: {
+    buttonWrapper: {
         width: '100%',
-        height: '54px', // Slightly taller for better touch target
-        backgroundColor: '#FFFFFF',
-        border: '1px solid #E2E8F0',
-        borderRadius: '16px', // More rounded corners
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: 'pointer',
-        position: 'relative',
-        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
-    },
-
-    buttonActive: {
-        transform: 'scale(0.98) translateY(0)',
-        backgroundColor: '#F1F5F9',
-    },
-    iconWrapper: {
-        position: 'absolute',
-        left: '24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    buttonText: {
-        fontSize: '16px',
-        fontWeight: '600', // Slightly bolder
-        color: '#1E293B',
-        letterSpacing: '-0.01em',
     },
     errorContainer: {
         padding: '1.5rem',

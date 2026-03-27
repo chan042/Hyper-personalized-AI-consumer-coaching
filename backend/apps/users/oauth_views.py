@@ -40,26 +40,59 @@ class GoogleLoginView(APIView):
 
     def post(self, request):
         access_token = request.data.get('access_token')
-        
-        if not access_token:
+        credential = request.data.get('credential')
+
+        if not access_token and not credential:
             return Response(
-                {'error': 'access_token이 필요합니다.'},
+                {'error': 'access_token 또는 credential이 필요합니다.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            # Google UserInfo API 호출하여 토큰 검증 및 사용자 정보 가져오기
-            user_info_url = "https://www.googleapis.com/oauth2/v3/userinfo"
-            response = requests.get(user_info_url, params={'access_token': access_token})
-            
-            if not response.ok:
-                return Response(
-                    {'error': '유효하지 않은 구글 토큰입니다.'},
-                    status=status.HTTP_401_UNAUTHORIZED
+            if credential:
+                token_info_url = "https://oauth2.googleapis.com/tokeninfo"
+                response = requests.get(
+                    token_info_url,
+                    params={'id_token': credential},
+                    timeout=10,
                 )
-            
-            user_info = response.json()
-            
+
+                if not response.ok:
+                    return Response(
+                        {'error': '유효하지 않은 구글 credential입니다.'},
+                        status=status.HTTP_401_UNAUTHORIZED
+                    )
+
+                user_info = response.json()
+                expected_client_id = (
+                    settings.SOCIALACCOUNT_PROVIDERS
+                    .get('google', {})
+                    .get('APP', {})
+                    .get('client_id')
+                )
+
+                if expected_client_id and user_info.get('aud') != expected_client_id:
+                    return Response(
+                        {'error': 'Google credential의 대상 클라이언트가 일치하지 않습니다.'},
+                        status=status.HTTP_401_UNAUTHORIZED
+                    )
+            else:
+                # Google UserInfo API 호출하여 토큰 검증 및 사용자 정보 가져오기
+                user_info_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+                response = requests.get(
+                    user_info_url,
+                    params={'access_token': access_token},
+                    timeout=10,
+                )
+
+                if not response.ok:
+                    return Response(
+                        {'error': '유효하지 않은 구글 토큰입니다.'},
+                        status=status.HTTP_401_UNAUTHORIZED
+                    )
+
+                user_info = response.json()
+
             email = user_info.get('email')
             google_id = user_info.get('sub')
             name = user_info.get('name', email.split('@')[0]) if email else "Unknown"

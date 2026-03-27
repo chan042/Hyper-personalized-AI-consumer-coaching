@@ -53,12 +53,16 @@ export const register = async (email, username, password, passwordConfirm, chara
 
 /**
  * Google 로그인 API
- * @param {string} accessToken - Google OAuth access token
+ * @param {string|object} googleAuth - Google access token 또는 credential payload
  * @returns {Promise<{access: string, refresh: string, user: object}>}
  */
-export const loginWithGoogle = async (accessToken) => {
+export const loginWithGoogle = async (googleAuth) => {
+    const requestBody = typeof googleAuth === 'string'
+        ? { access_token: googleAuth }
+        : googleAuth;
+
     const response = await axios.post(`${getBaseURL()}/api/users/auth/google/`, {
-        access_token: accessToken
+        ...requestBody
     }, {
         headers: {
             'Content-Type': 'application/json'
