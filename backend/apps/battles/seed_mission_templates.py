@@ -1,21 +1,20 @@
 from apps.battles.models import BattleMissionTemplate, YuntaekBattle
-from apps.challenges.models import ChallengeTemplate
 
 
-_TEMPLATE_NAMES = {
-    "three_day_zero_spend": "3일 연속 무지출 챌린지",
-    "thirty_thousand_happiness": "3만원의 행복",
-    "no_x_day": "무00의 날",
+_TEMPLATE_REFERENCES = {
+    "three_day_zero_spend": {
+        "name": "3일 연속 무지출 챌린지",
+        "code": "three_day_zero_spend",
+    },
+    "thirty_thousand_happiness": {
+        "name": "3만원의 행복",
+        "code": "thirty_thousand_happiness",
+    },
+    "no_x_day": {
+        "name": "무00의 날",
+        "code": "no_x_day",
+    },
 }
-
-
-def _challenge_template_id(name):
-    return (
-        ChallengeTemplate.objects.filter(name=name, is_active=True)
-        .order_by("id")
-        .values_list("id", flat=True)
-        .first()
-    )
 
 
 def _build_template_definitions():
@@ -126,8 +125,8 @@ def _build_template_definitions():
             "description": "두둑 챌린지인 '3일 연속 무지출 챌린지'를 상대보다 먼저 성공하세요!",
             "verification_type": "challenge_template_complete",
             "verification_config": {
-                "template_name": _TEMPLATE_NAMES["three_day_zero_spend"],
-                "template_id": _challenge_template_id(_TEMPLATE_NAMES["three_day_zero_spend"]),
+                "template_name": _TEMPLATE_REFERENCES["three_day_zero_spend"]["name"],
+                "template_code": _TEMPLATE_REFERENCES["three_day_zero_spend"]["code"],
             },
         },
         {
@@ -137,8 +136,8 @@ def _build_template_definitions():
             "description": "두둑 챌린지인 '3만원의 행복'을 상대보다 먼저 성공하세요!",
             "verification_type": "challenge_template_complete",
             "verification_config": {
-                "template_name": _TEMPLATE_NAMES["thirty_thousand_happiness"],
-                "template_id": _challenge_template_id(_TEMPLATE_NAMES["thirty_thousand_happiness"]),
+                "template_name": _TEMPLATE_REFERENCES["thirty_thousand_happiness"]["name"],
+                "template_code": _TEMPLATE_REFERENCES["thirty_thousand_happiness"]["code"],
             },
         },
         {
@@ -148,8 +147,8 @@ def _build_template_definitions():
             "description": "두둑 챌린지인 '무00의 날'을 상대보다 먼저 성공하세요!",
             "verification_type": "challenge_template_complete",
             "verification_config": {
-                "template_name": _TEMPLATE_NAMES["no_x_day"],
-                "template_id": _challenge_template_id(_TEMPLATE_NAMES["no_x_day"]),
+                "template_name": _TEMPLATE_REFERENCES["no_x_day"]["name"],
+                "template_code": _TEMPLATE_REFERENCES["no_x_day"]["code"],
             },
         },
     ]

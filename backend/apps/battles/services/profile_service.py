@@ -163,25 +163,7 @@ def get_battle_entry(user):
 
     expire_overdue_requested_battles(limit=20)
 
-    profile = (
-        BattleProfile.objects.select_related(
-            "active_battle__requester",
-            "active_battle__opponent",
-            "pending_result_battle",
-        )
-        .filter(user=user)
-        .first()
-    )
-    if not profile:
-        profile = get_or_create_battle_profile(user)
-        profile = (
-            BattleProfile.objects.select_related(
-                "active_battle__requester",
-                "active_battle__opponent",
-                "pending_result_battle",
-            )
-            .get(pk=profile.pk)
-        )
+    profile = reconcile_battle_profile(user)
 
     if profile.active_battle_id:
         battle = profile.active_battle

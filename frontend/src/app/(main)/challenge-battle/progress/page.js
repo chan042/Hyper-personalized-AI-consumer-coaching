@@ -41,9 +41,6 @@ function getMissionSummaryText(mission) {
     if (mission.status === 'DRAW') {
         return '동시 달성';
     }
-    if (mission.status === 'EXPIRED') {
-        return '종료됨';
-    }
     return '';
 }
 
@@ -239,11 +236,15 @@ export default function BattleProgressPage() {
                                                 <span style={styles.badgeFinished}>
                                                     {getMissionDisplayStatus(mission.status)}
                                                 </span>
+                                                {getMissionSummaryText(mission) ? (
+                                                    <span style={styles.winnerSummary}>
+                                                        {getMissionSummaryText(mission)}
+                                                    </span>
+                                                ) : null}
                                             </div>
                                             <h4 style={styles.missionCardTitle}>{mission.title}</h4>
                                         </div>
                                         <div style={styles.missionRightArea}>
-                                            <span style={styles.winnerSummary}>{getMissionSummaryText(mission)}</span>
                                             <ChevronRight size={20} color="var(--text-guide)" />
                                         </div>
                                     </div>
@@ -433,15 +434,20 @@ const styles = {
         display: 'flex',
         flexDirection: 'column',
         gap: '0.5rem',
+        flex: 1,
+        minWidth: 0,
     },
     missionRightArea: {
         display: 'flex',
         alignItems: 'center',
-        gap: '0.5rem',
+        marginLeft: '0.75rem',
+        flexShrink: 0,
     },
     missionHeader: {
         display: 'flex',
         alignItems: 'center',
+        gap: '0.5rem',
+        flexWrap: 'wrap',
     },
     badgeOngoing: {
         fontSize: '0.75rem',
@@ -472,6 +478,6 @@ const styles = {
         color: 'var(--primary)',
         fontWeight: '600',
         margin: 0,
-        marginTop: '0.25rem',
+        lineHeight: 1.3,
     },
 };

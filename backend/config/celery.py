@@ -21,6 +21,10 @@ app.conf.beat_schedule = {
         "task": "apps.challenges.tasks.run_daily_challenge_checks",
         "schedule": crontab(hour=0, minute=1),
     },
+    "expire-requested-battles": {
+        "task": "apps.battles.tasks.expire_requested_battles",
+        "schedule": crontab(hour=0, minute=1, day_of_month=16),
+    },
     "settle-battle-zero-spend-streaks": {
         "task": "apps.battles.tasks.run_battle_zero_spend_settlement",
         "schedule": crontab(hour=0, minute=1),

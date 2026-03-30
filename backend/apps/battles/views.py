@@ -26,6 +26,7 @@ from apps.battles.services import (
     get_current_battle_summary,
     get_or_create_battle_profile,
     issue_new_battle_code,
+    reconcile_battle_profile,
     reject_battle_request,
     serialize_battle_summary,
 )
@@ -36,7 +37,7 @@ class BattleProfileMeView(APIView):
 
     def get(self, request):
         expire_overdue_requested_battles(limit=20)
-        profile = get_or_create_battle_profile(request.user)
+        profile = reconcile_battle_profile(request.user)
         payload = {
             "battle_code": profile.battle_code,
             "display_name": get_battle_display_name(request.user),
@@ -54,7 +55,8 @@ class BattleProfileIssueCodeView(APIView):
 
     def post(self, request):
         expire_overdue_requested_battles(limit=20)
-        profile = issue_new_battle_code(request.user)
+        issue_new_battle_code(request.user)
+        profile = reconcile_battle_profile(request.user)
         payload = {
             "battle_code": profile.battle_code,
             "display_name": get_battle_display_name(request.user),

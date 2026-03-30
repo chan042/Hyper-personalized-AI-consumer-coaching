@@ -14,15 +14,15 @@ class ChallengeTemplateAdmin(admin.ModelAdmin):
     """
     챌린지 템플릿 관리
     """
-    list_display = ['name', 'source_type', 'difficulty', 'base_points', 'duration_days', 'is_active', 'display_order', 'created_at']
+    list_display = ['name', 'code', 'source_type', 'difficulty', 'base_points', 'duration_days', 'is_active', 'display_order', 'created_at']
     list_filter = ['source_type', 'difficulty', 'is_active', 'requires_daily_check', 'requires_photo']
-    search_fields = ['name', 'description']
+    search_fields = ['name', 'code', 'description']
     ordering = ['display_order', '-created_at']
     list_editable = ['is_active', 'display_order']
     
     fieldsets = (
         ('기본 정보', {
-            'fields': ('name', 'description', 'source_type', 'difficulty')
+            'fields': ('name', 'code', 'description', 'source_type', 'difficulty')
         }),
         ('보상', {
             'fields': ('base_points', 'points_formula', 'max_points', 'has_penalty', 'penalty_formula', 'max_penalty', 'bonus_condition', 'bonus_points')

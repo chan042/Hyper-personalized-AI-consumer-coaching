@@ -1,5 +1,5 @@
 import calendar
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.db.models import Q
 from django.utils import timezone
@@ -49,8 +49,12 @@ def _calculate_d_day(battle):
         return 0
 
     now = timezone.localtime(timezone.now())
-    end_of_month = _battle_end_at(battle, tzinfo=now.tzinfo)
-    delta = end_of_month.date() - now.date()
+    if battle.score_expected_at:
+        result_day = timezone.localtime(battle.score_expected_at, now.tzinfo).date()
+    else:
+        end_of_month = _battle_end_at(battle, tzinfo=now.tzinfo)
+        result_day = (end_of_month + timedelta(days=1)).date()
+    delta = result_day - now.date()
     return max(delta.days, 0)
 
 

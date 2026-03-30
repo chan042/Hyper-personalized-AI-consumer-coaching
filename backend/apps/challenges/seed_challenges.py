@@ -15,6 +15,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+DUDUK_CHALLENGE_TEMPLATE_CODES = {
+    "3만원의 행복": "thirty_thousand_happiness",
+    "나와의 싸움": "fight_with_myself",
+    "3일 연속 무지출 챌린지": "three_day_zero_spend",
+    "현금 챌린지": "cash_challenge",
+    "외식/배달 X": "no_dining_delivery",
+    "원플원러버": "one_plus_one_lover",
+    "집구석 보물찾기": "home_treasure_hunt",
+    "고정비 다이어트": "fixed_cost_diet",
+    "내 소비 맞추기": "guess_my_spending",
+    "미라클 두둑!": "miracle_duduk",
+    "무00의 날": "no_x_day",
+    "미래의 나에게": "for_future_me",
+    "두근두근 데스게임": "thrilling_death_game",
+}
+
+
 # ============================================================================
 # 두둑 챌린지 템플릿 정의 (13개)
 # ============================================================================
@@ -625,11 +642,19 @@ def seed_challenge_templates(force_update: bool = False) -> dict:
     
     result = {"created": 0, "updated": 0, "skipped": 0}
     
-    for template_data in DUDUK_CHALLENGE_TEMPLATES:
+    for raw_template_data in DUDUK_CHALLENGE_TEMPLATES:
+        template_data = dict(raw_template_data)
         name = template_data.get("name")
+        code = DUDUK_CHALLENGE_TEMPLATE_CODES.get(name)
+        if code:
+            template_data["code"] = code
         
         try:
-            existing = ChallengeTemplate.objects.filter(name=name).first()
+            existing = None
+            if code:
+                existing = ChallengeTemplate.objects.filter(code=code).order_by("id").first()
+            if not existing:
+                existing = ChallengeTemplate.objects.filter(name=name).order_by("id").first()
             
             if existing:
                 if force_update:
@@ -638,6 +663,11 @@ def seed_challenge_templates(force_update: bool = False) -> dict:
                     existing.save()
                     result["updated"] += 1
                     logger.info(f"템플릿 업데이트됨: {name}")
+                elif code and existing.code != code:
+                    existing.code = code
+                    existing.save(update_fields=["code"])
+                    result["updated"] += 1
+                    logger.info(f"템플릿 코드 보정됨: {name} -> {code}")
                 else:
                     result["skipped"] += 1
                     logger.debug(f"템플릿 이미 존재: {name}")

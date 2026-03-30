@@ -31,6 +31,7 @@ class ChallengeTemplate(models.Model):
     
     # 기본 정보
     name = models.CharField(max_length=100, verbose_name='챌린지 이름')
+    code = models.CharField(max_length=100, blank=True, null=True, db_index=True, verbose_name='챌린지 코드')
     description = models.TextField(verbose_name='상세 설명')
     
     source_type = models.CharField(

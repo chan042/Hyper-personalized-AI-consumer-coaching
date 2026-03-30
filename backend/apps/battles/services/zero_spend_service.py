@@ -7,6 +7,10 @@ from django.utils import timezone
 
 from apps.battles.models import BattleMission, BattleParticipant, YuntaekBattle
 from apps.battles.services.mission_service import _normalize_category
+from apps.battles.services.notification_service import (
+    notify_battle_mission_won,
+    notify_battle_zero_spend_restart,
+)
 from apps.transactions.models import Transaction
 
 
@@ -83,6 +87,40 @@ def _find_streak_achievement(spend_by_date, start_date, end_date, required_days)
     return None
 
 
+def _streak_length_ending_on(spend_by_date, start_date, end_date):
+    if end_date < start_date:
+        return 0
+
+    streak = 0
+    current_date = end_date
+    while current_date >= start_date and spend_by_date.get(current_date, 0) == 0:
+        streak += 1
+        current_date -= timedelta(days=1)
+
+    return streak
+
+
+def _maybe_notify_streak_reset(mission, user, spend_by_date, start_date, reference_date, dry_run=False):
+    if dry_run or spend_by_date.get(reference_date, 0) <= 0:
+        return
+
+    previous_streak = _streak_length_ending_on(
+        spend_by_date,
+        start_date,
+        reference_date - timedelta(days=1),
+    )
+    if previous_streak <= 0:
+        return
+
+    notify_battle_zero_spend_restart(
+        mission.battle,
+        mission,
+        user,
+        previous_streak,
+        reference_date,
+    )
+
+
 def _build_winner_evidence(category, required_days, achievement, evaluated_at):
     return {
         "type": "category_zero_spend_streak",
@@ -119,7 +157,7 @@ def _settle_streak_winner(mission_id, battle_id, winner_id, evidence, resolved_a
     with transaction.atomic():
         mission = (
             BattleMission.objects.select_for_update()
-            .select_related("battle", "template")
+            .select_related("battle", "battle__requester", "battle__opponent", "template")
             .get(id=mission_id, battle_id=battle_id)
         )
         if mission.status != BattleMission.Status.OPEN:
@@ -137,6 +175,13 @@ def _settle_streak_winner(mission_id, battle_id, winner_id, evidence, resolved_a
         participant.save(update_fields=["mission_won_count", "mission_bonus_score"])
 
         YuntaekBattle.objects.filter(id=battle_id).update(state_version=F("state_version") + 1)
+        transaction.on_commit(
+            lambda battle=mission.battle, mission=mission, winner_id=winner_id: notify_battle_mission_won(
+                battle,
+                mission,
+                winner_id,
+            )
+        )
 
     return True
 
@@ -186,6 +231,23 @@ def _process_open_streak_mission(mission, reference_date, evaluated_at, dry_run=
         category,
         first_full_day,
         reference_date,
+    )
+
+    _maybe_notify_streak_reset(
+        mission,
+        battle.requester,
+        requester_spend,
+        first_full_day,
+        reference_date,
+        dry_run=dry_run,
+    )
+    _maybe_notify_streak_reset(
+        mission,
+        battle.opponent,
+        opponent_spend,
+        first_full_day,
+        reference_date,
+        dry_run=dry_run,
     )
 
     requester_achievement = _find_streak_achievement(

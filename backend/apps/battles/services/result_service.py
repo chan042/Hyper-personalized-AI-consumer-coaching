@@ -7,6 +7,7 @@ from rest_framework.exceptions import NotFound
 
 from apps.battles.models import BattleParticipant, BattleProfile, BattleReward, YuntaekBattle
 from apps.battles.services.profile_service import get_battle_display_name
+from apps.battles.services.reward_service import grant_battle_reward
 from apps.notifications.models import Notification
 from apps.notifications.services import create_battle_notification
 from apps.users.services import (
@@ -176,15 +177,6 @@ def transition_ended_battles_to_waiting(now=None, limit=100):
     }
 
 
-def _grant_battle_reward(battle, user, reason, points):
-    BattleReward.objects.get_or_create(
-        battle=battle,
-        user=user,
-        reason=reason,
-        defaults={"points": points},
-    )
-
-
 def finalize_single_battle(battle_id, now=None):
     now = now or timezone.now()
 
@@ -244,14 +236,14 @@ def finalize_single_battle(battle_id, now=None):
             battle.status = YuntaekBattle.Status.DRAW
             battle.winner = None
             battle.is_draw = True
-            _grant_battle_reward(battle, battle.requester, BattleReward.Reason.BATTLE_DRAW, BATTLE_DRAW_POINTS)
-            _grant_battle_reward(battle, battle.opponent, BattleReward.Reason.BATTLE_DRAW, BATTLE_DRAW_POINTS)
+            grant_battle_reward(battle, battle.requester, BattleReward.Reason.BATTLE_DRAW, BATTLE_DRAW_POINTS)
+            grant_battle_reward(battle, battle.opponent, BattleReward.Reason.BATTLE_DRAW, BATTLE_DRAW_POINTS)
         else:
             winner = battle.requester if requester_participant.final_score > opponent_participant.final_score else battle.opponent
             battle.status = YuntaekBattle.Status.COMPLETED
             battle.winner = winner
             battle.is_draw = False
-            _grant_battle_reward(battle, winner, BattleReward.Reason.BATTLE_WIN, BATTLE_WIN_POINTS)
+            grant_battle_reward(battle, winner, BattleReward.Reason.BATTLE_WIN, BATTLE_WIN_POINTS)
 
         battle.save(
             update_fields=[
@@ -275,13 +267,13 @@ def finalize_single_battle(battle_id, now=None):
         )
 
         if had_delay_before:
-            _grant_battle_reward(
+            grant_battle_reward(
                 battle,
                 battle.requester,
                 BattleReward.Reason.BATTLE_DELAY_COMPENSATION,
                 BATTLE_DELAY_COMPENSATION_POINTS,
             )
-            _grant_battle_reward(
+            grant_battle_reward(
                 battle,
                 battle.opponent,
                 BattleReward.Reason.BATTLE_DELAY_COMPENSATION,
@@ -355,10 +347,6 @@ def _get_result_battle_for_user_or_404(user, battle_id):
 
 def get_battle_result(user, battle_id):
     battle = _get_result_battle_for_user_or_404(user, battle_id)
-
-    if battle.status == YuntaekBattle.Status.WAITING_FOR_SCORE:
-        finalize_single_battle(battle.id)
-        battle.refresh_from_db()
 
     if battle.status == YuntaekBattle.Status.WAITING_FOR_SCORE:
         return {

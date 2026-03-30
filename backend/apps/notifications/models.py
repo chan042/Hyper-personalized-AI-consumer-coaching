@@ -23,6 +23,9 @@ class Notification(models.Model):
         REQUEST_REJECTED = "BATTLE_REQUEST_REJECTED", "대결 신청 거절"
         REQUEST_CANCELED = "BATTLE_REQUEST_CANCELED", "대결 신청 취소"
         REQUEST_EXPIRED = "BATTLE_REQUEST_EXPIRED", "대결 신청 만료"
+        MISSION_WON = "BATTLE_MISSION_WON", "내 미션 선점"
+        OPPONENT_MISSION_WON = "BATTLE_OPPONENT_MISSION_WON", "상대 미션 선점"
+        STREAK_RESET = "BATTLE_STREAK_RESET", "무지출 연속 기록 리셋"
         RESULT_DELAYED = "BATTLE_RESULT_DELAYED", "대결 결과 지연"
         RESULT_COMPLETED = "BATTLE_RESULT_COMPLETED", "대결 결과 확정"
         DELAY_COMPENSATION_GRANTED = "BATTLE_DELAY_COMPENSATION_GRANTED", "지연 보상 지급"
@@ -74,6 +77,13 @@ class Notification(models.Model):
             return f"/challenge-battle/search?screen=request_received&battleId={battle_id}"
 
         if self.event_code == self.BattleEventCode.REQUEST_ACCEPTED:
+            return "/challenge-battle/progress"
+
+        if self.event_code in {
+            self.BattleEventCode.MISSION_WON,
+            self.BattleEventCode.OPPONENT_MISSION_WON,
+            self.BattleEventCode.STREAK_RESET,
+        }:
             return "/challenge-battle/progress"
 
         if self.event_code in {
