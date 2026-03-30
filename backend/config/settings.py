@@ -212,6 +212,21 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
+GOOGLE_OAUTH_ALLOWED_CLIENT_IDS = env_list('GOOGLE_OAUTH_CLIENT_IDS', '')
+GOOGLE_OAUTH_PRIMARY_CLIENT_ID = (
+    os.environ.get('GOOGLE_OAUTH_CLIENT_ID')
+    or (GOOGLE_OAUTH_ALLOWED_CLIENT_IDS[0] if GOOGLE_OAUTH_ALLOWED_CLIENT_IDS else None)
+)
+
+if (
+    GOOGLE_OAUTH_PRIMARY_CLIENT_ID
+    and GOOGLE_OAUTH_PRIMARY_CLIENT_ID not in GOOGLE_OAUTH_ALLOWED_CLIENT_IDS
+):
+    GOOGLE_OAUTH_ALLOWED_CLIENT_IDS = [
+        GOOGLE_OAUTH_PRIMARY_CLIENT_ID,
+        *GOOGLE_OAUTH_ALLOWED_CLIENT_IDS,
+    ]
+
 # Social Account 설정
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
@@ -223,7 +238,7 @@ SOCIALACCOUNT_PROVIDERS = {
             'access_type': 'online',
         },
         'APP': {
-            'client_id': os.environ.get('GOOGLE_OAUTH_CLIENT_ID'),
+            'client_id': GOOGLE_OAUTH_PRIMARY_CLIENT_ID,
             'secret': os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET'),
         }
     }

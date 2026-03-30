@@ -1,4 +1,5 @@
 from apps.battles.models import BattleMissionTemplate, YuntaekBattle
+from apps.challenges.models import ChallengeTemplate
 
 
 _TEMPLATE_REFERENCES = {
@@ -17,7 +18,7 @@ _TEMPLATE_REFERENCES = {
 }
 
 
-def _build_template_definitions():
+def build_battle_mission_template_definitions():
     return [
         {
             "category": YuntaekBattle.Category.ALTERNATIVE,
@@ -154,12 +155,48 @@ def _build_template_definitions():
     ]
 
 
+def _validate_challenge_template_dependencies(definitions):
+    template_code_to_name = {
+        definition["verification_config"].get("template_code"): definition["verification_config"].get("template_name")
+        for definition in definitions
+        if definition["verification_type"] == "challenge_template_complete"
+        and definition["verification_config"].get("template_code")
+    }
+    existing_codes = set(
+        ChallengeTemplate.objects.filter(code__in=template_code_to_name, is_active=True)
+        .values_list("code", flat=True)
+    )
+    missing_template_names = sorted(
+        name for code, name in template_code_to_name.items() if code not in existing_codes
+    )
+    if missing_template_names:
+        raise ValueError(
+            "배틀 미션 시드에 필요한 챌린지 템플릿이 없습니다: "
+            + ", ".join(missing_template_names)
+        )
+
+
+def _needs_dependency_refresh(template, definition):
+    if definition["verification_type"] != "challenge_template_complete":
+        return False
+
+    existing_config = template.verification_config or {}
+    desired_config = definition["verification_config"] or {}
+    return (
+        existing_config.get("template_code") != desired_config.get("template_code")
+        or existing_config.get("template_name") != desired_config.get("template_name")
+    )
+
+
 def seed_battle_mission_templates(force_update=False):
+    definitions = build_battle_mission_template_definitions()
+    _validate_challenge_template_dependencies(definitions)
+
     created = 0
     updated = 0
     skipped = 0
 
-    for definition in _build_template_definitions():
+    for definition in definitions:
         template, was_created = BattleMissionTemplate.objects.get_or_create(
             category=definition["category"],
             display_order=definition["display_order"],
@@ -176,7 +213,8 @@ def seed_battle_mission_templates(force_update=False):
             created += 1
             continue
 
-        if not force_update:
+        should_update = force_update or _needs_dependency_refresh(template, definition)
+        if not should_update:
             skipped += 1
             continue
 
@@ -210,3 +248,6 @@ def seed_battle_mission_templates(force_update=False):
         "updated": updated,
         "skipped": skipped,
     }
+
+
+_build_template_definitions = build_battle_mission_template_definitions

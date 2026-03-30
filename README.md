@@ -102,9 +102,20 @@ cd duduk-project
 GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL_COACHING=gemini-2.5-flash
 GEMINI_MODEL_ANALYSIS=gemini-2.5-flash
+GOOGLE_OAUTH_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_IDS=your-google-web-client-id.apps.googleusercontent.com
 ```
 
 `GEMINI_API_KEY` 대신 `GOOGLE_API_KEY`도 사용할 수 있습니다. 코칭/분석 키를 분리하려면 `GEMINI_API_KEY_COACHING`, `GEMINI_API_KEY_ANALYSIS`를 설정하면 됩니다.
+
+프론트엔드는 별도로 `frontend/.env.local`에 아래 값을 맞춰야 합니다.
+
+```env
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+`NEXT_PUBLIC_GOOGLE_CLIENT_ID`와 백엔드의 `GOOGLE_OAUTH_CLIENT_ID` 또는 `GOOGLE_OAUTH_CLIENT_IDS`는 같은 Google OAuth 프로젝트의 웹 클라이언트 ID여야 합니다.
 
 
 ### 3. 프로젝트 실행

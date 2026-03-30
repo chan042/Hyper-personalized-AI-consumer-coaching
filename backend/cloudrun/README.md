@@ -48,6 +48,18 @@ export ENV_VARS_FILE="/Users/chan/Project/duduk-project/backend/cloudrun/env.sta
 sh /Users/chan/Project/duduk-project/backend/cloudrun/deploy.sh
 ```
 
+By default, `deploy.sh` now also runs a post-deploy Cloud Run Job that executes:
+
+```bash
+python manage.py seed_reference_data --force-update
+```
+
+You can disable that behavior for a deploy with:
+
+```bash
+RUN_REFERENCE_SEED=0 sh /Users/chan/Project/duduk-project/backend/cloudrun/deploy.sh
+```
+
 ## Verify
 
 After deploy, open:
@@ -59,6 +71,32 @@ Expected response:
 ```json
 {"status":"ok","database":"ok"}
 ```
+
+## Seed reference data
+
+New Cloud SQL databases do not get challenge templates, shop items, or battle mission templates from `migrate` alone.
+`deploy.sh` runs the seed job automatically by default, but you can also run it manually:
+
+```bash
+export GCP_PROJECT_ID="your-gcp-project-id"
+export GCP_REGION="asia-northeast3"
+export CLOUD_SQL_INSTANCE="your-gcp-project-id:asia-northeast3:duduk-staging-db"
+export ENV_VARS_FILE="/Users/chan/Project/duduk-project/backend/cloudrun/env.staging.yaml"
+
+sh /Users/chan/Project/duduk-project/backend/cloudrun/seed_reference_data.sh
+```
+
+The job executes:
+
+```bash
+python manage.py seed_reference_data --force-update
+```
+
+Optional flags:
+
+- `SEED_REFERENCE_FORCE_UPDATE=0`: create-only mode
+- `SEED_REFERENCE_PRUNE_SHOP=1`: also remove shop items not present in the seed list
+- `RUN_REFERENCE_SEED=0`: skip the automatic post-deploy seed run
 
 ## After deploy
 

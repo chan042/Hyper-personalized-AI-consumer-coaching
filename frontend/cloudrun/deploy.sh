@@ -13,6 +13,18 @@ CLOUD_RUN_CPU=${CLOUD_RUN_CPU:-1}
 CLOUD_RUN_TIMEOUT=${CLOUD_RUN_TIMEOUT:-120}
 CLOUD_RUN_MIN_INSTANCES=${CLOUD_RUN_MIN_INSTANCES:-0}
 CLOUD_RUN_MAX_INSTANCES=${CLOUD_RUN_MAX_INSTANCES:-3}
+SKIP_FRONTEND_BUILD=${SKIP_FRONTEND_BUILD:-0}
+
+if [ "$SKIP_FRONTEND_BUILD" != "1" ]; then
+  echo "Building frontend static export into $FRONTEND_DIR/out ..."
+  cd "$FRONTEND_DIR"
+  npm run build:mobile
+fi
+
+if [ ! -d "$FRONTEND_DIR/out" ]; then
+  echo "Missing frontend/out. Build the static export before deploy." >&2
+  exit 1
+fi
 
 gcloud run deploy "$CLOUD_RUN_SERVICE" \
   --project "$GCP_PROJECT_ID" \

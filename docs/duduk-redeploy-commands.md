@@ -18,14 +18,10 @@
 - Google OAuth Client ID 변경
 - Kakao JS Key 변경
 
-### 1-1. 정적 빌드 다시 생성
+### 1-1. 프론트 Cloud Run 재배포
 
-```bash
-cd /Users/chan/Project/duduk-project/frontend
-npm run build:mobile
-```
-
-### 1-2. 프론트 Cloud Run 재배포
+`frontend/cloudrun/deploy.sh`는 배포 전에 `npm run build:mobile`을 먼저 실행해서 `frontend/out`을 항상 새로 만듭니다.
+이 단계가 빠지면 Cloud Run에는 이전 정적 번들이 그대로 올라갈 수 있습니다.
 
 ```bash
 cd /Users/chan/Project/duduk-project
@@ -36,7 +32,19 @@ CLOUD_RUN_SERVICE=duduk-web-staging \
 sh /Users/chan/Project/duduk-project/frontend/cloudrun/deploy.sh
 ```
 
-### 1-3. 배포 후 확인
+이미 최신 `frontend/out`이 있고 빌드를 건너뛰고 싶으면:
+
+```bash
+cd /Users/chan/Project/duduk-project
+SKIP_FRONTEND_BUILD=1 \
+CLOUDSDK_CORE_DISABLE_PROMPTS=1 \
+GCP_PROJECT_ID=duduk-300c \
+GCP_REGION=asia-northeast3 \
+CLOUD_RUN_SERVICE=duduk-web-staging \
+sh /Users/chan/Project/duduk-project/frontend/cloudrun/deploy.sh
+```
+
+### 1-2. 배포 후 확인
 
 - 메인 페이지: [https://duduk-web-staging-htj7x3xmnq-du.a.run.app](https://duduk-web-staging-htj7x3xmnq-du.a.run.app)
 - 로그인 페이지: [https://duduk-web-staging-htj7x3xmnq-du.a.run.app/login](https://duduk-web-staging-htj7x3xmnq-du.a.run.app/login)
@@ -63,9 +71,48 @@ ENV_VARS_FILE=/Users/chan/Project/duduk-project/backend/cloudrun/env.staging.yam
 sh /Users/chan/Project/duduk-project/backend/cloudrun/deploy.sh
 ```
 
+기본적으로 이 명령은 배포가 끝난 뒤 참조 데이터 시드 Job도 자동 실행합니다.
+자동 실행되는 관리 명령:
+
+```bash
+python manage.py seed_reference_data --force-update
+```
+
 ### 2-2. 배포 후 확인
 
 - 헬스체크: [https://duduk-api-staging-htj7x3xmnq-du.a.run.app/healthz/](https://duduk-api-staging-htj7x3xmnq-du.a.run.app/healthz/)
+
+### 2-3. 참조 데이터 시드 실행
+
+새 Cloud SQL이거나 참조 데이터 갱신이 필요한 경우:
+
+```bash
+cd /Users/chan/Project/duduk-project
+GCP_PROJECT_ID=duduk-300c \
+GCP_REGION=asia-northeast3 \
+CLOUD_SQL_INSTANCE=duduk-300c:asia-northeast3:duduk-staging-db \
+ENV_VARS_FILE=/Users/chan/Project/duduk-project/backend/cloudrun/env.staging.yaml \
+sh /Users/chan/Project/duduk-project/backend/cloudrun/seed_reference_data.sh
+```
+
+실행되는 관리 명령:
+
+```bash
+python manage.py seed_reference_data --force-update
+```
+
+자동 실행을 잠시 끄고 싶으면:
+
+```bash
+cd /Users/chan/Project/duduk-project
+RUN_REFERENCE_SEED=0 \
+GCP_PROJECT_ID=duduk-300c \
+GCP_REGION=asia-northeast3 \
+CLOUD_RUN_SERVICE=duduk-api-staging \
+CLOUD_SQL_INSTANCE=duduk-300c:asia-northeast3:duduk-staging-db \
+ENV_VARS_FILE=/Users/chan/Project/duduk-project/backend/cloudrun/env.staging.yaml \
+sh /Users/chan/Project/duduk-project/backend/cloudrun/deploy.sh
+```
 
 ## 3. 모바일 앱에 프론트 변경 반영
 
@@ -102,14 +149,14 @@ npx cap open android
 ### 화면이나 프론트 로직만 바뀐 경우
 
 1. `frontend/.env.production` 또는 프론트 코드 수정
-2. `npm run build:mobile`
-3. 프론트 Cloud Run 재배포
-4. 필요하면 `npx cap sync`
+2. 프론트 Cloud Run 재배포
+3. 필요하면 `npx cap sync`
 
 ### 백엔드 API만 바뀐 경우
 
 1. Django 코드 또는 `backend/cloudrun/env.staging.yaml` 수정
 2. 백엔드 Cloud Run 재배포
+3. 필요하면 `RUN_REFERENCE_SEED=0` 으로 자동 시드를 끄거나, 수동으로 `seed_reference_data.sh` 재실행
 
 ### 프론트 변경을 앱에도 반영해야 하는 경우
 

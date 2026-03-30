@@ -201,7 +201,10 @@ def _create_battle_participants_if_missing(battle):
 
 
 def _clone_battle_missions_if_missing(battle):
-    seed_battle_mission_templates()
+    try:
+        seed_battle_mission_templates()
+    except ValueError as exc:
+        raise BattleConflict("BATTLE_MISSION_TEMPLATE_NOT_FOUND", str(exc))
 
     templates = list(
         battle.__class__

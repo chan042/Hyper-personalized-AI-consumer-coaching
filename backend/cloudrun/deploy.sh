@@ -16,6 +16,10 @@ CLOUD_RUN_CPU=${CLOUD_RUN_CPU:-1}
 CLOUD_RUN_TIMEOUT=${CLOUD_RUN_TIMEOUT:-300}
 CLOUD_RUN_MIN_INSTANCES=${CLOUD_RUN_MIN_INSTANCES:-0}
 CLOUD_RUN_MAX_INSTANCES=${CLOUD_RUN_MAX_INSTANCES:-3}
+RUN_REFERENCE_SEED=${RUN_REFERENCE_SEED:-1}
+SEED_REFERENCE_FORCE_UPDATE=${SEED_REFERENCE_FORCE_UPDATE:-1}
+SEED_REFERENCE_PRUNE_SHOP=${SEED_REFERENCE_PRUNE_SHOP:-0}
+CLOUD_RUN_SEED_JOB=${CLOUD_RUN_SEED_JOB:-"${CLOUD_RUN_SERVICE}-seed"}
 
 if [ ! -f "$ENV_VARS_FILE" ]; then
   echo "Missing env vars file: $ENV_VARS_FILE" >&2
@@ -45,7 +49,40 @@ SERVICE_URL=$(
     --format='value(status.url)'
 )
 
+SERVICE_IMAGE=$(
+  gcloud run services describe "$CLOUD_RUN_SERVICE" \
+    --project "$GCP_PROJECT_ID" \
+    --region "$GCP_REGION" \
+    --format='value(spec.template.spec.containers[0].image)'
+)
+
+SERVICE_ACCOUNT=$(
+  gcloud run services describe "$CLOUD_RUN_SERVICE" \
+    --project "$GCP_PROJECT_ID" \
+    --region "$GCP_REGION" \
+    --format='value(spec.template.spec.serviceAccountName)'
+)
+
+if [ "$RUN_REFERENCE_SEED" = "1" ]; then
+  SEED_REFERENCE_ARGS="manage.py,seed_reference_data"
+  if [ "$SEED_REFERENCE_FORCE_UPDATE" = "1" ]; then
+    SEED_REFERENCE_ARGS="${SEED_REFERENCE_ARGS},--force-update"
+  fi
+  if [ "$SEED_REFERENCE_PRUNE_SHOP" = "1" ]; then
+    SEED_REFERENCE_ARGS="${SEED_REFERENCE_ARGS},--prune-shop"
+  fi
+
+  CLOUD_RUN_JOB="$CLOUD_RUN_SEED_JOB" \
+  CLOUD_RUN_IMAGE="$SERVICE_IMAGE" \
+  CLOUD_RUN_SERVICE_ACCOUNT="$SERVICE_ACCOUNT" \
+  SEED_REFERENCE_ARGS="$SEED_REFERENCE_ARGS" \
+  sh "$SCRIPT_DIR/seed_reference_data.sh"
+fi
+
 echo ""
 echo "Cloud Run service deployed."
 echo "Service URL: $SERVICE_URL"
 echo "Health check: ${SERVICE_URL}/healthz/"
+if [ "$RUN_REFERENCE_SEED" = "1" ]; then
+  echo "Reference data seed job: ${CLOUD_RUN_SEED_JOB}"
+fi

@@ -3,14 +3,17 @@
 - Google OAuth 인증 처리를 담당합니다.
 - Google ID 토큰을 검증하고 JWT 토큰을 발급합니다.
 """
+import logging
+
+import requests
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
 from django.contrib.auth import get_user_model
-import requests
-import os
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -38,9 +41,14 @@ class GoogleLoginView(APIView):
     """
     permission_classes = [permissions.AllowAny]
 
+    @staticmethod
+    def _get_allowed_google_client_ids():
+        return list(getattr(settings, 'GOOGLE_OAUTH_ALLOWED_CLIENT_IDS', []) or [])
+
     def post(self, request):
         access_token = request.data.get('access_token')
         credential = request.data.get('credential')
+        request_client_id = request.data.get('client_id')
 
         if not access_token and not credential:
             return Response(
@@ -64,17 +72,32 @@ class GoogleLoginView(APIView):
                     )
 
                 user_info = response.json()
-                expected_client_id = (
-                    settings.SOCIALACCOUNT_PROVIDERS
-                    .get('google', {})
-                    .get('APP', {})
-                    .get('client_id')
-                )
+                allowed_client_ids = self._get_allowed_google_client_ids()
+                token_audience = user_info.get('aud')
 
-                if expected_client_id and user_info.get('aud') != expected_client_id:
+                if allowed_client_ids and token_audience not in allowed_client_ids:
+                    logger.warning(
+                        'Rejected Google credential due to client ID mismatch. aud=%s requested_client_id=%s allowed_client_ids=%s',
+                        token_audience,
+                        request_client_id,
+                        allowed_client_ids,
+                    )
                     return Response(
-                        {'error': 'Google credential의 대상 클라이언트가 일치하지 않습니다.'},
+                        {
+                            'error': (
+                                'Google credential의 대상 클라이언트가 서버 설정과 일치하지 않습니다. '
+                                '프론트엔드의 NEXT_PUBLIC_GOOGLE_CLIENT_ID와 '
+                                '백엔드의 GOOGLE_OAUTH_CLIENT_ID 또는 GOOGLE_OAUTH_CLIENT_IDS를 '
+                                '같은 Google OAuth 프로젝트 값으로 맞춰주세요.'
+                            )
+                        },
                         status=status.HTTP_401_UNAUTHORIZED
+                    )
+                if request_client_id and token_audience and request_client_id != token_audience:
+                    logger.warning(
+                        'Google credential client ID mismatch between request payload and token audience. aud=%s requested_client_id=%s',
+                        token_audience,
+                        request_client_id,
                     )
             else:
                 # Google UserInfo API 호출하여 토큰 검증 및 사용자 정보 가져오기
