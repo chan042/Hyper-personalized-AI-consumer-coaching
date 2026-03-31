@@ -1,44 +1,214 @@
 """
-[파일 역할]
-- Google OAuth 인증 처리를 담당합니다.
-- Google ID 토큰을 검증하고 JWT 토큰을 발급합니다.
+OAuth login views for Google and Kakao.
 """
 import logging
 
 import requests
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status, permissions
-from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from rest_framework import permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from .models import SocialAccount
 
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
 
+class SocialAuthError(Exception):
+    def __init__(self, message, *, error_code=None, status_code=status.HTTP_400_BAD_REQUEST):
+        super().__init__(message)
+        self.message = message
+        self.error_code = error_code
+        self.status_code = status_code
+
+
+def _normalize_verified_flag(value, *, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() == 'true'
+    return bool(value)
+
+
+def _build_auth_response(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+        'user': {
+            'id': user.id,
+            'email': user.email,
+            'username': user.username,
+            'is_profile_complete': user.is_profile_complete,
+        },
+    }
+
+
+def _build_error_response(error):
+    payload = {'error': error.message}
+    if error.error_code:
+        payload['error_code'] = error.error_code
+    return Response(payload, status=error.status_code)
+
+
+def _provider_label(provider):
+    return {
+        'google': 'Google',
+        'kakao': '카카오',
+    }.get(provider, provider)
+
+
+def _sync_legacy_user_social_fields(user, provider, provider_user_id):
+    updated_fields = []
+
+    if user.auth_provider == 'email':
+        user.auth_provider = provider
+        updated_fields.append('auth_provider')
+
+    if not user.social_id:
+        user.social_id = str(provider_user_id)
+        updated_fields.append('social_id')
+
+    if updated_fields:
+        user.save(update_fields=updated_fields)
+
+
+def _upsert_social_account(user, profile):
+    provider = profile['provider']
+    provider_user_id = str(profile['provider_user_id'])
+
+    linked_account = SocialAccount.objects.filter(
+        provider=provider,
+        provider_user_id=provider_user_id,
+    ).select_related('user').first()
+    if linked_account:
+        if linked_account.user_id != user.id:
+            raise SocialAuthError(
+                f'이미 다른 Duduk 계정에 연결된 {_provider_label(provider)} 계정입니다.',
+                error_code='SOCIAL_ACCOUNT_ALREADY_LINKED',
+                status_code=status.HTTP_409_CONFLICT,
+            )
+        social_account = linked_account
+    else:
+        social_account = SocialAccount.objects.filter(user=user, provider=provider).first()
+        if social_account and social_account.provider_user_id != provider_user_id:
+            raise SocialAuthError(
+                f'이미 다른 {_provider_label(provider)} 계정이 연결되어 있습니다.',
+                error_code='SOCIAL_ACCOUNT_ALREADY_LINKED',
+                status_code=status.HTTP_409_CONFLICT,
+            )
+
+        if not social_account:
+            social_account = SocialAccount(user=user, provider=provider, provider_user_id=provider_user_id)
+
+    social_account.email = profile.get('email')
+    social_account.email_verified = profile.get('email_verified', False)
+    social_account.display_name = profile.get('display_name', '')
+    social_account.profile_image_url = profile.get('profile_image_url', '')
+    social_account.raw_profile = profile.get('raw_profile', {})
+    social_account.last_login_at = timezone.now()
+    social_account.save()
+
+    _sync_legacy_user_social_fields(user, provider, provider_user_id)
+    return social_account
+
+
+def _resolve_social_user(profile):
+    provider = profile['provider']
+    provider_user_id = str(profile['provider_user_id'])
+    email = profile.get('email')
+    display_name = profile.get('display_name')
+
+    if not provider_user_id:
+        raise SocialAuthError(
+            '소셜 로그인 식별자 정보가 없습니다.',
+            error_code='SOCIAL_ID_REQUIRED',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not email:
+        raise SocialAuthError(
+            '이메일 정보를 가져올 수 없습니다.',
+            error_code='SOCIAL_EMAIL_REQUIRED',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    social_account = SocialAccount.objects.filter(
+        provider=provider,
+        provider_user_id=provider_user_id,
+    ).select_related('user').first()
+    if social_account:
+        social_account.email = email
+        social_account.email_verified = profile.get('email_verified', False)
+        social_account.display_name = display_name or social_account.display_name
+        social_account.profile_image_url = profile.get('profile_image_url', '')
+        social_account.raw_profile = profile.get('raw_profile', {})
+        social_account.last_login_at = timezone.now()
+        social_account.save()
+
+        _sync_legacy_user_social_fields(social_account.user, provider, provider_user_id)
+        return social_account.user
+
+    user = User.objects.filter(email=email).first()
+    if not user:
+        user = User.objects.create(
+            email=email,
+            username=display_name or email.split('@')[0],
+            auth_provider=provider,
+            social_id=provider_user_id,
+        )
+    elif not user.username and display_name:
+        user.username = display_name
+        user.save(update_fields=['username'])
+
+    _upsert_social_account(user, profile)
+    return user
+
+
+def _build_google_profile(user_info):
+    email = user_info.get('email')
+    return {
+        'provider': SocialAccount.Provider.GOOGLE,
+        'provider_user_id': user_info.get('sub'),
+        'email': email,
+        'email_verified': _normalize_verified_flag(user_info.get('email_verified'), default=True),
+        'display_name': user_info.get('name') or (email.split('@')[0] if email else 'google-user'),
+        'profile_image_url': user_info.get('picture', ''),
+        'raw_profile': user_info,
+    }
+
+
+def _build_kakao_profile(user_info):
+    kakao_account = user_info.get('kakao_account') or {}
+    profile = kakao_account.get('profile') or {}
+    email = kakao_account.get('email')
+
+    return {
+        'provider': SocialAccount.Provider.KAKAO,
+        'provider_user_id': user_info.get('id'),
+        'email': email,
+        'email_verified': (
+            _normalize_verified_flag(kakao_account.get('is_email_valid'))
+            and _normalize_verified_flag(kakao_account.get('is_email_verified'))
+        ),
+        'display_name': profile.get('nickname') or (email.split('@')[0] if email else 'kakao-user'),
+        'profile_image_url': (
+            profile.get('profile_image_url')
+            or profile.get('thumbnail_image_url')
+            or ''
+        ),
+        'raw_profile': user_info,
+    }
+
+
 class GoogleLoginView(APIView):
-    """
-    Google OAuth 로그인 API
-    POST /api/users/auth/google/
-    
-    요청 본문:
-    {
-        "credential": "Google ID Token"
-    }
-    
-    응답:
-    {
-        "access": "JWT Access Token",
-        "refresh": "JWT Refresh Token",
-        "user": {
-            "id": 1,
-            "email": "user@example.com",
-            "username": "사용자명"
-        }
-    }
-    """
     permission_classes = [permissions.AllowAny]
 
     @staticmethod
@@ -53,22 +223,21 @@ class GoogleLoginView(APIView):
         if not access_token and not credential:
             return Response(
                 {'error': 'access_token 또는 credential이 필요합니다.'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
             if credential:
-                token_info_url = "https://oauth2.googleapis.com/tokeninfo"
                 response = requests.get(
-                    token_info_url,
+                    'https://oauth2.googleapis.com/tokeninfo',
                     params={'id_token': credential},
                     timeout=10,
                 )
 
                 if not response.ok:
                     return Response(
-                        {'error': '유효하지 않은 구글 credential입니다.'},
-                        status=status.HTTP_401_UNAUTHORIZED
+                        {'error': '유효하지 않은 Google credential입니다.'},
+                        status=status.HTTP_401_UNAUTHORIZED,
                     )
 
                 user_info = response.json()
@@ -85,14 +254,15 @@ class GoogleLoginView(APIView):
                     return Response(
                         {
                             'error': (
-                                'Google credential의 대상 클라이언트가 서버 설정과 일치하지 않습니다. '
+                                'Google credential의 클라이언트 ID가 서버 설정과 일치하지 않습니다. '
                                 '프론트엔드의 NEXT_PUBLIC_GOOGLE_CLIENT_ID와 '
                                 '백엔드의 GOOGLE_OAUTH_CLIENT_ID 또는 GOOGLE_OAUTH_CLIENT_IDS를 '
                                 '같은 Google OAuth 프로젝트 값으로 맞춰주세요.'
                             )
                         },
-                        status=status.HTTP_401_UNAUTHORIZED
+                        status=status.HTTP_401_UNAUTHORIZED,
                     )
+
                 if request_client_id and token_audience and request_client_id != token_audience:
                     logger.warning(
                         'Google credential client ID mismatch between request payload and token audience. aud=%s requested_client_id=%s',
@@ -100,65 +270,147 @@ class GoogleLoginView(APIView):
                         request_client_id,
                     )
             else:
-                # Google UserInfo API 호출하여 토큰 검증 및 사용자 정보 가져오기
-                user_info_url = "https://www.googleapis.com/oauth2/v3/userinfo"
                 response = requests.get(
-                    user_info_url,
+                    'https://www.googleapis.com/oauth2/v3/userinfo',
                     params={'access_token': access_token},
                     timeout=10,
                 )
 
                 if not response.ok:
                     return Response(
-                        {'error': '유효하지 않은 구글 토큰입니다.'},
-                        status=status.HTTP_401_UNAUTHORIZED
+                        {'error': '유효하지 않은 Google 토큰입니다.'},
+                        status=status.HTTP_401_UNAUTHORIZED,
                     )
 
                 user_info = response.json()
 
-            email = user_info.get('email')
-            google_id = user_info.get('sub')
-            name = user_info.get('name', email.split('@')[0]) if email else "Unknown"
-
-            if not email:
-                return Response(
-                    {'error': '이메일 정보를 가져올 수 없습니다.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # 사용자 조회 또는 생성
-            user, created = User.objects.get_or_create(
-                email=email,
-                defaults={
-                    'username': name,
-                    'auth_provider': 'google',
-                    'social_id': google_id,
-                }
+            user = _resolve_social_user(_build_google_profile(user_info))
+            return Response(_build_auth_response(user), status=status.HTTP_200_OK)
+        except SocialAuthError as error:
+            return _build_error_response(error)
+        except Exception as exc:
+            logger.exception('Google login failed')
+            return Response(
+                {'error': f'로그인 처리 중 오류가 발생했습니다: {exc}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-            # 기존 사용자인 경우 OAuth 정보 업데이트
-            if not created:
-                if user.auth_provider != 'google':
-                    user.auth_provider = 'google'
-                    user.social_id = google_id
-                    user.save()
 
-            # JWT 토큰 생성
-            refresh = RefreshToken.for_user(user)
+class KakaoLoginView(APIView):
+    permission_classes = [permissions.AllowAny]
 
-            return Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'username': user.username,
-                    'is_profile_complete': user.is_profile_complete
-                }
-            }, status=status.HTTP_200_OK)
+    def post(self, request):
+        code = request.data.get('code')
+        redirect_uri = request.data.get('redirect_uri')
 
-        except Exception as e:
+        if not code:
             return Response(
-                {'error': f'로그인 처리 중 오류가 발생했습니다: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': '인가 코드(code)가 필요합니다.', 'error_code': 'SOCIAL_CODE_MISSING'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not redirect_uri:
+            return Response(
+                {'error': 'redirect_uri가 필요합니다.', 'error_code': 'SOCIAL_REDIRECT_URI_MISSING'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        kakao_rest_api_key = getattr(settings, 'KAKAO_REST_API_KEY', None)
+        kakao_client_secret = getattr(settings, 'KAKAO_CLIENT_SECRET', None)
+        if not kakao_rest_api_key:
+            return Response(
+                {
+                    'error': '서버에 KAKAO_REST_API_KEY가 설정되지 않았습니다.',
+                    'error_code': 'SOCIAL_PROVIDER_NOT_CONFIGURED',
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        try:
+            token_response = requests.post(
+                'https://kauth.kakao.com/oauth/token',
+                data={
+                    'grant_type': 'authorization_code',
+                    'client_id': kakao_rest_api_key,
+                    'redirect_uri': redirect_uri,
+                    'code': code,
+                    **({'client_secret': kakao_client_secret} if kakao_client_secret else {}),
+                },
+                headers={
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+                },
+                timeout=10,
+            )
+
+            if not token_response.ok:
+                logger.warning(
+                    'Kakao token exchange failed: status=%s body=%s',
+                    token_response.status_code,
+                    token_response.text,
+                )
+                raise SocialAuthError(
+                    '카카오 토큰 교환에 실패했습니다.',
+                    error_code='SOCIAL_TOKEN_EXCHANGE_FAILED',
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                )
+
+            access_token = token_response.json().get('access_token')
+            if not access_token:
+                raise SocialAuthError(
+                    '카카오 액세스 토큰을 받지 못했습니다.',
+                    error_code='SOCIAL_TOKEN_EXCHANGE_FAILED',
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                )
+
+            profile_response = requests.get(
+                'https://kapi.kakao.com/v2/user/me',
+                headers={'Authorization': f'Bearer {access_token}'},
+                timeout=10,
+            )
+
+            if not profile_response.ok:
+                logger.warning(
+                    'Kakao profile fetch failed: status=%s body=%s',
+                    profile_response.status_code,
+                    profile_response.text,
+                )
+                raise SocialAuthError(
+                    '카카오 사용자 정보 조회에 실패했습니다.',
+                    error_code='SOCIAL_PROFILE_FETCH_FAILED',
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                )
+
+            profile = _build_kakao_profile(profile_response.json())
+            if not profile['email']:
+                raise SocialAuthError(
+                    '카카오 계정에서 이메일 정보를 가져올 수 없습니다. 동의 항목에서 이메일 제공을 활성화해주세요.',
+                    error_code='SOCIAL_EMAIL_REQUIRED',
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not profile['email_verified']:
+                raise SocialAuthError(
+                    '카카오 이메일이 유효하지 않거나 인증되지 않았습니다.',
+                    error_code='SOCIAL_EMAIL_NOT_VERIFIED',
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user = _resolve_social_user(profile)
+            return Response(_build_auth_response(user), status=status.HTTP_200_OK)
+        except SocialAuthError as error:
+            return _build_error_response(error)
+        except requests.RequestException:
+            logger.exception('Kakao provider request failed')
+            return Response(
+                {
+                    'error': '카카오 로그인 서버와 통신 중 오류가 발생했습니다.',
+                    'error_code': 'SOCIAL_PROVIDER_REQUEST_FAILED',
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except Exception as exc:
+            logger.exception('Kakao login failed')
+            return Response(
+                {'error': f'로그인 처리 중 오류가 발생했습니다: {exc}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
