@@ -235,9 +235,6 @@ export const getProgressPercent = (progress) => {
         if (progress.percentage !== undefined && progress.percentage !== null) {
             return Number(progress.percentage) || 0;
         }
-        if (progress.current !== undefined && progress.target > 0) {
-            return (progress.current / progress.target) * 100;
-        }
         return 0;
     }
     return 0;
@@ -308,7 +305,7 @@ export const getProgressData = (progress) => {
     if (typeof progress === 'number') return { percentage: progress, type: 'amount' };
     if (typeof progress === 'object') {
         return {
-            percentage: progress.percentage || 0,
+            percentage: progress.percentage ?? 0,
             type: progress.type || 'amount',
             // amount, compare, random_budget
             current: progress.current,

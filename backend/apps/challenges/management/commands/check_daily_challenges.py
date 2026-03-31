@@ -15,7 +15,6 @@ from django.utils import timezone
 from apps.challenges.models import UserChallenge
 from apps.challenges.signals import _update_challenge_progress
 from apps.challenges.constants import (
-    CONVENIENCE_STORE_KEYWORDS,
     CONDITION_TYPE_DAILY_CHECK,
     CONDITION_TYPE_AMOUNT_LIMIT_WITH_PHOTO,
     CONDITION_TYPE_PHOTO_VERIFICATION,
@@ -33,25 +32,8 @@ from apps.challenges.services.daily_check_sync import (
 )
 from apps.challenges.services.finalization import finalize_expired_challenge
 from apps.challenges.services.lifecycle import get_challenge_end_date, get_challenge_start_date
+from apps.challenges.services.verification_helpers import count_verified_photos, sum_convenience_spending
 from apps.notifications.services import create_challenge_notification
-
-
-def _contains_convenience_store_keyword(text: str) -> bool:
-    lowered = (text or "").lower()
-    return any(keyword in lowered for keyword in CONVENIENCE_STORE_KEYWORDS)
-
-
-def _count_verified_photos(log) -> int:
-    return sum(1 for photo in (log.photo_urls or []) if photo.get("verified", False))
-
-
-def _sum_convenience_spending(log) -> int:
-    spent_by_store = (log.condition_detail or {}).get("spent_by_store", {})
-    convenience_spent = 0
-    for store_name, amount in spent_by_store.items():
-        if _contains_convenience_store_keyword(store_name):
-            convenience_spent += amount
-    return convenience_spent
 
 
 class Command(BaseCommand):
@@ -114,7 +96,7 @@ class Command(BaseCommand):
             # 1) 거래가 없던 날도 progress가 갱신되도록 일괄 업데이트
             start_date = get_challenge_start_date(uc)
             if start_date and start_date <= today and not dry_run:
-                _update_challenge_progress(uc)
+                _update_challenge_progress(uc, reference=today)
 
             if uc.status != "active":
                 continue
@@ -200,7 +182,7 @@ class Command(BaseCommand):
             return False
 
         log = user_challenge.daily_logs.filter(log_date=check_date).first()
-        if not log or _count_verified_photos(log) == 0:
+        if not log or count_verified_photos(log) == 0:
             if not dry_run:
                 user_challenge.complete_challenge(
                     False,
@@ -225,8 +207,8 @@ class Command(BaseCommand):
         if not log:
             return False
 
-        convenience_spent = _sum_convenience_spending(log)
-        if convenience_spent > 0 and _count_verified_photos(log) == 0:
+        convenience_spent = sum_convenience_spending(log)
+        if convenience_spent > 0 and count_verified_photos(log) == 0:
             if not dry_run:
                 user_challenge.complete_challenge(
                     False,

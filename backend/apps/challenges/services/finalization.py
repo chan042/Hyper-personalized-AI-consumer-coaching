@@ -9,6 +9,7 @@ from apps.challenges.services.daily_check_sync import (
     sync_daily_check_logs_from_confirmations,
 )
 from apps.challenges.services.failure_reason import infer_failure_reason
+from apps.challenges.services.progress import merge_elapsed_day_progress
 from apps.challenges.services.lifecycle import (
     get_challenge_end_date,
     get_challenge_start_date,
@@ -39,7 +40,7 @@ def finalize_expired_challenge(user_challenge, reference=None, dry_run=False):
             ensure_daily_check_logs(user_challenge, end_date)
             sync_daily_check_logs_from_confirmations(user_challenge, start_date, end_date)
 
-    _update_challenge_progress(user_challenge)
+    _update_challenge_progress(user_challenge, reference=reference)
 
     if user_challenge.status != "active":
         return True
@@ -58,15 +59,22 @@ def activate_started_ready_challenges_for_user(user, reference=None, dry_run=Fal
     today = resolve_reference_date(reference)
     ready_challenges = UserChallenge.objects.filter(user=user, status="ready").select_related("user")
 
-    ready_ids = [
-        user_challenge.pk
+    ready_to_activate = [
+        user_challenge
         for user_challenge in ready_challenges
         if has_challenge_started(user_challenge, today)
     ]
-    if ready_ids and not dry_run:
-        UserChallenge.objects.filter(pk__in=ready_ids).update(status="active")
+    if ready_to_activate and not dry_run:
+        for user_challenge in ready_to_activate:
+            user_challenge.status = "active"
+            user_challenge.progress = merge_elapsed_day_progress(
+                user_challenge.progress or {},
+                user_challenge,
+                reference=today,
+            )
+            user_challenge.save(update_fields=["status", "progress", "updated_at"])
 
-    return len(ready_ids)
+    return len(ready_to_activate)
 
 
 def finalize_expired_challenges_for_user(user, reference=None, dry_run=False):

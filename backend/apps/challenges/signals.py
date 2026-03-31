@@ -3,6 +3,8 @@
 - 챌린지 유형별 즉시 실패 판정
 - 성공 여부 평가
 """
+import logging
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -12,7 +14,6 @@ from calendar import monthrange
 from apps.transactions.models import Transaction
 from .models import UserChallenge, ChallengeDailyLog
 from .constants import (
-    CONVENIENCE_STORE_KEYWORDS,
     CONDITION_TYPE_AMOUNT_LIMIT,
     CONDITION_TYPE_ZERO_SPEND,
     CONDITION_TYPE_COMPARE,
@@ -36,7 +37,6 @@ from .services.failure_reason import (
     reason_one_plus_one_photo_missing,
     reason_amount_range_exceeded,
     reason_daily_rule_violation,
-    reason_random_budget_exceeded,
 )
 from .services.finalization import refresh_user_challenge_states
 from .services.lifecycle import (
@@ -45,22 +45,24 @@ from .services.lifecycle import (
     is_challenge_expired,
     resolve_reference_date,
 )
+from .services.progress import (
+    get_elapsed_challenge_days,
+    merge_elapsed_day_progress,
+)
+from .services.verification_helpers import (
+    contains_convenience_store_keyword,
+    count_verified_photos,
+    sum_convenience_spending,
+)
 
-
-def _contains_convenience_store_keyword(text: str) -> bool:
-    lowered = (text or "").lower()
-    return any(keyword in lowered for keyword in CONVENIENCE_STORE_KEYWORDS)
+logger = logging.getLogger(__name__)
 
 
 def _normalize_target_categories(categories):
     return list(categories) if categories else []
 
 
-def _count_verified_photos(log: ChallengeDailyLog) -> int:
-    return sum(1 for photo in (log.photo_urls or []) if photo.get("verified", False))
-
-
-def _iter_elapsed_dates(user_challenge):
+def _iter_elapsed_dates(user_challenge, reference=None):
     """
     챌린지 시작일부터 현재(또는 종료일)까지의 날짜를 순회.
     """
@@ -68,7 +70,7 @@ def _iter_elapsed_dates(user_challenge):
     if not start_date:
         return []
 
-    today = resolve_reference_date(timezone.now())
+    today = resolve_reference_date(reference or timezone.now())
     end_bound = get_challenge_end_date(user_challenge) or today
     end_date = min(today, end_bound)
     if end_date < start_date:
@@ -80,15 +82,6 @@ def _iter_elapsed_dates(user_challenge):
         dates.append(cursor)
         cursor += timedelta(days=1)
     return dates
-
-
-def _sum_convenience_spending(log: ChallengeDailyLog) -> int:
-    spent_by_store = (log.condition_detail or {}).get("spent_by_store", {})
-    convenience_spent = 0
-    for store_name, amount in spent_by_store.items():
-        if _contains_convenience_store_keyword(store_name):
-            convenience_spent += amount
-    return convenience_spent
 
 
 def _should_track_transaction(user_challenge, transaction):
@@ -194,12 +187,12 @@ def _update_daily_log(user_challenge, log_date, category, amount, store=None):
     log.save()
 
 
-def _update_challenge_progress(user_challenge, transaction_date=None, category=None, amount=None):
+def _update_challenge_progress(user_challenge, transaction_date=None, category=None, amount=None, reference=None):
     """챌린지 progress 업데이트"""
     display_config = user_challenge.display_config or {}
     progress_type = display_config.get('progress_type', 'amount')
     success_conditions = user_challenge.success_conditions or {}
-    condition_type = success_conditions.get('type', CONDITION_TYPE_AMOUNT_LIMIT)
+    progress_reference = reference or transaction_date or timezone.now()
 
     # 전체 지출 합계
     total_spent = user_challenge.daily_logs.aggregate(
@@ -207,22 +200,30 @@ def _update_challenge_progress(user_challenge, transaction_date=None, category=N
     )['total'] or 0
 
     if progress_type == 'amount':
-        _update_amount_progress(user_challenge, total_spent, success_conditions)
+        progress = _update_amount_progress(user_challenge, total_spent, success_conditions)
     elif progress_type == 'zero_spend':
-        _update_zero_spend_progress(user_challenge, total_spent, success_conditions)
+        progress = _update_zero_spend_progress(user_challenge, total_spent, success_conditions)
     elif progress_type == 'compare':
-        _update_compare_progress(user_challenge, total_spent, success_conditions)
+        progress = _update_compare_progress(user_challenge, total_spent, success_conditions, reference=progress_reference)
     elif progress_type == 'daily_check':
-        _update_daily_check_progress(user_challenge)
+        progress = _update_daily_check_progress(user_challenge, reference=progress_reference)
     elif progress_type == 'daily_rule':
-        _update_daily_rule_progress(user_challenge, success_conditions)
+        progress = _update_daily_rule_progress(user_challenge, success_conditions, reference=progress_reference)
     elif progress_type == 'photo':
-        _update_photo_progress(user_challenge, success_conditions)
+        progress = _update_photo_progress(user_challenge, success_conditions)
     elif progress_type == 'random_budget':
-        _update_random_budget_progress(user_challenge, total_spent, success_conditions)
+        progress = _update_random_budget_progress(user_challenge, total_spent)
     else:
         # 기본: amount 타입으로 처리
-        _update_amount_progress(user_challenge, total_spent, success_conditions)
+        progress = _update_amount_progress(user_challenge, total_spent, success_conditions)
+
+    user_challenge.update_progress(
+        merge_elapsed_day_progress(
+            progress,
+            user_challenge,
+            reference=progress_reference,
+        )
+    )
 
 
 def _update_amount_progress(user_challenge, total_spent, success_conditions):
@@ -230,11 +231,9 @@ def _update_amount_progress(user_challenge, total_spent, success_conditions):
     target = int(success_conditions.get('target_amount', 0))
     
     if target > 0:
-        percentage = round((total_spent / target) * 100, 1)
         remaining = max(0, target - total_spent)
         is_on_track = total_spent <= target
     else:
-        percentage = 0 if total_spent == 0 else 100
         remaining = 0
         is_on_track = total_spent == 0
     
@@ -242,7 +241,6 @@ def _update_amount_progress(user_challenge, total_spent, success_conditions):
         "type": "amount",
         "current": total_spent,
         "target": target,
-        "percentage": min(100, percentage),
         "is_on_track": is_on_track,
         "remaining": remaining
     }
@@ -252,7 +250,7 @@ def _update_amount_progress(user_challenge, total_spent, success_conditions):
         progress['lower_limit'] = int(target * (1 - tolerance_percent / 100))
         progress['upper_limit'] = int(target * (1 + tolerance_percent / 100))
     
-    user_challenge.update_progress(progress)
+    return progress
 
 
 def _update_zero_spend_progress(user_challenge, total_spent, success_conditions):
@@ -270,10 +268,6 @@ def _update_zero_spend_progress(user_challenge, total_spent, success_conditions)
     else:
         violation_amount = total_spent
 
-    elapsed_days = len(_iter_elapsed_dates(user_challenge))
-    total_days = user_challenge.duration_days or 0
-    percentage = round((elapsed_days / total_days) * 100, 1) if total_days > 0 else 0
-    
     progress = {
         "type": "zero_spend",
         "current": violation_amount,
@@ -281,41 +275,33 @@ def _update_zero_spend_progress(user_challenge, total_spent, success_conditions)
         "is_violated": violation_amount > 0,
         "violation_amount": violation_amount,
         "is_on_track": violation_amount == 0,
-        "elapsed_days": elapsed_days,
-        "total_days": total_days,
-        "percentage": min(100, percentage),
+        "total_days": user_challenge.duration_days or 0,
     }
     
-    user_challenge.update_progress(progress)
+    return progress
 
 
-def _update_compare_progress(user_challenge, total_spent, success_conditions):
+def _update_compare_progress(user_challenge, total_spent, success_conditions, reference=None):
     """compare 타입 progress 업데이트"""
     compare_type = success_conditions.get('compare_type', '')
     if compare_type == COMPARE_TYPE_NEXT_MONTH_CATEGORY:
-        progress = _build_future_compare_progress(user_challenge, success_conditions)
-        user_challenge.update_progress(progress)
-        return
+        return _build_future_compare_progress(user_challenge, success_conditions, reference=reference)
 
     compare_base = int(success_conditions.get('compare_base', 0))
     compare_label = success_conditions.get('compare_label', '비교 기준')
     
     difference = total_spent - compare_base
-    percentage = round((total_spent / compare_base) * 100, 1) if compare_base > 0 else 0
     is_on_track = total_spent < compare_base
     
-    progress = {
+    return {
         "type": "compare",
         "current": total_spent,
         "compare_base": compare_base,
         "target": compare_base,
         "compare_label": compare_label,
         "difference": difference,
-        "percentage": percentage,
         "is_on_track": is_on_track
     }
-    
-    user_challenge.update_progress(progress)
 
 
 def _month_bounds(year: int, month: int):
@@ -330,14 +316,14 @@ def _next_month(year: int, month: int):
     return year, month + 1
 
 
-def _build_future_compare_progress(user_challenge, success_conditions):
+def _build_future_compare_progress(user_challenge, success_conditions, reference=None):
     """
     미래의 나에게:
     - 시작 달: 이번 달 카테고리 지출 누적 표시
     - 다음 달: 다음 달/이번 달(기준) 비교 표시
     """
     target_category = user_challenge.user_input_values.get('target_category', '')
-    now = timezone.localdate()
+    now = resolve_reference_date(reference or timezone.now())
     start_date = get_challenge_start_date(user_challenge) or now
     start_year, start_month = start_date.year, start_date.month
     next_year, next_month = _next_month(start_year, start_month)
@@ -377,7 +363,6 @@ def _build_future_compare_progress(user_challenge, success_conditions):
     compare_base = this_month_final if phase == 'next_month' else this_month_spent
     current = next_month_spent if phase == 'next_month' else this_month_spent
     difference = current - compare_base
-    percentage = round((current / compare_base) * 100, 1) if compare_base > 0 else 0
 
     if phase == 'next_month':
         is_on_track = current <= compare_base
@@ -396,7 +381,6 @@ def _build_future_compare_progress(user_challenge, success_conditions):
         "compare_base": compare_base,
         "compare_label": "이번 달 대비",
         "difference": difference,
-        "percentage": percentage,
         "is_on_track": is_on_track,
         "this_month_spent": this_month_final if phase == 'next_month' else this_month_spent,
         "next_month_spent": next_month_spent,
@@ -407,7 +391,7 @@ def _build_future_compare_progress(user_challenge, success_conditions):
     }
 
 
-def _update_daily_check_progress(user_challenge):
+def _update_daily_check_progress(user_challenge, reference=None):
     """daily_check 타입 progress 업데이트"""
     checked_count = 0
     daily_status = []
@@ -425,25 +409,19 @@ def _update_daily_check_progress(user_challenge):
             "amount": log.spent_amount
         })
 
-    elapsed_days = len(_iter_elapsed_dates(user_challenge))
+    elapsed_days = get_elapsed_challenge_days(user_challenge, reference=reference)
     total_days = user_challenge.duration_days
-    denominator = max(1, min(total_days, elapsed_days)) if total_days > 0 else 1
-    percentage = round((checked_count / denominator) * 100, 1) if denominator > 0 else 0
     
-    progress = {
+    return {
         "type": "daily_check",
         "checked_days": checked_count,
         "total_days": total_days,
-        "elapsed_days": elapsed_days,
-        "percentage": min(100, percentage),
         "daily_status": daily_status,
         "is_on_track": checked_count >= elapsed_days
     }
-    
-    user_challenge.update_progress(progress)
 
 
-def _update_daily_rule_progress(user_challenge, success_conditions):
+def _update_daily_rule_progress(user_challenge, success_conditions, reference=None):
     """daily_rule 타입 progress 업데이트 (무00의 날)"""
     rules = success_conditions.get('daily_rules', {})
 
@@ -457,7 +435,7 @@ def _update_daily_rule_progress(user_challenge, success_conditions):
         for log in user_challenge.daily_logs.all()
     }
 
-    for current_date in _iter_elapsed_dates(user_challenge):
+    for current_date in _iter_elapsed_dates(user_challenge, reference=reference):
         weekday = current_date.strftime('%a').lower()
         forbidden_category = rules.get(weekday)
         if forbidden_category:
@@ -479,20 +457,15 @@ def _update_daily_rule_progress(user_challenge, success_conditions):
                 "passed": passed
             })
 
-    percentage = round((passed_days / total_days) * 100, 1) if total_days > 0 else 0
-
-    progress = {
+    return {
         "type": "daily_rule",
         "daily_status": daily_status,
         "passed_days": passed_days,
         "total_days": total_days,
-        "percentage": min(100, percentage),
         "is_on_track": not has_violation,
         "has_violation": has_violation,
         "daily_rules": rules,
     }
-
-    user_challenge.update_progress(progress)
 
 
 def _check_auto_judgement(user_challenge, transaction_date=None, category=None, amount=None, store=None):
@@ -615,7 +588,7 @@ def _check_photo_verification_failure(user_challenge, progress, success_conditio
     photo_condition = success_conditions.get('photo_condition', '')
     if '1+1' in photo_condition:
         # 편의점 지출이 있으면 당일 사진 인증 체크
-        if _contains_convenience_store_keyword(store or ""):
+        if contains_convenience_store_keyword(store or ""):
             _check_one_plus_one_failure(user_challenge, transaction_date)
 
 
@@ -644,19 +617,6 @@ def _check_daily_rule_failure(user_challenge, progress, success_conditions, tran
             failure_reason=reason_daily_rule_violation(),
         )
 
-
-def _check_random_budget_failure(user_challenge, progress, success_conditions, transaction_date=None, category=None, store=None):
-    """random_budget 타입 즉시 실패 체크 (예: 두근두근 데스게임)"""
-    random_budget = user_challenge.system_generated_values.get('random_budget', 0)
-    if random_budget:
-        random_budget = int(random_budget)
-        current = progress.get('current', 0)
-        if current > random_budget:
-            user_challenge.complete_challenge(
-                False,
-                current,
-                failure_reason=reason_random_budget_exceeded(random_budget, current),
-            )
 
 
 def _check_custom_failure(user_challenge, progress, success_conditions, transaction_date=None, category=None, store=None):
@@ -710,7 +670,7 @@ def _check_photo_missing_failure(user_challenge, current_date):
         date_iter = start_date
         while date_iter <= yesterday:
             log = user_challenge.daily_logs.filter(log_date=date_iter).first()
-            if not log or _count_verified_photos(log) == 0:
+            if not log or count_verified_photos(log) == 0:
                 user_challenge.complete_challenge(
                     False,
                     user_challenge.progress.get('current', 0),
@@ -733,10 +693,10 @@ def _check_one_plus_one_failure(user_challenge, transaction_date):
 
     if yesterday >= start_date:
         for log in user_challenge.daily_logs.filter(log_date__gte=start_date, log_date__lte=yesterday):
-            convenience_spent = _sum_convenience_spending(log)
+            convenience_spent = sum_convenience_spending(log)
             if convenience_spent > 0:
                 # 편의점 지출이 있는데 사진 인증이 없으면 실패
-                if _count_verified_photos(log) == 0:
+                if count_verified_photos(log) == 0:
                     user_challenge.complete_challenge(
                         False,
                         user_challenge.progress.get('current', 0),
@@ -761,59 +721,39 @@ def _update_photo_progress(user_challenge, success_conditions):
                 "verified": True
             })
 
-    photo_condition = success_conditions.get('photo_condition', '')
     mode = user_challenge.photo_frequency or 'once'
     required_count = success_conditions.get('required_photos', 1)
 
     if user_challenge.photo_frequency == 'daily':
         required_count = user_challenge.duration_days
-        percentage = round((total_photos / required_count) * 100, 1) if required_count > 0 else 0
-    elif '중고 거래' in photo_condition:
-        elapsed_days = len(_iter_elapsed_dates(user_challenge))
-        total_days = user_challenge.duration_days or 1
-        percentage = round((elapsed_days / total_days) * 100, 1)
     elif user_challenge.photo_frequency == 'on_purchase':
         convenience_days = 0
         for log in user_challenge.daily_logs.all():
-            if _sum_convenience_spending(log) > 0:
+            if sum_convenience_spending(log) > 0:
                 convenience_days += 1
         required_count = convenience_days
-        if required_count > 0:
-            percentage = round((total_photos / required_count) * 100, 1)
-        else:
-            percentage = 0
-    else:
-        percentage = round((total_photos / required_count) * 100, 1) if required_count > 0 else 0
 
-    progress = {
+    return {
         "type": "photo",
         "photo_count": total_photos,
         "required_count": required_count,
-        "percentage": min(100, percentage),
         "photos": photos,
         "is_on_track": (total_photos > 0) or (mode == 'on_purchase' and required_count == 0),
         "mode": mode,
     }
 
-    user_challenge.update_progress(progress)
 
-
-def _update_random_budget_progress(user_challenge, total_spent, success_conditions):
+def _update_random_budget_progress(user_challenge, total_spent):
     """random_budget 타입 progress 업데이트 (두근두근 데스게임)"""
-    import random
-
-    # 랜덤 예산이 없으면 생성
     random_budget = user_challenge.system_generated_values.get('random_budget')
     if not random_budget:
-        # 30,000 ~ 100,000 범위의 랜덤 예산 생성
-        random_budget = random.randint(30000, 100000)
-        system_values = user_challenge.system_generated_values or {}
-        system_values['random_budget'] = random_budget
-        user_challenge.system_generated_values = system_values
-        user_challenge.save(update_fields=['system_generated_values'])
+        logger.warning(
+            "random_budget not set for challenge id=%s; skipping progress update",
+            user_challenge.id,
+        )
+        return user_challenge.progress or {}
 
     random_budget = int(random_budget)
-    percentage = round((total_spent / random_budget) * 100, 1) if random_budget > 0 else 0
     remaining = max(0, random_budget - total_spent)
     is_on_track = total_spent <= random_budget
 
@@ -830,11 +770,10 @@ def _update_random_budget_progress(user_challenge, total_spent, success_conditio
     difference_percent = abs(random_budget - total_spent) / random_budget * 100 if random_budget > 0 else 100
     jackpot_eligible = difference_percent <= 5
 
-    progress = {
+    return {
         "type": "random_budget",
         "current": total_spent,
         "target": random_budget,
-        "percentage": min(100, percentage),
         "is_on_track": is_on_track,
         "remaining": remaining,
         "potential_points": potential_points,
@@ -842,8 +781,6 @@ def _update_random_budget_progress(user_challenge, total_spent, success_conditio
         "difference_percent": round(difference_percent, 1),
         "mask_target": user_challenge.status == 'active',
     }
-
-    user_challenge.update_progress(progress)
 
 
 def _evaluate_success(user_challenge, progress, success_conditions):
@@ -884,7 +821,7 @@ def _evaluate_success(user_challenge, progress, success_conditions):
         date_iter = start_date
         while date_iter <= end_date:
             log = user_challenge.daily_logs.filter(log_date=date_iter).first()
-            if not log or _count_verified_photos(log) == 0:
+            if not log or count_verified_photos(log) == 0:
                 return False
             date_iter += timedelta(days=1)
         return True
@@ -901,7 +838,7 @@ def _evaluate_success(user_challenge, progress, success_conditions):
         photo_condition = success_conditions.get('photo_condition', '')
         if '1+1' in photo_condition:
             for log in user_challenge.daily_logs.all():
-                if _sum_convenience_spending(log) > 0 and _count_verified_photos(log) == 0:
+                if sum_convenience_spending(log) > 0 and count_verified_photos(log) == 0:
                     return False
             return True
         required_count = success_conditions.get('required_photos', 1)

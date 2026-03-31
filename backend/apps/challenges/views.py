@@ -25,7 +25,7 @@ from .services.restart import restart_user_challenge
 from .constants import (
     CONDITION_TYPE_PHOTO_VERIFICATION,
 )
-from .signals import _evaluate_success, _update_photo_progress
+from .signals import _evaluate_success, _update_challenge_progress
 from .serializers import (
     ChallengeTemplateSerializer, ChallengeTemplateListSerializer,
     UserChallengeSerializer, UserChallengeListSerializer,
@@ -418,6 +418,8 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         user_challenge.started_at = start_at
         user_challenge.ends_at = start_at + timedelta(days=user_challenge.duration_days - 1)
         user_challenge.save()
+        if user_challenge.status == 'active':
+            _update_challenge_progress(user_challenge, reference=start_at)
         
         return Response(
             UserChallengeSerializer(user_challenge).data,
@@ -577,7 +579,7 @@ class UserChallengeViewSet(viewsets.ModelViewSet):
         
         success_conditions = user_challenge.success_conditions or {}
         # progress 업데이트
-        _update_photo_progress(user_challenge, success_conditions)
+        _update_challenge_progress(user_challenge)
 
         # photo_verification + once 타입은 즉시 완료 처리
         if success_conditions.get('type') == CONDITION_TYPE_PHOTO_VERIFICATION and user_challenge.photo_frequency in (None, 'once'):

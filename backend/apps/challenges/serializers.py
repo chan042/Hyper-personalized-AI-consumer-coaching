@@ -28,7 +28,7 @@ from .constants import (
     COMPARE_TYPE_NEXT_MONTH_CATEGORY,
 )
 from .services.lifecycle import resolve_challenge_start_at
-from .services.progress_factory import build_initial_progress_for_template
+from .services.progress import build_initial_progress, build_initial_progress_for_template
 
 
 def _get_last_month_bounds(reference_dt=None):
@@ -372,6 +372,10 @@ class UserChallengeCreateSerializer(serializers.Serializer):
             is_current_attempt=True,
             status=initial_status,
         )
+        if initial_status == 'active':
+            from .signals import _update_challenge_progress
+
+            _update_challenge_progress(user_challenge, reference=start_at)
 
         return user_challenge
 
@@ -650,25 +654,14 @@ class BaseChallengeStartSerializer(serializers.Serializer):
             "show_progress_bar": True,
         }
 
-    def _build_initial_progress(self, target_amount):
+    def _build_initial_progress(self, target_amount, success_conditions=None):
         """초기 progress 생성"""
-        if target_amount:
-            return {
-                "type": "amount",
-                "current": 0,
-                "target": target_amount,
-                "percentage": 0,
-                "is_on_track": True,
-                "remaining": target_amount
-            }
-        else:
-            return {
-                "type": "custom",
-                "current": 0,
-                "percentage": 0,
-                "is_on_track": True,
-                "checked_conditions": []
-            }
+        progress_type = "amount" if target_amount else "custom"
+        return build_initial_progress(
+            progress_type=progress_type,
+            duration_days=0,
+            success_conditions=success_conditions or {},
+        )
 
     def _create_user_challenge(
         self,
@@ -691,7 +684,7 @@ class BaseChallengeStartSerializer(serializers.Serializer):
             target_amount, target_categories, target_keywords, success_conditions_list, condition_type
         )
         display_config = self._build_display_config(target_amount)
-        progress = self._build_initial_progress(target_amount)
+        progress = self._build_initial_progress(target_amount, success_conditions=success_conditions)
         success_description = success_conditions_list
 
         user_challenge = UserChallenge.objects.create(

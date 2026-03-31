@@ -8,6 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 from apps.challenges.services.failure_reason import infer_failure_reason
 from apps.challenges.services.lifecycle import get_remaining_days
+from apps.challenges.services.progress import merge_elapsed_day_progress
 from apps.challenges.services.safe_formula import FormulaEvaluationError, evaluate_formula
 
 
@@ -302,6 +303,12 @@ class UserChallenge(models.Model):
                 locked.daily_logs.all().delete()
 
             locked._handle_completion_side_effects(is_success)
+            locked.progress = merge_elapsed_day_progress(
+                locked.progress or {},
+                locked,
+                reference=locked.completed_at,
+                force_percentage=100 if is_success else None,
+            )
 
             if not is_success and not notify_reason:
                 notify_reason = infer_failure_reason(locked, final_spent=locked.final_spent)

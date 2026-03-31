@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from apps.challenges.models import UserChallenge
 from apps.challenges.services.lifecycle import resolve_challenge_start_at
-from apps.challenges.services.progress_factory import build_initial_progress_for_user_challenge
+from apps.challenges.services.progress import build_initial_progress_for_user_challenge
 
 
 def restart_user_challenge(*, source_challenge, request, user_input_values=None):
@@ -106,4 +106,8 @@ def _restart_same_spec_challenge(*, source_challenge):
     source_challenge.save(update_fields=["is_current_attempt", "updated_at"])
 
     restart_challenge.save()
+    if restart_challenge.status == "active":
+        from apps.challenges.signals import _update_challenge_progress
+
+        _update_challenge_progress(restart_challenge, reference=start_at)
     return restart_challenge
