@@ -1,5 +1,6 @@
 import client from './client';
-import { fileToBase64, getImageFormat, validateImageFile } from '../utils/imageUtils';
+import { extractApiErrorMessage } from './helpers';
+import { prepareImagePayload } from '../utils/imageUtils';
 
 const IMAGE_MATCH_MOCK_SETTING = process.env.NEXT_PUBLIC_IMAGE_MATCH_MOCK;
 const USE_IMAGE_MATCH_MOCK =
@@ -9,22 +10,16 @@ const mockSessions = new Map();
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const getTodayString = () => {
-    return new Date().toISOString().slice(0, 10);
+const formatLocalDateYYYYMMDD = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
 };
 
-const getFriendlyErrorMessage = (error, fallbackMessage) => {
-    const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout');
-
-    if (isTimeout) {
-        return '이미지 분석 서버가 바쁩니다. 잠시 후 다시 시도해주세요.';
-    }
-
-    if (error.response?.status === 404) {
-        return '이미지 매칭 API가 아직 준비되지 않았습니다.';
-    }
-
-    return error.response?.data?.error || fallbackMessage;
+const getTodayString = () => {
+    return formatLocalDateYYYYMMDD();
 };
 
 const createMockSessionId = () => {
@@ -108,11 +103,6 @@ const resolvePriceMock = async ({ sessionId, confirmedStoreName }) => {
 export const isImageMatchMockMode = USE_IMAGE_MATCH_MOCK;
 
 export const analyzeStoreFromImage = async ({ imageFile, menuName }) => {
-    const validation = validateImageFile(imageFile, 10);
-    if (!validation.valid) {
-        throw new Error(validation.error);
-    }
-
     if (!menuName?.trim()) {
         throw new Error('메뉴명을 입력해주세요.');
     }
@@ -122,8 +112,7 @@ export const analyzeStoreFromImage = async ({ imageFile, menuName }) => {
     }
 
     try {
-        const imageData = await fileToBase64(imageFile);
-        const format = getImageFormat(imageFile);
+        const { imageData, format } = await prepareImagePayload(imageFile, 10);
 
         const response = await client.post(
             '/api/transactions/image-match/analyze-store/',
@@ -140,7 +129,12 @@ export const analyzeStoreFromImage = async ({ imageFile, menuName }) => {
         return response.data;
     } catch (error) {
         console.error('이미지 매칭 가게 분석 오류:', error);
-        throw new Error(getFriendlyErrorMessage(error, '이미지 분석에 실패했습니다. 다시 시도해주세요.'));
+        throw new Error(extractApiErrorMessage(error, '이미지 분석에 실패했습니다. 다시 시도해주세요.', {
+            timeoutMessage: '이미지 분석 서버가 바쁩니다. 잠시 후 다시 시도해주세요.',
+            statusMessages: {
+                404: '이미지 매칭 API가 아직 준비되지 않았습니다.',
+            },
+        }));
     }
 };
 
@@ -176,6 +170,11 @@ export const resolveImageMatchPrice = async ({ sessionId, confirmedStoreName, co
         return response.data;
     } catch (error) {
         console.error('이미지 매칭 가격 검색 오류:', error);
-        throw new Error(getFriendlyErrorMessage(error, '가격 검색에 실패했습니다. 다시 시도해주세요.'));
+        throw new Error(extractApiErrorMessage(error, '가격 검색에 실패했습니다. 다시 시도해주세요.', {
+            timeoutMessage: '이미지 분석 서버가 바쁩니다. 잠시 후 다시 시도해주세요.',
+            statusMessages: {
+                404: '이미지 매칭 API가 아직 준비되지 않았습니다.',
+            },
+        }));
     }
 };

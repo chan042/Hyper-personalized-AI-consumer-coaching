@@ -3,7 +3,8 @@
  * 이미지를 백엔드 OCR API로 전송하여 지출 정보 추출
  */
 import client from './client';
-import { fileToBase64, getImageFormat, validateImageFile } from '../utils/imageUtils';
+import { extractApiErrorMessage } from './helpers';
+import { prepareImagePayload } from '../utils/imageUtils';
 
 /**
  * 영수증 이미지를 OCR 분석하여 지출 정보 추출
@@ -11,16 +12,8 @@ import { fileToBase64, getImageFormat, validateImageFile } from '../utils/imageU
  * @returns {Promise<Object>} 파싱된 지출 정보
  */
 export const scanReceipt = async (imageFile) => {
-    // 파일 유효성 검사
-    const validation = validateImageFile(imageFile, 10);
-    if (!validation.valid) {
-        throw new Error(validation.error);
-    }
-
     try {
-        // 이미지를 Base64로 변환
-        const imageData = await fileToBase64(imageFile);
-        const format = getImageFormat(imageFile);
+        const { imageData, format } = await prepareImagePayload(imageFile, 10);
 
         const response = await client.post('/api/transactions/ocr/', {
             imageData,
@@ -30,10 +23,6 @@ export const scanReceipt = async (imageFile) => {
         return response.data.data;
     } catch (error) {
         console.error('OCR 스캔 오류:', error);
-        // axios 에러인 경우 서버 응답 메시지 추출
-        if (error.response?.data?.error) {
-            throw new Error(error.response.data.error);
-        }
-        throw error;
+        throw new Error(extractApiErrorMessage(error, '영수증 분석에 실패했습니다. 다시 시도해주세요.'));
     }
 };

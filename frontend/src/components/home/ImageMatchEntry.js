@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Camera, ImagePlus, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { canUseNativeImagePrompt, pickImageWithPrompt } from '@/lib/capacitor/camera';
 
 export default function ImageMatchEntry({
     previewUrl,
@@ -12,11 +14,37 @@ export default function ImageMatchEntry({
     disabled = false,
     isAnalyzing = false,
 }) {
+    const { isNativeApp } = useAuth();
     const fileInputRef = useRef(null);
+    const [isPickingImage, setIsPickingImage] = useState(false);
+    const isBusy = disabled || isPickingImage;
     const isReady = Boolean(previewUrl && menuName.trim());
 
-    const handleTriggerFileSelect = () => {
-        if (!disabled) {
+    const handleTriggerFileSelect = async () => {
+        if (isBusy) {
+            return;
+        }
+
+        if (isNativeApp && canUseNativeImagePrompt()) {
+            setIsPickingImage(true);
+
+            try {
+                const file = await pickImageWithPrompt();
+
+                if (file && onImageSelect) {
+                    onImageSelect(file);
+                }
+            } catch (error) {
+                console.error('네이티브 이미지 선택 실패:', error);
+                alert('이미지를 불러오지 못했습니다. 다시 시도해주세요.');
+            } finally {
+                setIsPickingImage(false);
+            }
+
+            return;
+        }
+
+        if (fileInputRef.current) {
             fileInputRef.current?.click();
         }
     };
@@ -38,17 +66,17 @@ export default function ImageMatchEntry({
                 capture="environment"
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
-                disabled={disabled}
+                disabled={isBusy}
             />
 
             <button
                 type="button"
                 onClick={handleTriggerFileSelect}
-                disabled={disabled}
+                disabled={isBusy}
                 style={{
                     ...styles.previewButton,
-                    cursor: disabled ? 'not-allowed' : 'pointer',
-                    opacity: disabled ? 0.7 : 1,
+                    cursor: isBusy ? 'not-allowed' : 'pointer',
+                    opacity: isBusy ? 0.7 : 1,
                 }}
             >
                 {previewUrl ? (
@@ -83,18 +111,18 @@ export default function ImageMatchEntry({
                     onChange={(event) => onMenuNameChange(event.target.value)}
                     placeholder="주문하신 메뉴를 입력해주세요"
                     style={styles.input}
-                    disabled={disabled}
+                    disabled={isBusy}
                 />
             </div>
 
             <button
                 type="button"
                 onClick={onAnalyze}
-                disabled={!isReady || disabled || isAnalyzing}
+                disabled={!isReady || isBusy || isAnalyzing}
                 style={{
                     ...styles.primaryButton,
-                    opacity: !isReady || disabled || isAnalyzing ? 0.55 : 1,
-                    cursor: !isReady || disabled || isAnalyzing ? 'not-allowed' : 'pointer',
+                    opacity: !isReady || isBusy || isAnalyzing ? 0.55 : 1,
+                    cursor: !isReady || isBusy || isAnalyzing ? 'not-allowed' : 'pointer',
                 }}
             >
                 {isAnalyzing ? (
@@ -124,7 +152,6 @@ const styles = {
         borderRadius: '28px',
         backgroundColor: '#ffffff',
         padding: '0.75rem',
-        boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
         overflow: 'hidden',
     },
     previewImage: {
@@ -157,20 +184,15 @@ const styles = {
         gap: '1rem',
         minHeight: '260px',
         borderRadius: '22px',
-        backgroundColor: '#f8fafc',
+        backgroundColor: '#ffffff',
         border: '1px dashed rgba(20, 184, 166, 0.26)',
         padding: '1.5rem',
         textAlign: 'center',
     },
     emptyIconShell: {
-        width: '72px',
-        height: '72px',
-        borderRadius: '50%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(20, 184, 166, 0.12)',
-        boxShadow: '0 12px 24px rgba(20, 184, 166, 0.12)',
     },
     emptyCopy: {
         display: 'flex',
@@ -214,7 +236,6 @@ const styles = {
         color: '#ffffff',
         fontSize: '1.05rem',
         fontWeight: '800',
-        boxShadow: '0 14px 30px rgba(20, 184, 166, 0.22)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

@@ -4,7 +4,6 @@ import { Loader2 } from 'lucide-react';
 
 export default function ImageMatchStoreConfirm({
     previewUrl,
-    menuName,
     storeName,
     manualStoreName,
     showManualStoreInput,
@@ -43,10 +42,20 @@ export default function ImageMatchStoreConfirm({
                 </>
             )}
 
-            <div style={styles.menuPill}>{menuName}</div>
-
             {!showManualStoreInput && storeName && (
                 <div style={styles.buttonRow}>
+                    <button
+                        type="button"
+                        onClick={onReject}
+                        disabled={disabled || isResolving}
+                        style={{
+                            ...styles.secondaryButton,
+                            opacity: disabled || isResolving ? 0.6 : 1,
+                            cursor: disabled || isResolving ? 'not-allowed' : 'pointer',
+                        }}
+                    >
+                        아니요
+                    </button>
                     <button
                         type="button"
                         onClick={onConfirm}
@@ -66,18 +75,6 @@ export default function ImageMatchStoreConfirm({
                             '네'
                         )}
                     </button>
-                    <button
-                        type="button"
-                        onClick={onReject}
-                        disabled={disabled || isResolving}
-                        style={{
-                            ...styles.secondaryButton,
-                            opacity: disabled || isResolving ? 0.6 : 1,
-                            cursor: disabled || isResolving ? 'not-allowed' : 'pointer',
-                        }}
-                    >
-                        아니요
-                    </button>
                 </div>
             )}
 
@@ -87,7 +84,7 @@ export default function ImageMatchStoreConfirm({
                         type="text"
                         value={manualStoreName}
                         onChange={(event) => onManualStoreNameChange(event.target.value)}
-                        placeholder="가게명을 입력해주세요"
+                        placeholder="직접 가게명 입력하여 분석하기"
                         style={styles.manualInput}
                         disabled={disabled}
                     />
@@ -128,7 +125,6 @@ const styles = {
         padding: '0.75rem',
         borderRadius: '28px',
         backgroundColor: '#ffffff',
-        boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
     },
     previewImage: {
         width: '100%',
@@ -158,18 +154,6 @@ const styles = {
         letterSpacing: '-0.03em',
         wordBreak: 'keep-all',
     },
-    menuPill: {
-        width: '100%',
-        minHeight: '56px',
-        borderRadius: '18px',
-        backgroundColor: '#eef2f6',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 1rem',
-        fontSize: '1rem',
-        fontWeight: '700',
-        color: '#475569',
-    },
     buttonRow: {
         display: 'flex',
         gap: '0.75rem',
@@ -183,7 +167,6 @@ const styles = {
         color: '#ffffff',
         fontSize: '1.05rem',
         fontWeight: '800',
-        boxShadow: '0 14px 30px rgba(20, 184, 166, 0.22)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -198,7 +181,6 @@ const styles = {
         color: '#ffffff',
         fontSize: '1.05rem',
         fontWeight: '800',
-        boxShadow: '0 14px 30px rgba(20, 184, 166, 0.22)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

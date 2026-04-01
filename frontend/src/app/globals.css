@@ -175,6 +175,20 @@ button {
   }
 }
 
+@keyframes sheet-slide-up {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* ===== 공통 유틸리티 클래스 ===== */
 
 .glass-card {

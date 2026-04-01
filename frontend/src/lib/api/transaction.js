@@ -1,4 +1,5 @@
 import client from './client';
+import { extractApiErrorMessage } from './helpers';
 
 export const parseTransaction = async (text) => {
     try {
@@ -6,7 +7,13 @@ export const parseTransaction = async (text) => {
         return response.data;
     } catch (error) {
         console.error('Parse Error:', error);
-        throw error;
+        throw new Error(extractApiErrorMessage(error, '분석에 실패했습니다. 다시 시도해주세요.', {
+            timeoutMessage: 'AI 분석 서버가 바쁩니다. 잠시 후 다시 시도해주세요.',
+            statusMessages: {
+                500: 'AI 분석 서버가 바쁩니다. 잠시 후 다시 시도해주세요.',
+                503: 'AI 분석 서버가 바쁩니다. 잠시 후 다시 시도해주세요.',
+            },
+        }));
     }
 };
 
@@ -16,7 +23,7 @@ export const createTransaction = async (data) => {
         return response.data;
     } catch (error) {
         console.error('Create Error:', error);
-        throw error;
+        throw new Error(extractApiErrorMessage(error, '저장에 실패했습니다.'));
     }
 };
 

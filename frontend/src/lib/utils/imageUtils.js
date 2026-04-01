@@ -66,3 +66,24 @@ export const validateImageFile = (file, maxSizeMB = 10) => {
 
     return { valid: true };
 };
+
+/**
+ * 이미지 업로드 payload 준비
+ * @param {File} file - 이미지 파일
+ * @param {number} maxSizeMB - 최대 파일 크기 (MB)
+ * @returns {Promise<{imageData: string, format: string}>}
+ */
+export const prepareImagePayload = async (file, maxSizeMB = 10) => {
+    const validation = validateImageFile(file, maxSizeMB);
+    if (!validation.valid) {
+        throw new Error(validation.error);
+    }
+
+    const imageData = await fileToBase64(file);
+    const format = getImageFormat(file);
+
+    return {
+        imageData,
+        format,
+    };
+};
