@@ -15,6 +15,9 @@ backend/venv/
 backend/cloudrun/env.staging.yaml
 docs/duduk-mobile-cloudrun-handover.private.md
 
+# Celery
+backend/celerybeat-schedule
+
 # Node/Next.js
 node_modules/
 .next/
