@@ -3,7 +3,7 @@
 
 
 // 외부 라이브러리 및 아이콘 임포트
-import { Edit2, ChevronRight, Search, MapPin, Calendar, Check, X } from 'lucide-react';
+import { Edit2, MapPin, Calendar, Check, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 import CalculatorInput from '../common/CalculatorInput';       // 금액 계산기 모달
@@ -60,7 +60,7 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate, 
     // --------------------------------------------------------------------------------
 
     // 폼 입력 상태
-    const [amount, setAmount] = useState(initialData?.amount || 0);           // 금액
+    const [amount, setAmount] = useState(initialData?.amount ?? null);        // 금액
     const [category, setCategory] = useState(initialData?.category || '카페/간식'); // 카테고리
     const [item, setItem] = useState(initialData?.item || '');                 // 상품명
     const [store, setStore] = useState(initialData?.store || '');              // 소비처
@@ -84,32 +84,11 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate, 
     // 2. Helper Functions & Effects
     // --------------------------------------------------------------------------------
 
-    // 초기 검색어 결정 로직
-    const getInitialSearchQuery = () => {
-        // 1. 보정된 장소명(placeName)이 있다면 최우선 사용 (화면 표시 텍스트와 검색어 일치)
-        // 예: 사용자가 "구로 할리스" 입력 -> placeName="구로 할리스" -> 검색창에도 "구로 할리스" 표시
-        if (location.placeName) {
-            return location.placeName;
-        }
-
-        // 2. AI가 주소를 추출 + 소비처가 있는 경우: 주소 + 소비처 조합
-        if (location.address && store) {
-            return `${location.address} ${store}`;
-        }
-
-        // 3. 마지막 수단: 소비처 또는 주소
-        return store || location.address;
-    };
-
-
-
-
-
     // useEffect - 초기 데이터 동기화
     // AI 분석이 완료되어 initialData가 변경되면 폼 상태를 업데이트
     useEffect(() => {
         if (initialData) {
-            setAmount(initialData.amount || 0);
+            setAmount(initialData.amount ?? null);
             setCategory(initialData.category || '카페/간식');
             setItem(initialData.item || '');
             setStore(initialData.store || '');
@@ -136,6 +115,28 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate, 
         return CATEGORY_COLORS[normalized] || '#f59e0b';
     };
 
+    const hasValidAmount = typeof amount === 'number' && amount > 0;
+
+    const handleSaveClick = () => {
+        if (!hasValidAmount) {
+            alert('금액을 입력해주세요.');
+            setShowCalculator(true);
+            return;
+        }
+
+        onSave({
+            amount,
+            category,
+            item,
+            store,
+            date: rawDate.toISOString(),
+            is_fixed: isRecurring,
+            address: location.placeName && location.address
+                ? `${location.placeName} | ${location.address}`
+                : (location.placeName || location.address)
+        });
+    };
+
     // 렌더링
     return (
         <div style={{ paddingBottom: '1rem' }}>
@@ -157,10 +158,24 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate, 
                 <span style={{
                     fontSize: '1.75rem',
                     fontWeight: '800',
-                    color: 'var(--text-main)'
-                }}>₩{amount.toLocaleString()}</span>
+                    color: hasValidAmount ? 'var(--text-main)' : 'var(--primary)'
+                }}>
+                    {hasValidAmount ? `₩${amount.toLocaleString()}` : '금액을 입력해주세요'}
+                </span>
                 <Edit2 size={18} color="var(--text-sub)" />
             </div>
+
+            {!hasValidAmount && (
+                <p style={{
+                    marginTop: '-1rem',
+                    marginBottom: '1.25rem',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-sub)',
+                    lineHeight: 1.5
+                }}>
+                    이미지에서 가격을 찾지 못했어요. 탭해서 금액을 직접 입력해주세요.
+                </p>
+            )}
 
             {/* ----------------------------------------
                 섹션 2: 카테고리 & 날짜 선택 버튼 (가로 배치)
@@ -480,17 +495,7 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate, 
                 - 클릭 시 onSave 콜백 호출하여 데이터 저장
             ---------------------------------------- */}
             <button
-                onClick={() => onSave({
-                    amount,
-                    category,
-                    item,
-                    store,
-                    date: rawDate.toISOString(),
-                    is_fixed: isRecurring,
-                    address: location.placeName && location.address
-                        ? `${location.placeName} | ${location.address}`
-                        : (location.placeName || location.address)
-                })}
+                onClick={handleSaveClick}
                 style={{
                     width: '100%',
                     padding: '1rem',
@@ -501,7 +506,8 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate, 
                     fontSize: '1.1rem',
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    boxShadow: '0 4px 6px rgba(47, 133, 90, 0.2)'
+                    boxShadow: '0 4px 6px rgba(47, 133, 90, 0.2)',
+                    opacity: hasValidAmount ? 1 : 0.7
                 }}
             >
                 저장
@@ -516,7 +522,7 @@ export default function TransactionConfirm({ initialData, onSave, selectedDate, 
             <CalculatorInput
                 isOpen={showCalculator}
                 onClose={() => setShowCalculator(false)}
-                initialValue={amount}
+                initialValue={amount ?? 0}
                 onConfirm={(newAmount) => setAmount(newAmount)}
             />
 
