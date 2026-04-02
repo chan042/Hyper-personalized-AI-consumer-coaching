@@ -80,19 +80,22 @@ function getMissionStatusText(mission, myName) {
 
 
 function getMissionAccentColor(mission, myName) {
-    if (mission.status === "DRAW") {
-        return "var(--text-sub)";
-    }
-
     if (mission.status === "WON" && mission.winner_name === myName) {
         return "var(--primary)";
     }
 
-    if (mission.status === "WON") {
-        return "#d97706";
+    return "var(--text-guide)";
+}
+
+
+function getMissionCardStyle(mission, myName) {
+    if (mission.status === "WON" && mission.winner_name === myName) {
+        return {
+            borderColor: "var(--primary)",
+        };
     }
 
-    return "var(--text-guide)";
+    return {};
 }
 
 
@@ -366,18 +369,22 @@ function BattleResultPageContent() {
                     <h3 style={styles.sectionSubTitle}>미션 결과</h3>
                     <div style={styles.missionList}>
                         {resultData.missions.map((mission) => (
-                            <div key={mission.id} style={styles.missionRow}>
+                            <div
+                                key={mission.id}
+                                style={{
+                                    ...styles.missionRow,
+                                    ...getMissionCardStyle(mission, myName),
+                                }}
+                            >
                                 <span style={styles.missionTitle}>{mission.title}</span>
-                                <div style={styles.missionRight}>
-                                    <span
-                                        style={{
-                                            ...styles.missionWinnerName,
-                                            color: getMissionAccentColor(mission, myName),
-                                        }}
-                                    >
-                                        {getMissionStatusText(mission, myName)}
-                                    </span>
-                                </div>
+                                <span
+                                    style={{
+                                        ...styles.missionWinnerName,
+                                        color: getMissionAccentColor(mission, myName),
+                                    }}
+                                >
+                                    {getMissionStatusText(mission, myName)}
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -817,30 +824,27 @@ const styles = {
     },
     missionRow: {
         display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: "0.45rem",
         background: "white",
-        border: "1px solid #e2e8f0",
+        border: "1.6px solid #e2e8f0",
         borderRadius: "10px",
-        padding: "0.9rem 1rem",
-    },
-    missionRight: {
-        display: "flex",
-        alignItems: "center",
-        gap: "0.5rem",
-        flexShrink: 0,
+        padding: "0.95rem 1rem",
     },
     missionTitle: {
-        flex: 1,
+        width: "100%",
         fontSize: "0.9rem",
         fontWeight: "600",
         color: "var(--text-main)",
+        lineHeight: 1.45,
+        wordBreak: "keep-all",
     },
     missionWinnerName: {
-        fontSize: "0.8rem",
+        fontSize: "0.83rem",
         fontWeight: "600",
-        textAlign: "right",
-        flexShrink: 0,
+        lineHeight: 1.4,
+        wordBreak: "keep-all",
     },
     detailRow: {
         display: "flex",
