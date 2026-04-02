@@ -979,22 +979,19 @@ class AIClient:
 당신은 웹 검색 결과를 바탕으로 매장 메뉴 가격을 판정하는 AI입니다.
 
 [입력]
-- 요청 매장명: {store_name}
-- 요청 메뉴명: {menu_name}
+- 매장명: {store_name}
+- 메뉴명: {menu_name}
+
+[작업]
+아래 우선순위에 따라 가격을 검색하세요. 상위 출처에서 확인되면 하위 출처는 검색하지 않습니다.
+1. 다이닝코드 (https://www.diningcode.com/) 에서 매장의 메뉴 가격 확인
+2. 매장 공식 메뉴 페이지 또는 공식 주문 페이지에서 확인
+3. 웹 검색으로 1년 이내 게시물에서 확인
 
 [규칙]
 - 반드시 웹 검색으로 실제 페이지를 확인한 뒤에만 결과를 반환합니다.
-- 검색은 다이닝코드를 우선 확인하고, 찾지 못한 경우에만 공식 메뉴 페이지 또는 공식 주문 페이지를 확인합니다.
-- 다이닝코드, 공식 메뉴 페이지, 공식 주문 페이지 외의 출처는 사용하지 않습니다.
 - 요청 메뉴와 그 가격이 페이지에서 명시적으로 확인될 때만 found를 true로 반환합니다.
-- 가격이 추정이거나 세트, 옵션, 사이즈 차이로 어느 가격인지 모호하면 found는 false입니다.
-- source_type은 아래 허용값 중 하나만 사용합니다.
-- source_url은 실제로 가격이 보인 페이지 URL이어야 합니다.
-- observed_menu_name은 페이지에서 확인된 표현을 짧게 반환합니다.
-- amount는 정수만 반환합니다.
-- category는 아래 허용값 중 하나만 사용합니다.
-- 가격을 확인하지 못하면 found는 false로 반환하고, 문자열 필드는 빈 문자열, amount는 null로 반환합니다.
-- 최종 결과는 단 하나의 JSON 객체만 반환합니다.
+- 가격이 추정이거나, 세트·옵션·사이즈 차이로 어느 가격인지 모호하면 found는 false입니다.
 
 [source_type 허용값]
 {source_types}
@@ -1004,12 +1001,12 @@ class AIClient:
 
 [반환 형식]
 {{
-  "found": false,
-  "source_type": "",
-  "source_url": "",
-  "observed_menu_name": "",
-  "amount": null,
-  "category": "기타"
+  "found": false,                // 페이지에서 정확히 확인된 경우만 true
+  "source_type": "",             // 허용값: {source_types}
+  "source_url": "",              // 가격이 확인된 실제 페이지 URL
+  "observed_menu_name": "",      // 페이지에 표시된 메뉴명 그대로
+  "amount": null,                // 정수(원), 확인 못 하면 null
+  "category": "기타"             // 허용값: {categories}
 }}
 """
 
