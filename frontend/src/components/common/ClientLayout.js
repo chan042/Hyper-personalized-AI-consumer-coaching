@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import GlobalHeader from '@/components/common/GlobalHeader';
 import BottomNavigation from '@/components/common/BottomNavigation';
@@ -11,9 +11,16 @@ const HIDE_BOTTOM_NAV_ROUTES = ['/room', '/shop', '/closet', '/chatbot'];
 
 export default function ClientLayout({ children }) {
     const [isPopupOpen, setIsPopupOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const pathname = usePathname();
-    const hideBottomNav = HIDE_BOTTOM_NAV_ROUTES.includes(pathname);
-    const isChatbotPage = pathname === '/chatbot';
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // SSR 시 기본값 사용 (mounted 이전에는 non-chatbot 상태로 고정)
+    const isChatbotPage = mounted && pathname === '/chatbot';
+    const hideBottomNav = mounted && HIDE_BOTTOM_NAV_ROUTES.includes(pathname);
 
     const handleTransactionAdded = () => {
         console.log("Transaction added via global quick add");

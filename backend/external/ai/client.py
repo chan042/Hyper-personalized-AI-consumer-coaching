@@ -840,6 +840,7 @@ class AIClient:
             mime_type=mime_type,
         )
 
+# 현금 사진 분석(챌린지)
     def analyze_cash_photo(
         self,
         image_base64: str,
@@ -855,7 +856,6 @@ class AIClient:
 - detected_cash_total은 사진에서 보이는 금액 합계 정수
 - confidence는 0.0~1.0
 """
-
         return self.analyze_image_with_context(
             prompt=prompt,
             image_base64=image_base64,
@@ -867,6 +867,7 @@ class AIClient:
             },
         )
 
+# 중고거래 게시글 사진 분석(챌린지)
     def analyze_marketplace_post_photo(
         self,
         image_base64: str,
@@ -884,6 +885,7 @@ class AIClient:
             mime_type=mime_type,
         )
 
+# 1+1 사진 분석(챌린지)
     def analyze_one_plus_one_photo(
         self,
         image_base64: str,
@@ -906,7 +908,7 @@ class AIClient:
                 "convenience_keywords": ["편의점", "GS25", "CU", "이마트24", "세븐일레븐"],
             },
         )
-
+# 이미지 매칭
     def _build_image_store_analysis_prompt(self, menu_name: Optional[str] = None) -> str:
         menu_hint = (menu_name or "").strip() or "없음"
         return f"""
@@ -959,6 +961,7 @@ class AIClient:
             "store_name": raw_store_name or None,
         }
 
+# 메뉴 가격 후보 생성 프롬프트
     def _build_menu_price_candidate_prompt(
         self,
         store_name: str,

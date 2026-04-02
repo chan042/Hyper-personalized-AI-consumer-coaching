@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { User, Bell, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -7,11 +8,18 @@ import { useNotification } from '@/contexts/NotificationContext';
 
 
 export default function GlobalHeader() {
+    const [mounted, setMounted] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
     const { unreadCount } = useNotification();
-    const isHome = pathname === '/';
-    const managesOwnSafeArea = pathname === '/chatbot';
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // SSR 시 기본값(홈이 아닌 상태)으로 고정하여 hydration 불일치 방지
+    const isHome = mounted && pathname === '/';
+    const managesOwnSafeArea = mounted && pathname === '/chatbot';
 
     const getHeaderContent = () => {
         if (isHome) {

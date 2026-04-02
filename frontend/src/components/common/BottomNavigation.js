@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { Bot, Plus, Home, Calendar, Trophy, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -9,21 +10,32 @@ const INACTIVE_NAV_COLOR = "var(--text-sub)";
 
 
 export default function BottomNavigation({ onQuickAddClick }) {
+    const [mounted, setMounted] = useState(false);
     const pathname = usePathname();
-    const isHome = pathname === "/";
-    const isChallengeSection =
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // SSR 시 기본값(비활성 상태)으로 고정하여 hydration 불일치 방지
+    const isHome = mounted && pathname === "/";
+    const isChallengeSection = mounted && (
         pathname === "/challenge" ||
-        pathname.startsWith("/challenge/");
-    const isExpenseSection =
+        pathname.startsWith("/challenge/")
+    );
+    const isExpenseSection = mounted && (
         pathname === "/expense" ||
-        pathname.startsWith("/expense/");
-    const isCoachingSection =
+        pathname.startsWith("/expense/")
+    );
+    const isCoachingSection = mounted && (
         pathname === "/coaching" ||
-        pathname.startsWith("/coaching/");
-    const isYuntaekSection =
+        pathname.startsWith("/coaching/")
+    );
+    const isYuntaekSection = mounted && (
         pathname === "/yuntaek-index" ||
         pathname.startsWith("/yuntaek-index/") ||
-        pathname.startsWith("/challenge-battle");
+        pathname.startsWith("/challenge-battle")
+    );
     const challengeNavColor = isChallengeSection ? ACTIVE_NAV_COLOR : INACTIVE_NAV_COLOR;
     const expenseNavColor = isExpenseSection ? ACTIVE_NAV_COLOR : INACTIVE_NAV_COLOR;
     const coachingNavColor = isCoachingSection ? ACTIVE_NAV_COLOR : INACTIVE_NAV_COLOR;
