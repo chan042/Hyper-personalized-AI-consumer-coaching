@@ -10,7 +10,12 @@ from .models import Transaction
 # 이미지 매칭 가격 조회 결과 상태
 IMAGE_MATCH_RESOLVE_STATUSES = (
     'matched',
-    'not_found',
+    'failed',
+)
+IMAGE_MATCH_PARSE_MODES = (
+    'deterministic',
+    'ai_fallback',
+    'ambiguous',
 )
 
 
@@ -67,6 +72,25 @@ class ImagePriceMatchSerializer(serializers.Serializer):
     )
 
 
+class ImageItemMatchSerializer(serializers.Serializer):
+    requested_name = serializers.CharField(max_length=100, trim_whitespace=True)
+    quantity = serializers.IntegerField(required=False, min_value=1)
+    found = serializers.BooleanField()
+    unit_amount = serializers.IntegerField(required=False, allow_null=True)
+    category = serializers.ChoiceField(choices=TRANSACTION_CATEGORIES)
+    observed_menu_name = serializers.CharField(
+        max_length=100,
+        trim_whitespace=True,
+        allow_blank=True,
+        required=False,
+    )
+
+
+class ParsedMenuItemSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100, trim_whitespace=True)
+    quantity = serializers.IntegerField(required=False, min_value=1)
+
+
 # 메뉴명, 식별된 가게명, 이미지 가격 확인 결과 반환
 class ImageMatchAnalyzeResponseSerializer(serializers.Serializer):
     store_name = serializers.CharField(
@@ -77,12 +101,19 @@ class ImageMatchAnalyzeResponseSerializer(serializers.Serializer):
         required=False,
     )
     image_price_match = ImagePriceMatchSerializer()
+    item_matches = ImageItemMatchSerializer(many=True, required=False)
+    parsed_items = ParsedMenuItemSerializer(many=True, required=False)
+    parse_mode = serializers.ChoiceField(choices=IMAGE_MATCH_PARSE_MODES, required=False)
+    debug_price_analysis = serializers.JSONField(required=False, allow_null=True)
 
 
 # 확정된 가게명 + 메뉴명으로 가격 조회
 class ImageMatchResolvePriceRequestSerializer(serializers.Serializer):
     confirmed_store_name = serializers.CharField(max_length=100, trim_whitespace=True)
     menu_name = serializers.CharField(max_length=100, trim_whitespace=True)
+    item_matches = ImageItemMatchSerializer(many=True, required=False)
+    parsed_items = ParsedMenuItemSerializer(many=True, required=False)
+    parse_mode = serializers.ChoiceField(choices=IMAGE_MATCH_PARSE_MODES, required=False)
 
     # 가게명 공백 제거 후 빈 값 여부 검증
     def validate_confirmed_store_name(self, value):
@@ -112,3 +143,4 @@ class ImageMatchPrefillSerializer(serializers.Serializer):
 class ImageMatchResolvePriceResponseSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=IMAGE_MATCH_RESOLVE_STATUSES)
     prefill = ImageMatchPrefillSerializer()
+    debug_price_analysis = serializers.JSONField(required=False, allow_null=True)

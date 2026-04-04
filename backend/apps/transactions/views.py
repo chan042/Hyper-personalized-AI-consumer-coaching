@@ -186,6 +186,9 @@ class ImageMatchResolvePriceView(APIView):
         match_result = MenuPriceResolverService(ai_client=ai_client).resolve_price(
             confirmed_store_name=confirmed_store_name,
             menu_name=menu_name,
+            item_matches=validated_data.get("item_matches") or [],
+            parsed_items=validated_data.get("parsed_items") or [],
+            parse_mode=validated_data.get("parse_mode"),
         )
         if match_result is None:
             return build_image_match_service_unavailable_response()
@@ -199,6 +202,7 @@ class ImageMatchResolvePriceView(APIView):
         response_payload = {
             "status": match_result["status"],
             "prefill": prefill,
+            "debug_price_analysis": match_result.get("debug_price_analysis"),
         }
 
         response_serializer = ImageMatchResolvePriceResponseSerializer(data=response_payload)

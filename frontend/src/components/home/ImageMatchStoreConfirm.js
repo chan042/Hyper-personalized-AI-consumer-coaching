@@ -15,6 +15,10 @@ export default function ImageMatchStoreConfirm({
     isResolving = false,
 }) {
     const canSubmitManualStore = Boolean(manualStoreName.trim()) && !disabled;
+    const showDetectedStore = Boolean(storeName) && !showManualStoreInput;
+    const helperText = showDetectedStore
+        ? '이 가게가 맞나요?'
+        : '이미지에서 가게명을 특정하지 못했어요';
 
     return (
         <div style={styles.container}>
@@ -30,19 +34,13 @@ export default function ImageMatchStoreConfirm({
                 )}
             </div>
 
-            {storeName ? (
-                <>
-                    <p style={styles.helperText}>이 가게가 맞나요?</p>
-                    <h3 style={styles.storeTitle}>{storeName}</h3>
-                </>
-            ) : (
-                <>
-                    <p style={styles.helperText}>이미지에서 가게명을 특정하지 못했어요</p>
-                    <h3 style={styles.storeTitle}>가게명을 직접 입력해주세요</h3>
-                </>
+            <p style={styles.helperText}>{helperText}</p>
+
+            {showDetectedStore && (
+                <h3 style={styles.storeTitle}>{storeName}</h3>
             )}
 
-            {!showManualStoreInput && storeName && (
+            {showDetectedStore && (
                 <div style={styles.buttonRow}>
                     <button
                         type="button"
@@ -84,7 +82,7 @@ export default function ImageMatchStoreConfirm({
                         type="text"
                         value={manualStoreName}
                         onChange={(event) => onManualStoreNameChange(event.target.value)}
-                        placeholder="직접 가게명 입력하여 분석하기"
+                        placeholder="직접 가게명 입력하기"
                         style={styles.manualInput}
                         disabled={disabled}
                     />

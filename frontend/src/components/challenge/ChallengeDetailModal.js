@@ -62,7 +62,6 @@ export default function ChallengeDetailModal({
         isCompleted,
         isReady,
         isUnavailable,
-        isSaved,
         progressData,
     } = useChallenge(challenge);
 
@@ -780,7 +779,7 @@ export default function ChallengeDetailModal({
                                         }}
                                         disabled={isUnavailable}
                                     >
-                                        {isSaved ? '시작하기' : '도전하기'}
+                                        {'도전하기'}
                                     </button>
                                 </div>
                             )}

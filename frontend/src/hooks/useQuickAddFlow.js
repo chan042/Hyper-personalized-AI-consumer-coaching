@@ -28,12 +28,34 @@ const createInitialImageMatchState = () => ({
     analyzedStoreName: '',
     manualStoreName: '',
     showManualStoreInput: false,
+    itemMatches: [],
+    parsedItems: [],
+    parseMode: '',
+    debugPriceAnalysis: null,
     imagePriceMatch: {
         found: false,
         amount: null,
         category: '기타',
         observedMenuName: '',
     },
+});
+
+const getAmountAnalysisStatus = (amount) => (
+    typeof amount === 'number' && amount > 0 ? 'resolved' : 'failed'
+);
+
+const createTempPriceDebug = (label, amount) => ({
+    flow: 'client_amount_parse',
+    overallStatus: getAmountAnalysisStatus(amount) === 'resolved' ? 'success' : 'failed',
+    steps: [
+        {
+            key: 'amount_parse',
+            label,
+            status: getAmountAnalysisStatus(amount) === 'resolved' ? 'success' : 'failed',
+            detail: getAmountAnalysisStatus(amount) === 'resolved' ? '금액 추출 성공' : '금액 추출 실패',
+        },
+    ],
+    items: [],
 });
 
 export default function useQuickAddFlow({ onClose, onTransactionAdded } = {}) {
@@ -148,7 +170,14 @@ export default function useQuickAddFlow({ onClose, onTransactionAdded } = {}) {
                 return;
             }
 
-            openConfirmStep(data, 'text');
+            openConfirmStep(
+                {
+                    ...data,
+                    amountAnalysisStatus: getAmountAnalysisStatus(data?.amount),
+                    debugPriceAnalysis: createTempPriceDebug('자연어 금액 분석', data?.amount),
+                },
+                'text',
+            );
         } catch (error) {
             if (isInactiveRequest(request.requestGeneration) || isRequestCanceled(error)) {
                 return;
@@ -175,7 +204,14 @@ export default function useQuickAddFlow({ onClose, onTransactionAdded } = {}) {
             }
 
             setInputText('');
-            openConfirmStep(data, 'receipt');
+            openConfirmStep(
+                {
+                    ...data,
+                    amountAnalysisStatus: getAmountAnalysisStatus(data?.amount),
+                    debugPriceAnalysis: createTempPriceDebug('OCR 금액 분석', data?.amount),
+                },
+                'receipt',
+            );
         } catch (error) {
             if (isInactiveRequest(request.requestGeneration) || isRequestCanceled(error)) {
                 return;
@@ -238,15 +274,14 @@ export default function useQuickAddFlow({ onClose, onTransactionAdded } = {}) {
             setImageMatchState((previousState) => ({
                 ...previousState,
                 menuName: normalizedMenuName,
-                analyzedStoreName: result.store_name || '',
+                analyzedStoreName: result.storeName || '',
                 manualStoreName: '',
-                showManualStoreInput: !result.store_name,
-                imagePriceMatch: {
-                    found: Boolean(result.image_price_match?.found),
-                    amount: result.image_price_match?.amount ?? null,
-                    category: result.image_price_match?.category || '기타',
-                    observedMenuName: result.image_price_match?.observed_menu_name || '',
-                },
+                showManualStoreInput: !result.storeName,
+                itemMatches: result.itemMatches || [],
+                parsedItems: result.parsedItems || [],
+                parseMode: result.parseMode || '',
+                debugPriceAnalysis: result.debugPriceAnalysis || null,
+                imagePriceMatch: result.imagePriceMatch,
             }));
             setStep(QUICK_ADD_STEPS.STORE_CONFIRM);
         } catch (error) {
@@ -280,7 +315,8 @@ export default function useQuickAddFlow({ onClose, onTransactionAdded } = {}) {
                 item: imagePriceMatch.observedMenuName || normalizedMenuName,
                 amount: imagePriceMatch.amount,
                 category: imagePriceMatch.category || '기타',
-                imageMatchStatus: 'matched',
+                amountAnalysisStatus: 'resolved',
+                debugPriceAnalysis: imageMatchState.debugPriceAnalysis,
             },
             'imageMatch',
         );
@@ -305,6 +341,9 @@ export default function useQuickAddFlow({ onClose, onTransactionAdded } = {}) {
             const result = await resolveImageMatchPrice({
                 confirmedStoreName: normalizedStoreName,
                 menuName: normalizedMenuName,
+                itemMatches: imageMatchState.itemMatches || [],
+                parsedItems: imageMatchState.parsedItems || [],
+                parseMode: imageMatchState.parseMode || '',
                 signal: request.signal,
             });
 
@@ -315,7 +354,8 @@ export default function useQuickAddFlow({ onClose, onTransactionAdded } = {}) {
             openConfirmStep(
                 {
                     ...result.prefill,
-                    imageMatchStatus: result.status,
+                    amountAnalysisStatus: result.status === 'failed' ? 'failed' : 'resolved',
+                    debugPriceAnalysis: result.debugPriceAnalysis || null,
                 },
                 'imageMatch',
             );

@@ -12,6 +12,18 @@ import DateWheelPicker from '../common/DateWheelPicker';       // 날짜 휠 선
 import KakaoLocationPicker from '../common/KakaoLocationPicker'; // 카카오맵 장소 검색 모달
 import { getCategoryIcon, CATEGORY_COLORS, normalizeCategory } from '../common/CategoryIcons'; // 카테고리 아이콘/색상
 
+const TEMP_DEBUG_STATUS_LABELS = {
+    success: '성공',
+    failed: '실패',
+    skipped: '건너뜀',
+};
+
+const TEMP_DEBUG_STATUS_COLORS = {
+    success: '#15803d',
+    failed: '#b91c1c',
+    skipped: '#475569',
+};
+
 // ============================================================
 // 헬퍼 함수: 초기 위치 데이터 보정
 // 주소가 없고 원본 입력이 있는 경우, 원본 입력에서 금액/상품명을 제외한 텍스트를 장소명으로 사용
@@ -109,8 +121,9 @@ export default function TransactionConfirm({
     }, [initialData, selectedDate, originalInput]);
 
     const hasValidAmount = typeof amount === 'number' && amount > 0;
-    const showImageMatchPriceFailureMessage = initialData?.imageMatchStatus === 'not_found' && !hasValidAmount;
-    const showAmountDash = showImageMatchPriceFailureMessage;
+    const showAmountAnalysisFailureMessage = initialData?.amountAnalysisStatus === 'failed' && !hasValidAmount;
+    const showAmountDash = showAmountAnalysisFailureMessage;
+    const tempDebugPriceAnalysis = initialData?.debugPriceAnalysis || null;
 
     useEffect(() => {
         if (hasValidAmount && showAmountErrorOverlay) {
@@ -131,8 +144,6 @@ export default function TransactionConfirm({
     }, [showAmountErrorOverlay, amountErrorOverlayKey]);
 
 
-
-
     // 날짜 포맷팅
     const formatDateDisplay = () => {
         const month = rawDate.getMonth() + 1;
@@ -146,13 +157,31 @@ export default function TransactionConfirm({
         return CATEGORY_COLORS[normalized] || '#f59e0b';
     };
 
+    const renderTempDebugStep = (step, prefix = '') => {
+        const statusLabel = TEMP_DEBUG_STATUS_LABELS[step?.status] || step?.status || '미상';
+        const detailText = step?.detail ? ` (${step.detail})` : '';
+
+        return (
+            <p key={`${prefix}${step?.key || step?.label || statusLabel}`} style={styles.tempDebugLine}>
+                <span style={styles.tempDebugLabel}>{step?.label || '단계'}</span>
+                <span style={{
+                    ...styles.tempDebugStatus,
+                    color: TEMP_DEBUG_STATUS_COLORS[step?.status] || 'var(--text-main)',
+                }}>
+                    {statusLabel}
+                </span>
+                <span style={styles.tempDebugDetail}>{detailText}</span>
+            </p>
+        );
+    };
+
     const handleSaveClick = () => {
         if (isSaving) {
             return;
         }
 
         if (!hasValidAmount) {
-            if (showImageMatchPriceFailureMessage) {
+            if (showAmountAnalysisFailureMessage) {
                 alert('가격 분석에 실패했습니다. 금액을 직접 입력해주세요.');
                 return;
             }
@@ -199,12 +228,31 @@ export default function TransactionConfirm({
             {!hasValidAmount && (
                 <p style={{
                     ...styles.amountHint,
-                    ...(showImageMatchPriceFailureMessage ? styles.amountErrorHint : null),
+                    ...(showAmountAnalysisFailureMessage ? styles.amountErrorHint : null),
                 }}>
-                    {showImageMatchPriceFailureMessage
+                    {showAmountAnalysisFailureMessage
                         ? '가격 분석에 실패했습니다. 금액을 직접 입력해주세요.'
-                        : '금액을 직접 입력해주세요.'}
+                        : '금액을 입력해주세요.'}
                 </p>
+            )}
+
+            {tempDebugPriceAnalysis && (
+                <div style={styles.tempDebugCard}>
+                    <p style={styles.tempDebugTitle}>임시 가격 진단</p>
+                    {(tempDebugPriceAnalysis.steps || []).map((step) => renderTempDebugStep(step, 'top-'))}
+                    {(tempDebugPriceAnalysis.items || []).map((item, index) => (
+                        <div
+                            key={`${item.menu_name || 'item'}-${index}`}
+                            style={styles.tempDebugItem}
+                        >
+                            <p style={styles.tempDebugItemTitle}>
+                                {item.menu_name || '메뉴'}
+                                {item.quantity > 1 ? ` x${item.quantity}` : ''}
+                            </p>
+                            {(item.steps || []).map((step) => renderTempDebugStep(step, `item-${index}-`))}
+                        </div>
+                    ))}
+                </div>
             )}
 
             {/* ----------------------------------------
@@ -443,6 +491,48 @@ const styles = {
     },
     amountErrorHint: {
         color: '#dc2626',
+    },
+    tempDebugCard: {
+        marginBottom: '1.25rem',
+        padding: '0.9rem 1rem',
+        borderRadius: '12px',
+        border: '1px dashed #cbd5e1',
+        backgroundColor: '#f8fafc',
+    },
+    tempDebugTitle: {
+        marginBottom: '0.5rem',
+        fontSize: '0.8rem',
+        fontWeight: '800',
+        color: '#334155',
+    },
+    tempDebugItem: {
+        marginTop: '0.5rem',
+        paddingTop: '0.5rem',
+        borderTop: '1px solid #e2e8f0',
+    },
+    tempDebugItemTitle: {
+        marginBottom: '0.35rem',
+        fontSize: '0.8rem',
+        fontWeight: '700',
+        color: 'var(--text-main)',
+    },
+    tempDebugLine: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.35rem',
+        marginBottom: '0.2rem',
+        fontSize: '0.78rem',
+        color: 'var(--text-main)',
+        flexWrap: 'wrap',
+    },
+    tempDebugLabel: {
+        fontWeight: '700',
+    },
+    tempDebugStatus: {
+        fontWeight: '800',
+    },
+    tempDebugDetail: {
+        color: 'var(--text-sub)',
     },
     pickerRow: {
         display: 'flex',
