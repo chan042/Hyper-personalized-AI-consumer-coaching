@@ -136,13 +136,13 @@ export default function ChallengeCard({ challenge, onClaimReward, onClick, isOng
                         {/* 진행률 정보 (진행중인 챌린지에만 표시) */}
                         {isActive && (
                             <div style={styles.progressInfo}>
+                                {ddayLabel && (
+                                    <span style={styles.daysLeft}>{ddayLabel}</span>
+                                )}
                                 {getProgressDisplayText() && (
                                     <span style={styles.progressText}>
                                         {getProgressDisplayText()}
                                     </span>
-                                )}
-                                {ddayLabel && (
-                                    <span style={styles.daysLeft}>{ddayLabel}</span>
                                 )}
                             </div>
                         )}
@@ -177,6 +177,7 @@ const styles = {
     card: {
         display: 'flex',
         flexDirection: 'column',
+        justifyContent: 'center',
         padding: '1rem',
         backgroundColor: 'white',
         borderRadius: '16px',
@@ -186,6 +187,8 @@ const styles = {
         gap: '10px',
         position: 'relative',
         zIndex: 2,
+        width: '100%',
+        height: '100%',
     },
     glowWrapper: {
         position: 'relative',
@@ -195,6 +198,7 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
+        minWidth: 0,
     },
     iconContainer: {
         width: '48px',
@@ -275,16 +279,23 @@ const styles = {
         alignItems: 'center',
         gap: '8px',
         marginTop: '4px',
+        minWidth: 0,
     },
     progressText: {
         fontSize: '0.75rem',
         color: 'var(--text-sub)',
         whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        flex: '1 1 auto',
+        minWidth: 0,
     },
     daysLeft: {
         fontSize: '0.75rem',
         color: 'var(--primary)',
         fontWeight: '600',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
     },
     rightContainer: {
         display: 'flex',

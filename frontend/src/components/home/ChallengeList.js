@@ -72,7 +72,9 @@ export default function ChallengeList() {
                             key={challenge.uniqueId || challenge.id}
                             style={{
                                 flex: '0 0 auto',
-                                width: challenges.length === 1 ? '100%' : challengeCardWidth,
+                                width: challengeCardWidth,
+                                maxWidth: '100%',
+                                height: '140px',
                                 scrollSnapAlign: 'start'
                             }}
                         >

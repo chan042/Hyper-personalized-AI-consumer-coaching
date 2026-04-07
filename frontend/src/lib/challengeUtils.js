@@ -280,6 +280,10 @@ export const getProgressText = (progress, durationDays) => {
     } else if (type === 'photo') {
         const photoCount = progress.photo_count || progress.photoCount || 0;
         if ((progress.mode || '').toLowerCase() === 'on_purchase') {
+            const requiredCount = progress.required_count ?? progress.requiredCount ?? 0;
+            if (requiredCount > 0) {
+                return `${photoCount}회 / ${requiredCount}회`;
+            }
             return `${photoCount}회 인증`;
         }
         const requiredCount = progress.required_count || progress.requiredCount || 1;

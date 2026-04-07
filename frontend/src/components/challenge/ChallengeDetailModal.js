@@ -731,8 +731,6 @@ export default function ChallengeDetailModal({
 
 
                     </div>
-                    {/* Padding for Scroll */}
-                    <div style={{ height: '100px' }}></div>
                 </div>
 
                 {/* 3. Button / Footer Section */}
@@ -937,10 +935,11 @@ const styles = {
         overflowY: 'auto',
         position: 'relative',
         backgroundColor: '#FFFFFF',
+        minHeight: 0,
     },
     contentBody: {
         backgroundColor: '#FFFFFF',
-        padding: '60px 24px 24px 24px',
+        padding: '60px 24px 40px 24px',
         minHeight: '100%',
         display: 'flex',
         flexDirection: 'column',
@@ -1362,14 +1361,11 @@ const styles = {
 
     // Footer
     footerStyles: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
         padding: '20px',
         backgroundColor: '#FFFFFF',
         borderTop: '1px solid #F3F4F6',
         zIndex: 20,
+        flexShrink: 0,
     },
     buttonRow: {
         display: 'flex',

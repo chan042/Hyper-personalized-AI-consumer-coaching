@@ -136,18 +136,30 @@ function BattleSearchPageContent() {
     const [copiedCode, setCopiedCode] = useState(false);
 
     const currentScreen = searchParams.get('screen') || 'intro';
-    const previewCharacterType = searchParams.get('opponentCharacterType') || DEFAULT_CHARACTER_TYPE;
+    const previewName = searchParams.get('opponentName') || '';
+    const previewBattleCode = searchParams.get('opponentBattleCode') || '';
+    const previewCategoryKey = searchParams.get('category') || '';
+    const previewRequestDeadlineAt = searchParams.get('requestDeadlineAt') || '';
+    const previewCharacterTypeParam = searchParams.get('opponentCharacterType') || '';
+    const previewCharacterType = previewCharacterTypeParam || DEFAULT_CHARACTER_TYPE;
     const previewProfile = {
-        name: searchParams.get('opponentName') || '',
-        id: searchParams.get('opponentBattleCode') || '',
+        name: previewName,
+        id: previewBattleCode,
         image: getCharacterImagePath(previewCharacterType),
     };
     const previewDisplayName = previewProfile.name
         ? (previewProfile.name.endsWith('님') ? previewProfile.name : `${previewProfile.name}님`)
         : '';
-    const previewCategory = categories.find((item) => item.id === searchParams.get('category'))?.label || '';
-    const requestDeadlineAt = searchParams.get('requestDeadlineAt') || '';
+    const previewCategory = categories.find((item) => item.id === previewCategoryKey)?.label || '';
+    const requestDeadlineAt = previewRequestDeadlineAt;
     const currentBattleId = searchParams.get('battleId') || '';
+    const hasPendingPreviewData = Boolean(
+        previewName &&
+        previewBattleCode &&
+        previewCategoryKey &&
+        previewRequestDeadlineAt &&
+        previewCharacterTypeParam
+    );
 
     useEffect(() => {
         let cancelled = false;
@@ -194,7 +206,7 @@ function BattleSearchPageContent() {
         setSelectedUserId(null);
         setSelectedCategory(null);
         setSearchError('');
-    }, [currentBattleId, currentScreen]);
+    }, [currentBattleId, currentScreen, hasPendingPreviewData]);
 
     const moveToScreen = (screen, options = {}) => {
         const {
@@ -303,7 +315,8 @@ function BattleSearchPageContent() {
                         entry?.view_mode === currentScreen &&
                         String(entry?.battle_id || '') === currentBattleId;
 
-                    if (!isSamePendingScreen) {
+                    // Notification deep links only include battleId, so enrich the URL with preview data.
+                    if (!isSamePendingScreen || !hasPendingPreviewData) {
                         moveByBattleEntry(entry);
                     }
                     return;
@@ -346,7 +359,7 @@ function BattleSearchPageContent() {
             window.removeEventListener('focus', handleFocus);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [currentBattleId, currentScreen]);
+    }, [currentBattleId, currentScreen, hasPendingPreviewData]);
 
     const handleSearch = async () => {
         const normalizedCode = searchQuery.trim().toUpperCase();
@@ -631,7 +644,7 @@ function BattleSearchPageContent() {
 
     if (currentScreen === 'request_pending' || currentScreen === 'request_received') {
         const isReceivedScreen = currentScreen === 'request_received';
-        const isPendingPreviewReady = Boolean(currentBattleId);
+        const isPendingPreviewReady = Boolean(currentBattleId && hasPendingPreviewData);
 
         if (!isPendingPreviewReady) {
             return (
@@ -900,11 +913,11 @@ const styles = {
     container: {
         background: 'var(--background-light, #f1f5f9)',
         height: '100%',
-        minHeight: 0,
         overflow: 'hidden',
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
+        minHeight: 0,
     },
     content: {
         flex: 1,
@@ -1182,20 +1195,22 @@ const styles = {
         flex: 1,
         paddingTop: '0',
         paddingRight: '1.5rem',
-        paddingBottom: '0',
+        paddingBottom: '1.5rem',
         paddingLeft: '1.5rem',
         display: 'flex',
         flexDirection: 'column',
+        minHeight: 0,
     },
     guideImageFixedContainer: {
-        width: '220px',
-        height: '220px',
+        width: '200px',
+        height: '200px',
         marginTop: 'auto',
-        marginBottom: '25rem',
+        marginBottom: '1.5rem',
         alignSelf: 'center',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        flexShrink: 0,
     },
     guideImage: {
         maxWidth: '100%',
@@ -1223,14 +1238,8 @@ const styles = {
         animation: 'fadeIn 0.4s ease-out forwards',
     },
     guideFloatingBottom: {
-        position: 'fixed',
-        bottom: 'calc(110px + env(safe-area-inset-bottom, 0px))',
-        left: '0',
-        right: '0',
-        margin: '0 auto',
-        maxWidth: '480px',
-        padding: '0 2.5rem',
-        zIndex: 100,
+        padding: '0 2.5rem 1.5rem',
+        flexShrink: 0,
     },
     guideBottomControls: {
         display: 'flex',

@@ -71,7 +71,6 @@ export default function CustomChallengeModal({
                 {/* 헤더 */}
                 <div style={styles.header}>
                     <div style={styles.headerTitleWrapper}>
-                        <Trophy size={20} color="#F59E0B" fill="#F59E0B" />
                         <h2 style={styles.headerTitle}>나만의 챌린지 만들기</h2>
                     </div>
                     <button style={styles.closeButton} onClick={handleClose}>
@@ -85,7 +84,7 @@ export default function CustomChallengeModal({
 
                     {/* Details 입력 */}
                     <div style={styles.inputGroup}>
-                        <label style={styles.label}>DETAILS</label>
+                        <label style={styles.label}>목표</label>
                         <div style={styles.textareaWrapper}>
                             <textarea
                                 style={styles.textarea}
@@ -100,7 +99,7 @@ export default function CustomChallengeModal({
 
                     {/* Difficulty 선택 */}
                     <div style={styles.inputGroup}>
-                        <label style={styles.label}>DIFFICULTY</label>
+                        <label style={styles.label}>난이도</label>
                         <div style={styles.difficultyRow}>
                             <button
                                 type="button"
