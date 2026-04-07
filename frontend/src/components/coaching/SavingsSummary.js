@@ -420,7 +420,7 @@ export default function SavingsSummary({ totalSavings = 0 }) {
                         fontSize: '3.5rem',
                         fontWeight: '800',
                         color: 'var(--primary)',
-                        fontFamily: 'var(--font-mono)',
+                        fontVariantNumeric: 'tabular-nums',
                         letterSpacing: '-0.03em',
                         lineHeight: '1',
                         margin: 0,

@@ -14,41 +14,40 @@ import { updateProfile } from '@/lib/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
 
 const CHARACTERS = [
-    { id: 'char_cat', name: '고양이', image: '/images/characters/char_cat/body.png' },
-    { id: 'char_dog', name: '강아지', image: '/images/characters/char_dog/body.png' },
-    { id: 'char_ham', name: '햄스터', image: '/images/characters/char_ham/body.png' },
-    { id: 'char_sheep', name: '양', image: '/images/characters/char_sheep/body.png' },
+    { id: 'char_cat', name: '고양이', image: '/images/characters/char_cat/body.png', desc: '호기심 많고 도도한' },
+    { id: 'char_dog', name: '강아지', image: '/images/characters/char_dog/body.png', desc: '활발하고 긍정적인' },
+    { id: 'char_ham', name: '햄스터', image: '/images/characters/char_ham/body.png', desc: '알뜰살뜰 부지런한' },
+    { id: 'char_sheep', name: '양', image: '/images/characters/char_sheep/body.png', desc: '온화하고 신중한' },
 ];
 
-// 질문 목록
 const questions = [
     {
         id: 'age',
-        question: '나이가 어떻게 되시나요?',
-        placeholder: '예: 28',
-        type: 'number'
+        question: '나이를 입력해주세요',
+        placeholder: '연도 선택',
+        type: 'year'
     },
     {
         id: 'job',
         question: '어떤 일을 하고 계신가요?',
-        placeholder: '예: 프리랜서 개발자',
+        placeholder: '예) 개발자, 대학생',
         type: 'text'
     },
     {
         id: 'hobbies',
-        question: '취미가 무엇인가요?',
-        placeholder: '예: 독서, 영화 감상, 요리',
+        question: '요즘 푹 빠진 취미가 있나요?',
+        placeholder: '예) 러닝, 독서, 요리',
         type: 'text'
     },
     {
         id: 'self_development_field',
-        question: '관심 있는 자기계발 분야가 있나요?',
-        placeholder: '예: 재테크, 커리어 성장, 운동 습관',
+        question: '관심 있는 자기계발 분야를 알려주세요!',
+        placeholder: '예) 재테크, 어학, 운동',
         type: 'text'
     },
     {
         id: 'marital_status',
-        question: '결혼 여부를 알려주세요.',
+        question: '결혼 여부를 알려주세요',
         options: [
             { value: 'SINGLE', label: '미혼' },
             { value: 'MARRIED', label: '기혼' }
@@ -57,152 +56,123 @@ const questions = [
     },
     {
         id: 'monthly_budget',
-        question: '한 달 예산은 얼마인가요?',
-        placeholder: '예: 500,000',
+        question: '한 달 목표 예산은 얼마인가요?',
+        placeholder: '금액 입력',
         suffix: '원',
         type: 'number'
     },
     {
         id: 'spending_to_improve',
-        question: '개선하고 싶은 소비 습관이 있나요?',
-        placeholder: '예: 외식비, 배달 음식, 충동구매',
+        question: '가장 줄이고 싶은 지출은요?',
+        placeholder: '예) 배달음식, 택시비',
         type: 'text'
     }
 ];
 
 export default function UserInfoPage() {
-    // 0: 안내 단계
-    // 1 ~ questions.length: 질문 단계
-    // questions.length + 1: 캐릭터 선택
-    // questions.length + 2: 캐릭터 이름 입력
     const INTRO_STEP = 0;
     const FIRST_QUESTION_STEP = 1;
     const CHARACTER_SELECTION_STEP = questions.length + 1;
     const CHARACTER_NAMING_STEP = questions.length + 2;
+    const totalSteps = questions.length + 2; // 질문 + 캐릭터선택 + 캐릭터이름 (안내 단계 제외한 순수 진행 단계 수)
 
     const [currentStep, setCurrentStep] = useState(0);
     const [answers, setAnswers] = useState({});
     const [draftAnswers, setDraftAnswers] = useState({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
     const stepTransitionLockRef = useRef(false);
 
-    // 캐릭터 관련 상태
     const [selectedCharacter, setSelectedCharacter] = useState('');
     const [characterName, setCharacterName] = useState('');
 
     const router = useRouter();
     const { refreshUser } = useAuth();
 
-    const totalSteps = questions.length + 3;
-
-    // 현재 단계가 질문 단계인지 확인
     const isIntroStep = currentStep === INTRO_STEP;
     const isQuestionStep = currentStep >= FIRST_QUESTION_STEP && currentStep <= questions.length;
     const currentQuestion = isQuestionStep ? questions[currentStep - FIRST_QUESTION_STEP] : null;
 
     const isBudgetQuestion = (question) => question?.id === 'monthly_budget';
-    const isMaritalStatusQuestion = (question) => question?.id === 'marital_status';
 
-    const formatBudgetInput = (value) => {
-        const digits = String(value ?? '').replace(/\D/g, '');
-
-        if (!digits) {
-            return '';
-        }
-
-        return Number(digits).toLocaleString('ko-KR');
-    };
-
-    const parseQuestionValue = (question, value) => {
-        if (question.type !== 'number') {
-            return value;
-        }
-
-        if (isBudgetQuestion(question)) {
+    const formatInput = (value, type) => {
+        if (type === 'number' || type === 'budget' || type === 'year') {
             const digits = String(value ?? '').replace(/\D/g, '');
-            return digits ? Number(digits) : 0;
+            if (!digits) return '';
+            if (type === 'budget') return Number(digits).toLocaleString('ko-KR');
+            return digits;
         }
-
-        return Number(value);
+        return value;
     };
 
     const getQuestionValue = (question) => {
         const draftValue = draftAnswers[question.id];
-        if (draftValue !== undefined && draftValue !== null) {
-            return draftValue;
-        }
-
+        if (draftValue !== undefined && draftValue !== null) return draftValue;
+        
         const savedValue = answers[question.id];
-        if (savedValue === undefined || savedValue === null) {
-            return '';
-        }
-
-        if (isBudgetQuestion(question)) {
-            return formatBudgetInput(savedValue);
-        }
-
-        return String(savedValue);
+        if (savedValue === undefined || savedValue === null) return '';
+        
+        return formatInput(savedValue, isBudgetQuestion(question) ? 'budget' : question.type);
     };
 
     const currentInputValue = isQuestionStep && currentQuestion?.type !== 'select'
         ? getQuestionValue(currentQuestion)
         : '';
-    const currentSelectValue = isQuestionStep && currentQuestion?.type === 'select'
-        ? (answers[currentQuestion.id] ?? draftAnswers[currentQuestion.id] ?? '')
-        : '';
 
     useEffect(() => {
         stepTransitionLockRef.current = false;
+        setIsFocused(true);
     }, [currentStep]);
 
     const goToNextStep = () => {
-        if (stepTransitionLockRef.current) {
-            return;
-        }
-
+        if (stepTransitionLockRef.current) return;
         stepTransitionLockRef.current = true;
         setCurrentStep(prev => prev + 1);
     };
 
-    const handleInputChange = (value) => {
-        const nextValue = isBudgetQuestion(currentQuestion)
-            ? formatBudgetInput(value)
-            : value;
-
-        setDraftAnswers(prev => ({
-            ...prev,
-            [currentQuestion.id]: nextValue
-        }));
-    };
-
-    // 캐릭터 선택 처리 (두 번 누르면 선택 해제)
-    const handleCharacterSelect = (characterId) => {
-        if (selectedCharacter === characterId) {
-            setSelectedCharacter(''); // 같은 캐릭터 두 번 클릭 시 선택 해제
+    const handleBack = () => {
+        setError('');
+        if (currentStep === INTRO_STEP) {
+            router.back();
         } else {
-            setSelectedCharacter(characterId); // 다른 캐릭터 선택 시 변경
+            stepTransitionLockRef.current = false;
+            setCurrentStep(prev => prev - 1);
         }
     };
 
-    // 캐릭터 선택 다음 단계로 (이름 입력으로 이동)
-    const handleCharacterNext = () => {
-        if (!selectedCharacter) {
-            setError('캐릭터를 선택해주세요.');
-            return;
-        }
+    const handleInputChange = (value) => {
+        const nextValue = formatInput(value, isBudgetQuestion(currentQuestion) ? 'budget' : currentQuestion.type);
+        setDraftAnswers(prev => ({ ...prev, [currentQuestion.id]: nextValue }));
+    };
+
+    const handleQuestionSubmit = () => {
+        if (!currentInputValue.trim()) return;
+        
+        const parseValue = (value, type) => {
+            if (type === 'number' || type === 'budget' || type === 'year') {
+                const digits = String(value).replace(/\D/g, '');
+                return digits ? Number(digits) : 0;
+            }
+            return value;
+        };
+
+        setAnswers({
+            ...answers,
+            [currentQuestion.id]: parseValue(currentInputValue, isBudgetQuestion(currentQuestion) ? 'budget' : currentQuestion.type)
+        });
         setError('');
         goToNextStep();
     };
 
-    // 캐릭터 이름 입력 후 완료 (최종 제출)
-    const handleCharacterNameSubmit = async () => {
-        if (!characterName.trim()) {
-            setError('캐릭터 이름을 입력해주세요.');
-            return;
-        }
+    const handleSelect = (value) => {
+        setAnswers({ ...answers, [currentQuestion.id]: value });
+        setDraftAnswers({ ...draftAnswers, [currentQuestion.id]: value });
         setError('');
+    };
 
+    const handleCharacterNameSubmit = async () => {
+        if (!characterName.trim()) return;
         setLoading(true);
         try {
             await updateProfile({
@@ -215,340 +185,271 @@ export default function UserInfoPage() {
             router.push('/');
         } catch (err) {
             console.error('프로필 저장 실패:', err);
-            setError('저장에 실패했습니다. 다시 시도해주세요.');
+            setError('저장에 실패했습니다.');
             setLoading(false);
         }
     };
 
-    // 질문 답변 제출 처리 (다음 단계로 이동)
-    const handleQuestionSubmit = () => {
-        const currentValue = currentInputValue;
-
-        if (!currentValue.trim()) {
-            return;
-        }
-
-        // 현재 답변 저장
-        const newAnswers = {
-            ...answers,
-            [currentQuestion.id]: parseQuestionValue(currentQuestion, currentValue)
-        };
-        setAnswers(newAnswers);
-        setError('');
-
-        // 다음 질문 또는 캐릭터 선택 단계로 이동
-        goToNextStep();
-    };
-
-    // 선택형 답변 처리
-    const handleSelect = (value) => {
-        const newAnswers = {
-            ...answers,
-            [currentQuestion.id]: value
-        };
-        setAnswers(newAnswers);
-        setDraftAnswers(prev => ({
-            ...prev,
-            [currentQuestion.id]: value
-        }));
-        setError('');
-    };
-
-    const handleOptionClick = (value) => {
-        handleSelect(value);
-
-        if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
-        }
-    };
-
-    const handleBack = () => {
-        setError('');
-
-        if (currentStep === INTRO_STEP) {
-            router.back();
-            return;
-        }
-
-        stepTransitionLockRef.current = false;
-        setCurrentStep(prev => prev - 1);
-    };
-
-    const handlePrimaryAction = () => {
-        if (isIntroStep) {
-            goToNextStep();
-            return;
-        }
-
-        if (isQuestionStep) {
-            if (currentQuestion.type === 'select') {
-                if (!currentSelectValue) {
-                    return;
-                }
-
-                goToNextStep();
-                return;
-            }
-
+    const handleKeyDown = (e) => {
+        if (e.key !== 'Enter' || e.nativeEvent.isComposing || e.repeat) return;
+        e.preventDefault();
+        
+        if (isQuestionStep && currentQuestion.type !== 'select' && currentInputValue.trim()) {
             handleQuestionSubmit();
-            return;
-        }
-
-        if (currentStep === CHARACTER_SELECTION_STEP) {
-            handleCharacterNext();
-            return;
-        }
-
-        if (currentStep === CHARACTER_NAMING_STEP) {
+        } else if (currentStep === CHARACTER_NAMING_STEP && characterName.trim()) {
             handleCharacterNameSubmit();
         }
     };
 
-    const primaryButtonDisabled = (() => {
-        if (loading) {
-            return true;
-        }
-
-        if (isIntroStep) {
-            return false;
-        }
-
-        if (isQuestionStep) {
-            return currentQuestion.type === 'select'
-                ? !currentSelectValue
-                : !currentInputValue.trim();
-        }
-
-        if (currentStep === CHARACTER_SELECTION_STEP) {
-            return !selectedCharacter;
-        }
-
-        if (currentStep === CHARACTER_NAMING_STEP) {
-            return !characterName.trim();
-        }
-
-        return false;
-    })();
-
-    const primaryButtonLabel = currentStep === CHARACTER_NAMING_STEP && loading ? '저장 중...' : currentStep === CHARACTER_NAMING_STEP ? '완료' : '다음';
-
-    // Enter 키 처리
-    const handleKeyDown = (e) => {
-        if (e.key !== 'Enter' || e.nativeEvent.isComposing || e.repeat) {
-            return;
-        }
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        if (isQuestionStep && currentQuestion.type !== 'select' && currentInputValue.trim()) {
-            handlePrimaryAction();
-        } else if (currentStep === CHARACTER_NAMING_STEP && characterName.trim()) {
-            handlePrimaryAction();
-        }
-    };
-
-    const renderStepActions = () => (
-        <div style={styles.actionRow}>
-            <button
-                type="button"
-                onClick={handlePrimaryAction}
-                disabled={primaryButtonDisabled}
-                style={{
-                    ...styles.nextButton,
-                    ...(primaryButtonDisabled ? styles.nextButtonDisabled : {})
-                }}
-            >
-                {primaryButtonLabel}
-            </button>
-
-            <button
-                type="button"
-                onClick={handleBack}
-                style={{
-                    ...styles.prevButton,
-                    ...(loading ? styles.prevButtonDisabled : {})
-                }}
-                disabled={loading}
-            >
-                이전
-            </button>
-        </div>
+    const BackIcon = () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
     );
 
     const renderIntro = () => (
-        <div style={styles.introStepLayout}>
-            <div style={styles.introContent}>
-                <h2 style={styles.question}>두둑 AI의 맞춤형 소비코칭을 위해<br />기본 정보가 필요해요!</h2>
+        <div style={styles.contentWrapper}>
+            <div style={styles.textCenter}>
+                <h1 style={styles.mainTitle}>반갑습니다!</h1>
+                <p style={styles.mainSubtitle}>
+                    더 똑똑한 소비 코칭을 위해<br/>
+                    몇 가지 간단한 질문에 답해주세요.
+                </p>
             </div>
-
-            {renderStepActions()}
+            <div style={styles.actionContainer}>
+                <button style={styles.primaryButton} onClick={goToNextStep}>
+                    시작하기
+                </button>
+            </div>
         </div>
     );
 
-    // 캐릭터 선택 단계 렌더링
-    const renderCharacterSelection = () => (
-        <div style={styles.stepLayout}>
-            <div style={styles.stepBody}>
-                <h2 style={styles.question}>나만의 두둑이를 선택하세요!</h2>
+    const renderQuestion = () => (
+        <div style={styles.contentWrapper}>
+            <h2 style={styles.questionTitle}>{currentQuestion.question}</h2>
+            
+            {error && <div style={styles.errorBox}>{error}</div>}
 
-                {error && <div style={styles.errorBox}>{error}</div>}
-
-                <div style={styles.characterGrid}>
-                    {CHARACTERS.map((char) => (
-                        <div
-                            key={char.id}
-                            onClick={() => handleCharacterSelect(char.id)}
+            {currentQuestion.type === 'select' ? (
+                <div style={styles.optionsList}>
+                    {currentQuestion.options.map(opt => (
+                        <button
+                            key={opt.value}
                             style={{
-                                ...styles.characterCard,
-                                ...(selectedCharacter === char.id ? styles.characterCardSelected : {})
+                                ...styles.optionButton,
+                                ...(answers[currentQuestion.id] === opt.value ? styles.optionButtonActive : {})
                             }}
+                            onClick={() => {
+                                handleSelect(opt.value);
+                                setTimeout(() => goToNextStep(), 300); // 부드러운 자동 진행
+                            }}
+                            disabled={loading}
                         >
-                            <div style={styles.characterImageWrapper}>
-                                <Image
-                                    src={char.image}
-                                    alt={char.name}
-                                    width={160}
-                                    height={160}
-                                    style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: 'contain'
-                                    }}
-                                />
-                            </div>
-                        </div>
+                            {opt.label}
+                        </button>
                     ))}
                 </div>
-            </div>
-
-            {renderStepActions()}
+            ) : currentQuestion.type === 'year' ? (
+                <div style={styles.inputGroup}>
+                    <div style={{
+                        ...styles.inputRow,
+                        ...(isFocused ? styles.inputRowFocus : {})
+                    }}>
+                        <select
+                            value={currentInputValue}
+                            onChange={(e) => handleInputChange(e.target.value)}
+                            onFocus={() => setIsFocused(true)}
+                            onBlur={() => setIsFocused(false)}
+                            style={{...styles.hugeInput, appearance: 'none', backgroundColor: 'transparent'}}
+                        >
+                            <option value="" disabled hidden>연도 선택</option>
+                            {Array.from({ length: 100 }).map((_, i) => {
+                                const year = new Date().getFullYear() - i;
+                                return (
+                                    <option key={year} value={year}>{year}년</option>
+                                );
+                            })}
+                        </select>
+                        <div style={{ pointerEvents: 'none', marginLeft: '-1.5rem', color: '#111827' }}>▼</div>
+                    </div>
+                    
+                    <div style={styles.actionContainer}>
+                        <button 
+                            style={{
+                                ...styles.primaryButton,
+                                ...(!String(currentInputValue).trim() ? styles.primaryButtonDisabled : {})
+                            }} 
+                            disabled={!String(currentInputValue).trim()}
+                            onClick={handleQuestionSubmit}
+                        >
+                            확인
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div style={styles.inputGroup}>
+                    <div style={{
+                        ...styles.inputRow,
+                        ...(isFocused ? styles.inputRowFocus : {})
+                    }}>
+                        <input
+                            type={isBudgetQuestion(currentQuestion) || currentQuestion.type === 'number' ? 'text' : currentQuestion.type}
+                            inputMode={isBudgetQuestion(currentQuestion) || currentQuestion.type === 'number' ? 'numeric' : 'text'}
+                            value={currentInputValue}
+                            onChange={(e) => handleInputChange(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            onFocus={() => setIsFocused(true)}
+                            onBlur={() => setIsFocused(false)}
+                            placeholder={currentQuestion.placeholder}
+                            style={styles.hugeInput}
+                            autoFocus
+                        />
+                        {currentQuestion.suffix && currentInputValue && (
+                            <span style={styles.inputSuffix}>{currentQuestion.suffix}</span>
+                        )}
+                    </div>
+                    
+                    <div style={styles.actionContainer}>
+                        <button 
+                            style={{
+                                ...styles.primaryButton,
+                                ...(!currentInputValue.trim() ? styles.primaryButtonDisabled : {})
+                            }} 
+                            disabled={!currentInputValue.trim()}
+                            onClick={handleQuestionSubmit}
+                        >
+                            확인
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 
-    // 캐릭터 이름 입력 단계 렌더링
+    const renderCharacterSelection = () => (
+        <div style={styles.contentWrapper}>
+            <h2 style={styles.questionTitle}>어떤 두둑이와 함께할까요?</h2>
+            <p style={styles.questionSubtitle}>나의 성향과 어울리는 캐릭터를 골라주세요.</p>
+            
+            {error && <div style={styles.errorBox}>{error}</div>}
+
+            <div style={styles.charGrid}>
+                {CHARACTERS.map(char => (
+                    <div
+                        key={char.id}
+                        style={{
+                            ...styles.charCard,
+                            ...(selectedCharacter === char.id ? styles.charCardActive : {})
+                        }}
+                        onClick={() => setSelectedCharacter(char.id)}
+                    >
+                        <Image src={char.image} alt={char.name} width={90} height={90} style={styles.charImage} />
+                        <p style={styles.charDesc}>{char.desc}</p>
+                    </div>
+                ))}
+            </div>
+
+            <div style={styles.actionContainer}>
+                <button 
+                    style={{
+                        ...styles.primaryButton,
+                        ...(!selectedCharacter ? styles.primaryButtonDisabled : {})
+                    }} 
+                    disabled={!selectedCharacter}
+                    onClick={goToNextStep}
+                >
+                    선택 완료
+                </button>
+            </div>
+        </div>
+    );
+
     const renderCharacterNaming = () => (
-        <div style={styles.stepLayout}>
-            <div style={styles.stepBody}>
-                <h2 style={styles.question}>두둑이의 이름을 지어주세요!</h2>
+        <div style={styles.contentWrapper}>
+            <h2 style={styles.questionTitle}>두둑이의 이름을 지어주세요!</h2>
+            
+            {error && <div style={styles.errorBox}>{error}</div>}
 
-                {error && <div style={styles.errorBox}>{error}</div>}
+            <div style={styles.centerPreview}>
+                <Image
+                    src={CHARACTERS.find(c => c.id === selectedCharacter)?.image || ''}
+                    alt="Selected Character"
+                    width={140} height={140}
+                    style={styles.charImage}
+                />
+            </div>
 
-                <div style={styles.selectedCharacterPreview}>
-                    <Image
-                        src={CHARACTERS.find(c => c.id === selectedCharacter)?.image || ''}
-                        alt="선택된 캐릭터"
-                        width={120}
-                        height={120}
-                        style={{ objectFit: 'contain' }}
-                    />
-                </div>
-
-                <div style={styles.inputContainer}>
+            <div style={styles.inputGroup}>
+                <div style={{
+                    ...styles.inputRow,
+                    ...(isFocused ? styles.inputRowFocus : {})
+                }}>
                     <input
                         type="text"
                         value={characterName}
                         onChange={(e) => setCharacterName(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="예: 두둑이"
-                        style={styles.input}
-                        maxLength={20}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
+                        placeholder="최대 10자"
+                        style={{...styles.hugeInput, textAlign: 'center'}}
+                        maxLength={10}
                         autoFocus
-                        disabled={loading}
                     />
                 </div>
-            </div>
-
-            {renderStepActions()}
-        </div>
-    );
-
-    // 질문 단계 렌더링
-    const renderQuestion = () => (
-        <div style={styles.stepLayout}>
-            <div style={styles.stepBody}>
-                <h2 style={styles.question}>{currentQuestion.question}</h2>
-
-                {error && <div style={styles.errorBox}>{error}</div>}
-
-                {currentQuestion.type === 'select' ? (
-                    <div
+                
+                <div style={styles.actionContainer}>
+                    <button 
                         style={{
-                            ...styles.optionsContainer,
-                            ...(isMaritalStatusQuestion(currentQuestion) ? styles.optionsRowContainer : {})
-                        }}
+                            ...styles.primaryButton,
+                            ...((!characterName.trim() || loading) ? styles.primaryButtonDisabled : {})
+                        }} 
+                        disabled={!characterName.trim() || loading}
+                        onClick={handleCharacterNameSubmit}
                     >
-                        {currentQuestion.options.map((option) => (
-                            <button
-                                type="button"
-                                key={option.value}
-                                className="userinfo-option-button"
-                                onClick={() => handleOptionClick(option.value)}
-                                style={{
-                                    ...styles.optionButton,
-                                    ...(isMaritalStatusQuestion(currentQuestion) ? styles.optionButtonHalf : {}),
-                                    ...(answers[currentQuestion.id] === option.value ? styles.optionButtonSelected : styles.optionButtonDefault)
-                                }}
-                                disabled={loading}
-                            >
-                                {option.label}
-                            </button>
-                        ))}
-                    </div>
-                ) : (
-                    <div style={styles.inputContainer}>
-                        <input
-                            type={isBudgetQuestion(currentQuestion) ? 'text' : currentQuestion.type}
-                            value={currentInputValue}
-                            onChange={(e) => handleInputChange(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder={currentQuestion.placeholder}
-                            inputMode={isBudgetQuestion(currentQuestion) ? 'numeric' : undefined}
-                            style={{
-                                ...styles.input,
-                                ...(currentQuestion.suffix ? styles.inputWithSuffix : {})
-                            }}
-                            autoFocus
-                            disabled={loading}
-                        />
-                        {currentQuestion.suffix && (
-                            <span style={styles.suffix}>{currentQuestion.suffix}</span>
-                        )}
-                    </div>
-                )}
+                        {loading ? '저장 중...' : '시작하기'}
+                    </button>
+                </div>
             </div>
-
-            {renderStepActions()}
         </div>
     );
 
+    // Calculate progress (0 to 1) excluding Intro step
+    const currentProgressStep = currentStep === INTRO_STEP ? 0 : currentStep;
+    
     return (
         <div style={styles.container}>
-            {/* 상단 타이틀 */}
-            <h1 style={styles.title}>Duduk</h1>
-
-            {/* 진행 상태 */}
-            <div style={styles.progress}>
-                <div style={styles.progressBar}>
-                    <div
-                        style={{
-                            ...styles.progressFill,
-                            width: `${((currentStep + 1) / totalSteps) * 100}%`
-                        }}
-                    />
+            <header style={styles.header}>
+                <button style={styles.backBtn} onClick={handleBack}>
+                    <BackIcon />
+                </button>
+                <div style={styles.progressArea}>
+                    {Array.from({ length: totalSteps }).map((_, idx) => (
+                        <div 
+                            key={idx} 
+                            style={{
+                                ...styles.progressDot,
+                                ...(idx < currentProgressStep ? styles.progressActive : styles.progressInactive)
+                            }} 
+                        />
+                    ))}
                 </div>
-                <span style={styles.progressText}>
-                    {currentStep + 1} / {totalSteps}
-                </span>
-            </div>
+                <div style={{ width: '40px' }} /> {/* Spacer to balance header */}
+            </header>
 
-            {/* 단계별 컨텐츠 */}
-            <div style={styles.questionContainer}>
+            <main style={styles.contentArea}>
                 {isIntroStep && renderIntro()}
                 {isQuestionStep && renderQuestion()}
                 {currentStep === CHARACTER_SELECTION_STEP && renderCharacterSelection()}
                 {currentStep === CHARACTER_NAMING_STEP && renderCharacterNaming()}
-            </div>
+            </main>
+            
+            <style jsx global>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
         </div>
     );
 }
@@ -558,260 +459,219 @@ const styles = {
         minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        width: '100%',
-        maxWidth: '430px',
-        padding: 'calc(2rem + var(--safe-area-top)) 2rem 2rem',
-        margin: '0 auto',
-        paddingTop: 'max(1rem, env(safe-area-inset-top))',
-        paddingRight: 'clamp(1rem, 4vw, 1.5rem)',
-        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
-        paddingLeft: 'clamp(1rem, 4vw, 1.5rem)',
-        overflowX: 'hidden',
-    },
-    title: {
-        fontSize: 'clamp(1.75rem, 7vw, 2rem)',
-        fontWeight: '700',
-        color: 'var(--text-main)',
-        marginBottom: 'clamp(1.25rem, 5vw, 2rem)',
-        textAlign: 'left',
-        width: '100%',
-    },
-    prevButton: {
-        padding: 0,
-        border: 'none',
-        backgroundColor: 'transparent',
-        color: 'var(--text-sub)',
-        fontSize: '0.95rem',
-        fontWeight: '500',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        lineHeight: 1.2,
-    },
-    prevButtonDisabled: {
-        opacity: 0.5,
-        cursor: 'not-allowed',
-    },
-    progress: {
-        width: '100%',
-        marginBottom: 'clamp(1.25rem, 5vw, 2rem)',
-    },
-    progressBar: {
-        width: '100%',
-        height: '4px',
-        backgroundColor: '#E2E8F0',
-        borderRadius: '2px',
-        overflow: 'hidden',
-        marginBottom: '0.5rem',
-    },
-    progressFill: {
-        height: '100%',
-        backgroundColor: 'var(--primary)',
-        transition: 'width 0.3s ease',
-    },
-    progressText: {
-        fontSize: '0.875rem',
-        color: 'var(--text-sub)',
-    },
-    questionContainer: {
-        width: '100%',
-        flex: 1,
-        minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'stretch',
-    },
-    stepLayout: {
-        width: '100%',
-        flex: 1,
-        minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'flex-start',
-        paddingTop: 'clamp(1rem, 6vw, 2.5rem)',
-    },
-    introStepLayout: {
-        width: '100%',
-        flex: 1,
-        minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-    },
-    stepBody: {
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '1rem',
-    },
-    introContent: {
-        width: '100%',
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    actionRow: {
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '0.875rem',
-        marginTop: 'auto',
-        paddingTop: '1.5rem',
-    },
-    question: {
-        fontSize: 'clamp(1.25rem, 4.8vw, 1.4rem)',
-        fontWeight: '600',
-        color: 'var(--text-main)',
-        textAlign: 'center',
-        marginBottom: '2rem',
-        lineHeight: '1.4',
-    },
-    errorBox: {
-        backgroundColor: '#FEE2E2',
-        color: '#DC2626',
-        padding: '0.75rem 1rem',
-        borderRadius: 'var(--radius-md)',
-        fontSize: '0.875rem',
-        textAlign: 'center',
-        marginBottom: '1rem',
-        width: '100%',
-    },
-    characterGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: 'clamp(0.75rem, 3vw, 1rem)',
-        marginBottom: '1.5rem',
-        width: '100%',
-    },
-    characterCard: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '0.75rem',
-        aspectRatio: '1 / 1',
-        borderRadius: '16px',
-        borderWidth: '2px',
-        borderStyle: 'solid',
-        borderColor: '#E2E8F0',
         backgroundColor: '#FFFFFF',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        outline: 'none',
-    },
-    characterCardSelected: {
-        borderColor: 'var(--primary)',
-        backgroundColor: 'rgba(72, 187, 120, 0.1)',
-        boxShadow: '0 4px 12px rgba(47, 133, 90, 0.2)',
-        transform: 'scale(1.04)',
-    },
-    characterImageWrapper: {
-        width: '88%',
-        height: '88%',
-        backgroundColor: 'transparent',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-    },
-    selectedCharacterPreview: {
-        width: 'clamp(110px, 34vw, 140px)',
-        height: 'clamp(110px, 34vw, 140px)',
-        borderRadius: '50%',
-        backgroundColor: 'transparent',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: '1.5rem',
-    },
-    inputContainer: {
-        width: '100%',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+        maxWidth: '480px',
+        margin: '0 auto',
         position: 'relative',
     },
-    input: {
-        width: '100%',
-        paddingTop: '1rem',
-        paddingRight: '1rem',
-        paddingBottom: '1rem',
-        paddingLeft: '1rem',
-        fontSize: 'clamp(1.05rem, 4.5vw, 1.25rem)',
+    header: {
+        display: 'flex',
+        alignItems: 'center',
+        padding: '1rem 1.25rem',
+        height: '4rem',
+        position: 'relative',
+    },
+    backBtn: {
+        background: 'none',
         border: 'none',
-        borderBottom: '2px solid var(--primary)',
-        backgroundColor: 'transparent',
-        textAlign: 'center',
-        outline: 'none',
+        padding: '0.5rem',
+        margin: '-0.5rem',
+        cursor: 'pointer',
+        color: '#111827',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10,
     },
-    inputWithSuffix: {
-        paddingLeft: '3rem',
-        paddingRight: '3rem',
+    progressArea: {
+        flex: 1,
+        display: 'flex',
+        justifyContent: 'center',
+        gap: '6px',
+        padding: '0 1rem',
     },
-    suffix: {
-        position: 'absolute',
-        right: '1rem',
-        top: '50%',
-        transform: 'translateY(-50%)',
-        fontSize: 'clamp(1.05rem, 4.5vw, 1.25rem)',
-        color: 'var(--text-sub)',
+    progressDot: {
+        height: '4px',
+        flex: 1,
+        maxWidth: '24px',
+        borderRadius: '2px',
+        transition: 'background-color 0.3s ease',
     },
-    optionsContainer: {
-        width: '100%',
+    progressActive: {
+        backgroundColor: '#14B8A6',
+    },
+    progressInactive: {
+        backgroundColor: '#E5E7EB',
+    },
+    contentArea: {
+        flex: 1,
         display: 'flex',
         flexDirection: 'column',
-        gap: '1rem',
+        padding: '1.5rem 1.5rem 2rem',
     },
-    optionsRowContainer: {
-        flexDirection: 'row',
+    contentWrapper: {
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        animation: 'fadeIn 0.3s ease-out forwards',
+    },
+    textCenter: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flex: 1,
+        paddingBottom: '10vh',
+        textAlign: 'center',
+    },
+    mainTitle: {
+        fontSize: '1.75rem',
+        fontWeight: '700',
+        color: '#111827',
+        marginBottom: '0.75rem',
+    },
+    mainSubtitle: {
+        fontSize: '1rem',
+        color: '#6B7280',
+        lineHeight: '1.6',
+    },
+    questionTitle: {
+        fontSize: '1.5rem',
+        fontWeight: '700',
+        color: '#111827',
+        lineHeight: '1.4',
+        marginBottom: '0.5rem',
+        wordBreak: 'keep-all',
+    },
+    questionSubtitle: {
+        fontSize: '0.9375rem',
+        color: '#6B7280',
+        marginBottom: '2rem',
+    },
+    optionsList: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem',
+        marginTop: '2rem',
     },
     optionButton: {
         width: '100%',
-        padding: '1rem',
-        fontSize: 'clamp(1rem, 4vw, 1.1rem)',
-        fontWeight: '500',
-        color: 'var(--text-main)',
-        backgroundColor: '#FFFFFF',
-        borderWidth: '1px',
-        borderStyle: 'solid',
-        borderColor: '#E2E8F0',
-        borderRadius: 'var(--radius-md)',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        outline: 'none',
-        outlineColor: 'transparent',
-        appearance: 'none',
-        WebkitAppearance: 'none',
-        WebkitTapHighlightColor: 'transparent',
-    },
-    optionButtonHalf: {
-        flex: 1,
-    },
-    optionButtonDefault: {
-        borderColor: '#E2E8F0',
-        backgroundColor: '#FFFFFF',
-        boxShadow: 'none',
-    },
-    optionButtonSelected: {
-        borderColor: 'var(--primary)',
-        backgroundColor: 'rgba(72, 187, 120, 0.1)',
-        boxShadow: '0 4px 12px rgba(47, 133, 90, 0.12)',
-    },
-    nextButton: {
-        width: '100%',
-        minHeight: '3.25rem',
-        padding: '1rem 1.25rem',
-        fontSize: '1rem',
+        padding: '1.25rem 1.5rem',
+        fontSize: '1.0625rem',
         fontWeight: '600',
-        color: '#FFFFFF',
-        background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
-        border: 'none',
-        borderRadius: 'var(--radius-md)',
+        color: '#374151',
+        backgroundColor: '#F9FAFB',
+        border: '2px solid transparent',
+        borderRadius: '16px',
         cursor: 'pointer',
+        textAlign: 'left',
+        transition: 'all 0.2s ease',
     },
-    nextButtonDisabled: {
-        opacity: 0.5,
+    optionButtonActive: {
+        backgroundColor: '#F0FDFA',
+        borderColor: '#14B8A6',
+        color: '#0D9488',
+    },
+    inputGroup: {
+        marginTop: '2rem',
+        display: 'flex',
+        flexDirection: 'column',
+    },
+    inputRow: {
+        display: 'flex',
+        alignItems: 'baseline',
+        borderBottom: '2px solid #E5E7EB',
+        paddingBottom: '0.75rem',
+        transition: 'border-color 0.2s',
+    },
+    inputRowFocus: {
+        borderBottomColor: '#14B8A6',
+    },
+    hugeInput: {
+        width: '100%',
+        fontSize: '1.75rem',
+        fontWeight: '600',
+        color: '#111827',
+        border: 'none',
+        background: 'transparent',
+        outline: 'none',
+        padding: 0,
+    },
+    inputSuffix: {
+        fontSize: '1.5rem',
+        fontWeight: '600',
+        color: '#111827',
+        marginLeft: '0.5rem',
+        whiteSpace: 'nowrap',
+    },
+    actionContainer: {
+        marginTop: '2.5rem',
+    },
+    primaryButton: {
+        width: '100%',
+        height: '3.5rem',
+        backgroundColor: '#14B8A6',
+        color: '#FFFFFF',
+        fontSize: '1.0625rem',
+        fontWeight: '700',
+        border: 'none',
+        borderRadius: '16px',
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    primaryButtonDisabled: {
+        backgroundColor: '#E5E7EB',
+        color: '#9CA3AF',
         cursor: 'not-allowed',
+    },
+    charGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '1rem',
+        marginTop: '1rem',
+    },
+    charCard: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '1.5rem 1rem',
+        backgroundColor: '#F9FAFB',
+        border: '2px solid transparent',
+        borderRadius: '20px',
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+    },
+    charCardActive: {
+        backgroundColor: '#F0FDFA',
+        borderColor: '#14B8A6',
+    },
+    charImage: {
+        objectFit: 'contain',
+        marginBottom: '1rem',
+    },
+    charDesc: {
+        fontSize: '0.8125rem',
+        color: '#6B7280',
+        textAlign: 'center',
+        wordBreak: 'keep-all',
+    },
+    centerPreview: {
+        display: 'flex',
+        justifyContent: 'center',
+        marginTop: '2rem',
+        marginBottom: '1.5rem',
+    },
+    errorBox: {
+        backgroundColor: '#FEF2F2',
+        color: '#DC2626',
+        padding: '0.75rem 1rem',
+        borderRadius: '12px',
+        fontSize: '0.875rem',
+        fontWeight: '500',
+        marginTop: '1rem',
     },
 };

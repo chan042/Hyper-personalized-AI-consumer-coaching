@@ -219,7 +219,7 @@ const styles = {
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
         letterSpacing: '-3px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontVariantNumeric: 'tabular-nums',
         filter: 'drop-shadow(0 4px 10px rgba(16, 185, 129, 0.2))',
     },
 };

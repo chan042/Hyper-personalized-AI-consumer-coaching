@@ -86,7 +86,6 @@ const styles = {
         paddingRight: 'clamp(1rem, 5vw, 2rem)',
         paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
         paddingLeft: 'clamp(1rem, 5vw, 2rem)',
-        fontFamily: 'var(--font-pretendard)',
     },
     header: {
         width: '100%',

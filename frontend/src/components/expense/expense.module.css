@@ -850,7 +850,7 @@
   font-size: 1.1rem;
   font-weight: 700;
   color: #e53e3e;
-  font-family: 'Courier New', Courier, monospace;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.5px;
 }
 
@@ -940,7 +940,7 @@
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-main);
-  font-family: 'Courier New', Courier, monospace;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.5px;
 }
 

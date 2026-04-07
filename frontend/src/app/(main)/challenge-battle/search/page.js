@@ -999,7 +999,6 @@ const styles = {
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
         letterSpacing: '-1px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         filter: 'drop-shadow(0 2px 4px rgba(16, 185, 129, 0.1))',
     },
     previewContent: {

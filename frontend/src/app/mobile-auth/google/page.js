@@ -98,7 +98,6 @@ const styles = {
         justifyContent: 'center',
         background: 'linear-gradient(180deg, #F8FAFC 0%, #EEF2FF 100%)',
         padding: 'calc(2rem + var(--safe-area-top)) 2rem 2rem',
-        fontFamily: 'var(--font-pretendard)',
     },
     card: {
         width: '100%',

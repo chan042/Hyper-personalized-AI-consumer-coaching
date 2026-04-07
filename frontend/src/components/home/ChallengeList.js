@@ -47,34 +47,7 @@ export default function ChallengeList() {
 
     // 로딩중이 아닌 상태에서 챌린지가 없는 경우
     if (!isLoading && (!isAuthenticated || challenges.length === 0)) {
-        return (
-            <div style={{ marginBottom: '0.75rem' }}>
-                <div style={{ marginBottom: '0.75rem' }}>
-                    <h2 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)' }}>진행 중인 챌린지</h2>
-                </div>
-                <div style={{
-                    padding: '2rem 1rem',
-                    textAlign: 'center',
-                    color: 'var(--text-sub)',
-                    fontSize: '0.9rem',
-                    backgroundColor: 'var(--background-light)',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px dashed rgba(0,0,0,0.1)'
-                }}>
-                    {!isAuthenticated ? (
-                        <>
-                            로그인하고 챌린지에 도전해보세요!<br />
-                            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>계정을 만들고 시작해보세요</span>
-                        </>
-                    ) : (
-                        <>
-                            진행 중인 챌린지가 없습니다.<br />
-                            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>새로운 챌린지에 도전해보세요!</span>
-                        </>
-                    )}
-                </div>
-            </div>
-        );
+        return null;
     }
 
     return (
