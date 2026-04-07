@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { X, Trash2, MapPin, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Trash2, MapPin } from 'lucide-react';
 import styles from './expense.module.css';
 import CalculatorInput from '../common/CalculatorInput';
 import CategoryPickerSheet from '../common/CategoryPickerSheet';
@@ -26,6 +26,8 @@ export default function ExpenseModal({ isOpen, onClose, transaction, onUpdate, o
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showCategoryPicker, setShowCategoryPicker] = useState(false);
     const [showLocationPicker, setShowLocationPicker] = useState(false);
+    const merchantInputRef = useRef(null);
+    const memoInputRef = useRef(null);
 
     useEffect(() => {
         if (transaction) {
@@ -116,6 +118,17 @@ export default function ExpenseModal({ isOpen, onClose, transaction, onUpdate, o
         return dateObj.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
     };
 
+    const focusTextInput = (inputRef) => {
+        const input = inputRef.current;
+        if (!input) {
+            return;
+        }
+
+        input.focus();
+        const valueLength = input.value?.length || 0;
+        input.setSelectionRange(valueLength, valueLength);
+    };
+
     if (!isOpen || !transaction) return null;
 
     return (
@@ -151,115 +164,85 @@ export default function ExpenseModal({ isOpen, onClose, transaction, onUpdate, o
                     </div>
 
                     {/* Category - 클릭 시 카테고리 선택 오픈 */}
-                    <div className={styles.modalRow}>
+                    <div
+                        className={`${styles.modalRow} ${styles.modalRowInteractive}`}
+                        onClick={() => setShowCategoryPicker(true)}
+                    >
                         <span className={styles.modalLabel}>카테고리</span>
-                        <div
-                            className={styles.modalValue}
-                            onClick={() => setShowCategoryPicker(true)}
-                            style={{ cursor: 'pointer' }}
-                        >
+                        <div className={styles.modalValue}>
                             {getCategoryIcon(category, 16)}
-                            <span>{category}</span>
-                            <span style={{ marginLeft: '4px', color: 'var(--text-sub)' }}>▼</span>
+                            <span className={styles.modalValueText}>{category}</span>
                         </div>
                     </div>
 
-                    <div className={styles.modalRow}>
+                    <div
+                        className={`${styles.modalRow} ${styles.modalRowInteractive}`}
+                        onClick={() => focusTextInput(merchantInputRef)}
+                    >
                         <span className={styles.modalLabel}>거래처</span>
                         <input
+                            ref={merchantInputRef}
                             type="text"
                             className={styles.memoInput}
                             value={merchant}
                             onChange={(e) => setMerchant(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
                             placeholder="거래처 입력"
                         />
                     </div>
 
                     {/* Date - 클릭 시 날짜 휠 피커 오픈 */}
-                    <div className={styles.modalRow}>
+                    <div
+                        className={`${styles.modalRow} ${styles.modalRowInteractive}`}
+                        onClick={() => setShowDatePicker(true)}
+                    >
                         <span className={styles.modalLabel}>날짜</span>
-                        <div
-                            onClick={() => setShowDatePicker(true)}
-                            style={{
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                fontWeight: '500',
-                                color: 'var(--text-main)'
-                            }}
-                        >
-                            <span>{formatDateDisplay()}</span>
-                            <span style={{ color: 'var(--text-sub)' }}>📅</span>
+                        <div className={styles.modalValue}>
+                            <span className={styles.modalValueText}>{formatDateDisplay()}</span>
                         </div>
                     </div>
 
-                    <div className={styles.modalRow}>
+                    <div
+                        className={`${styles.modalRow} ${styles.modalRowInteractive}`}
+                        onClick={() => focusTextInput(memoInputRef)}
+                    >
                         <span className={styles.modalLabel}>메모</span>
                         <input
+                            ref={memoInputRef}
                             type="text"
                             className={styles.memoInput}
                             value={memo}
                             onChange={(e) => setMemo(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
                             placeholder="메모 입력"
                         />
                     </div>
 
                     {/* Location */}
                     {/* Location */}
-                    <div className={styles.modalRow} style={{ alignItems: 'flex-start' }}>
+                    <div
+                        className={`${styles.modalRow} ${styles.modalRowInteractive}`}
+                        style={{ alignItems: 'flex-start' }}
+                        onClick={() => setShowLocationPicker(true)}
+                    >
                         <span className={styles.modalLabel} style={{ marginTop: '6px' }}>장소</span>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                        <div className={styles.locationValueGroup}>
                             {(placeName || address) ? (
                                 <>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <div className={styles.locationPrimaryRow}>
                                         <MapPin size={16} color="var(--primary)" />
-                                        <span style={{
-                                            fontWeight: '600',
-                                            fontSize: '1rem',
-                                            color: 'var(--text-main)'
-                                        }}>
-                                            {placeName}
+                                        <span className={styles.locationPrimaryValue}>
+                                            {placeName || address}
                                         </span>
                                     </div>
-                                    {address && (
-                                        <div style={{
-                                            fontSize: '0.85rem',
-                                            color: '#718096',
-                                            textAlign: 'right'
-                                        }}>
+                                    {placeName && address && (
+                                        <div className={styles.locationSecondaryValue}>
                                             {address}
                                         </div>
                                     )}
-                                    <div
-                                        onClick={() => setShowLocationPicker(true)}
-                                        style={{
-                                            fontSize: '0.85rem',
-                                            color: 'var(--text-sub)',
-                                            cursor: 'pointer',
-                                            marginTop: '6px',
-                                            textDecoration: 'underline',
-                                            padding: '4px 0'
-                                        }}
-                                    >
-                                        수정
-                                    </div>
                                 </>
                             ) : (
-                                <div
-                                    onClick={() => setShowLocationPicker(true)}
-                                    style={{
-                                        color: '#a0aec0',
-                                        cursor: 'pointer',
-                                        fontSize: '0.95rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        padding: '4px 0'
-                                    }}
-                                >
-                                    장소를 선택하세요 <ChevronRight size={16} />
-                                </div>
+                                <div className={styles.locationEmptyValue}>장소를 선택하세요</div>
                             )}
                         </div>
                     </div>

@@ -1,151 +1,302 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 
-/**
- * 계산기 스타일 금액 입력 컴포넌트
- 
- * @param {boolean} isOpen - 모달 열림 상태
- * @param {function} onClose - 닫기 핸들러
- * @param {number} initialValue - 초기 금액
- * @param {function} onConfirm - 확인 시 콜백 (금액 전달)
- */
-export default function CalculatorInput({ isOpen, onClose, initialValue = 0, onConfirm }) {
-    // 수식 문자열 (숫자와 연산자를 모두 포함, 예: "5000-1000")
-    const [expression, setExpression] = useState('0');
+const OPERATORS = ['-', '+', '×', '÷'];
 
-    // 모달이 열릴 때 초기값으로 수식 초기화
+const isOperator = (value) => OPERATORS.includes(value);
+
+export default function CalculatorInput({ isOpen, onClose, initialValue = 0, onConfirm }) {
+    const [expression, setExpression] = useState('0');
+    const [selectionRange, setSelectionRange] = useState({ start: 1, end: 1 });
+    const [isDisplayFocused, setIsDisplayFocused] = useState(false);
+    const [caretMetrics, setCaretMetrics] = useState(null);
+    const displayRef = useRef(null);
+    const charRefs = useRef([]);
+
     useEffect(() => {
-        if (isOpen) {
-            setExpression(initialValue > 0 ? String(initialValue) : '0');
+        if (!isOpen) {
+            return;
         }
+
+        const nextExpression = initialValue > 0 ? String(initialValue) : '0';
+        setExpression(nextExpression);
+        setSelectionRange({
+            start: nextExpression.length,
+            end: nextExpression.length,
+        });
+        setIsDisplayFocused(false);
+        setCaretMetrics(null);
     }, [isOpen, initialValue]);
+
+    useLayoutEffect(() => {
+        if (!isDisplayFocused || !displayRef.current) {
+            setCaretMetrics(null);
+            return;
+        }
+
+        const container = displayRef.current;
+        const containerRect = container.getBoundingClientRect();
+        const computedStyle = window.getComputedStyle(container);
+        const fontSize = parseFloat(computedStyle.fontSize) || 32;
+        const nextCaretHeight = Math.round(fontSize * 1.08);
+        const caretIndex = selectionRange.start === selectionRange.end
+            ? selectionRange.start
+            : selectionRange.end;
+
+        let left = 0;
+        let top = Math.max(0, (container.clientHeight - nextCaretHeight) / 2);
+        let referenceRect = null;
+
+        if (expression.length > 0) {
+            if (caretIndex <= 0) {
+                referenceRect = charRefs.current[0]?.getBoundingClientRect() || null;
+                if (referenceRect) {
+                    left = referenceRect.left - containerRect.left;
+                }
+            } else {
+                const referenceIndex = Math.min(caretIndex - 1, expression.length - 1);
+                referenceRect = charRefs.current[referenceIndex]?.getBoundingClientRect() || null;
+                if (referenceRect) {
+                    left = referenceRect.right - containerRect.left;
+                }
+            }
+        }
+
+        if (referenceRect) {
+            top = referenceRect.top - containerRect.top + ((referenceRect.height - nextCaretHeight) / 2);
+        }
+
+        setCaretMetrics({
+            left: Math.round(left),
+            top: Math.round(top),
+            height: nextCaretHeight,
+        });
+    }, [expression, isDisplayFocused, selectionRange]);
 
     if (!isOpen) return null;
 
-    // 수식에서 마지막 문자가 연산자인지 확인
-    const isLastCharOperator = () => {
-        const lastChar = expression.slice(-1);
-        return ['-', '+', '×', '÷'].includes(lastChar);
+    const commitExpression = (nextExpression, nextSelectionRange) => {
+        const safeExpression = nextExpression && nextExpression.length > 0 ? nextExpression : '0';
+        const maxIndex = safeExpression.length;
+        const safeSelection = nextSelectionRange || { start: maxIndex, end: maxIndex };
+
+        setExpression(safeExpression);
+        setSelectionRange({
+            start: Math.max(0, Math.min(safeSelection.start, maxIndex)),
+            end: Math.max(0, Math.min(safeSelection.end, maxIndex)),
+        });
     };
 
-    // 숫자 버튼 클릭 핸들러
-    const handleNumberClick = (num) => {
-        if (expression === '0' && num !== '00') {
-            // 초기값이 0이면 입력한 숫자로 대체
-            setExpression(num);
-        } else if (expression === '0' && num === '00') {
-            // 0일 때 00 누르면 그대로 0 유지
-        } else {
-            // 수식 끝에 숫자 추가
-            setExpression(expression + num);
-        }
-    };
+    const replaceSelection = (value) => {
+        const { start, end } = selectionRange;
 
-    // 백스페이스 핸들러 - 마지막 문자 하나 삭제
-    const handleBackspace = () => {
-        if (expression.length > 1) {
-            setExpression(expression.slice(0, -1));
-        } else {
-            setExpression('0');
-        }
-    };
-
-    // 전체 초기화 핸들러
-    const handleClear = () => {
-        setExpression('0');
-    };
-
-    // 연산자 버튼 클릭 핸들러 - 기존 수식을 계산한 후 연산자 추가
-    const handleOperation = (op) => {
-        // 마지막 문자가 이미 연산자면 교체
-        if (isLastCharOperator()) {
-            setExpression(expression.slice(0, -1) + op);
-        } else {
-            // 수식을 먼저 계산한 후 연산자 추가
-            const result = evaluateExpression(expression);
-            setExpression(String(result) + op);
-        }
-    };
-
-    // 수식 계산 함수
-    const evaluateExpression = (expr) => {
-        try {
-            // 연산자로 끝나는 경우 제거
-            let cleanExpr = expr;
-            while (['-', '+', '×', '÷'].includes(cleanExpr.slice(-1))) {
-                cleanExpr = cleanExpr.slice(0, -1);
+        if (/^\d+$/.test(value) && expression === '0') {
+            if (value === '00') {
+                commitExpression('0', { start: 1, end: 1 });
+                return;
             }
 
-            if (!cleanExpr || cleanExpr === '0') return 0;
+            commitExpression(value, { start: value.length, end: value.length });
+            return;
+        }
 
-            // 수식을 토큰으로 분리 (숫자와 연산자)
-            const tokens = cleanExpr.match(/(\d+|[+\-×÷])/g);
-            if (!tokens) return 0;
+        const nextExpression = `${expression.slice(0, start)}${value}${expression.slice(end)}`;
+        const nextCursor = start + value.length;
+        commitExpression(nextExpression, { start: nextCursor, end: nextCursor });
+    };
 
-            // 첫 번째 숫자로 시작
+    const handleNumberClick = (value) => {
+        replaceSelection(value);
+    };
+
+    const handleBackspace = () => {
+        const { start, end } = selectionRange;
+
+        if (start !== end) {
+            commitExpression(
+                `${expression.slice(0, start)}${expression.slice(end)}`,
+                { start, end: start }
+            );
+            return;
+        }
+
+        if (start === 0) {
+            return;
+        }
+
+        commitExpression(
+            `${expression.slice(0, start - 1)}${expression.slice(start)}`,
+            { start: start - 1, end: start - 1 }
+        );
+    };
+
+    const handleClear = () => {
+        commitExpression('0', { start: 1, end: 1 });
+    };
+
+    const handleOperation = (operator) => {
+        const { start, end } = selectionRange;
+
+        if (start === end && start === 0) {
+            return;
+        }
+
+        if (start !== end) {
+            const before = expression.slice(0, start);
+            const after = expression.slice(end);
+            const safeBefore = before || '0';
+            const nextCursor = safeBefore.length + 1;
+
+            commitExpression(
+                `${safeBefore}${operator}${after}`,
+                { start: nextCursor, end: nextCursor }
+            );
+            return;
+        }
+
+        const previousChar = expression[start - 1];
+        const nextChar = expression[start];
+
+        if (isOperator(previousChar)) {
+            commitExpression(
+                `${expression.slice(0, start - 1)}${operator}${expression.slice(start)}`,
+                { start, end: start }
+            );
+            return;
+        }
+
+        if (isOperator(nextChar)) {
+            commitExpression(
+                `${expression.slice(0, start)}${operator}${expression.slice(start + 1)}`,
+                { start: start + 1, end: start + 1 }
+            );
+            return;
+        }
+
+        replaceSelection(operator);
+    };
+
+    const evaluateExpression = (value) => {
+        try {
+            let cleanExpression = value;
+
+            while (isOperator(cleanExpression.slice(-1))) {
+                cleanExpression = cleanExpression.slice(0, -1);
+            }
+
+            cleanExpression = cleanExpression.replace(/^[+\-×÷]+/, '');
+
+            if (!cleanExpression || cleanExpression === '0') {
+                return 0;
+            }
+
+            const tokens = cleanExpression.match(/(\d+|[+\-×÷])/g);
+            if (!tokens || !tokens.length) {
+                return 0;
+            }
+
             let result = parseInt(tokens[0], 10);
+            if (Number.isNaN(result)) {
+                return 0;
+            }
 
-            // 연산자와 숫자 쌍으로 계산
-            for (let i = 1; i < tokens.length; i += 2) {
-                const operator = tokens[i];
-                const nextNum = parseInt(tokens[i + 1], 10) || 0;
+            for (let index = 1; index < tokens.length; index += 2) {
+                const operator = tokens[index];
+                const nextValue = parseInt(tokens[index + 1], 10);
+
+                if (Number.isNaN(nextValue)) {
+                    continue;
+                }
 
                 switch (operator) {
                     case '+':
-                        result += nextNum;
+                        result += nextValue;
                         break;
                     case '-':
-                        result -= nextNum;
+                        result -= nextValue;
                         break;
                     case '×':
-                        result *= nextNum;
+                        result *= nextValue;
                         break;
                     case '÷':
-                        result = nextNum !== 0 ? Math.floor(result / nextNum) : 0;
+                        result = nextValue !== 0 ? Math.floor(result / nextValue) : 0;
                         break;
                     default:
                         break;
                 }
             }
 
-            // 결과가 음수면 0으로 처리
             return Math.max(0, result);
-        } catch (e) {
+        } catch (error) {
             return 0;
         }
     };
 
-    // + 버튼 클릭 핸들러 - 덧셈 연산
-    const handlePlus = () => {
-        handleOperation('+');
-    };
-
-    // 수정하기 버튼 클릭 핸들러 - 수식 계산 후 확정
     const handleConfirm = () => {
-        const result = evaluateExpression(expression);
-        onConfirm(result);
+        onConfirm(evaluateExpression(expression));
         onClose();
     };
 
-    // 표시용 포맷팅 - 계산기는 항상 쉼표 없이 표시
-    const formatDisplay = () => {
-        return expression;
+    const handleCharacterSelect = (index) => {
+        setIsDisplayFocused(true);
+        setSelectionRange({ start: index, end: index + 1 });
+    };
+
+    const handleDisplayClick = () => {
+        const cursor = expression.length;
+        setIsDisplayFocused(true);
+        setSelectionRange({ start: cursor, end: cursor });
     };
 
     return (
         <div style={styles.overlay} onClick={onClose}>
-            <div style={styles.container} onClick={(e) => e.stopPropagation()}>
-                {/* Handle bar */}
+            <div style={styles.container} onClick={(event) => event.stopPropagation()}>
                 <div style={styles.handleBar}></div>
 
-                {/* Display - 수정할 금액 표시 영역 */}
                 <div style={styles.displaySection}>
                     <span style={styles.label}>수정할 금액</span>
                     <div style={styles.displayRow}>
-                        <span style={styles.displayValue}>{formatDisplay()}</span>
-                        <button style={styles.clearBtn} onClick={handleClear}>
+                        <div
+                            ref={displayRef}
+                            style={styles.displayValueEditor}
+                            role="textbox"
+                            aria-label="수정할 금액"
+                            onClick={handleDisplayClick}
+                        >
+                            {expression.split('').map((character, index) => {
+                                return (
+                                    <span
+                                        key={`${character}-${index}`}
+                                        ref={(node) => {
+                                            charRefs.current[index] = node;
+                                        }}
+                                        style={styles.displayChar}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            handleCharacterSelect(index);
+                                        }}
+                                    >
+                                        {character}
+                                    </span>
+                                );
+                            })}
+
+                            {caretMetrics ? (
+                                <span
+                                    style={{
+                                        ...styles.caretOverlay,
+                                        left: `${caretMetrics.left}px`,
+                                        top: `${caretMetrics.top}px`,
+                                        height: `${caretMetrics.height}px`,
+                                    }}
+                                    aria-hidden="true"
+                                />
+                            ) : null}
+                        </div>
+
+                        <button type="button" style={styles.clearBtn} onClick={handleClear}>
                             <X size={18} color="#64748b" />
                         </button>
                         <span style={styles.unit}>원</span>
@@ -153,46 +304,37 @@ export default function CalculatorInput({ isOpen, onClose, initialValue = 0, onC
                     <div style={styles.underline}></div>
                 </div>
 
-                {/* Keypad - 4x4 그리드 */}
                 <div style={styles.keypad}>
-                    {/* Row 1 */}
-                    <button style={styles.numBtn} onClick={() => handleNumberClick('1')}>1</button>
-                    <button style={styles.numBtn} onClick={() => handleNumberClick('2')}>2</button>
-                    <button style={styles.numBtn} onClick={() => handleNumberClick('3')}>3</button>
-                    <button style={styles.opBtn} onClick={() => handleOperation('-')}>−</button>
+                    <button type="button" style={styles.numBtn} onClick={() => handleNumberClick('1')}>1</button>
+                    <button type="button" style={styles.numBtn} onClick={() => handleNumberClick('2')}>2</button>
+                    <button type="button" style={styles.numBtn} onClick={() => handleNumberClick('3')}>3</button>
+                    <button type="button" style={styles.opBtn} onClick={() => handleOperation('-')}>−</button>
 
-                    {/* Row 2 */}
-                    <button style={styles.numBtn} onClick={() => handleNumberClick('4')}>4</button>
-                    <button style={styles.numBtn} onClick={() => handleNumberClick('5')}>5</button>
-                    <button style={styles.numBtn} onClick={() => handleNumberClick('6')}>6</button>
-                    <button style={styles.opBtn} onClick={() => handleOperation('÷')}>÷</button>
+                    <button type="button" style={styles.numBtn} onClick={() => handleNumberClick('4')}>4</button>
+                    <button type="button" style={styles.numBtn} onClick={() => handleNumberClick('5')}>5</button>
+                    <button type="button" style={styles.numBtn} onClick={() => handleNumberClick('6')}>6</button>
+                    <button type="button" style={styles.opBtn} onClick={() => handleOperation('÷')}>÷</button>
 
-                    {/* Row 3 */}
-                    <button style={styles.numBtn} onClick={() => handleNumberClick('7')}>7</button>
-                    <button style={styles.numBtn} onClick={() => handleNumberClick('8')}>8</button>
-                    <button style={styles.numBtn} onClick={() => handleNumberClick('9')}>9</button>
-                    <button style={styles.opBtn} onClick={() => handleOperation('×')}>×</button>
+                    <button type="button" style={styles.numBtn} onClick={() => handleNumberClick('7')}>7</button>
+                    <button type="button" style={styles.numBtn} onClick={() => handleNumberClick('8')}>8</button>
+                    <button type="button" style={styles.numBtn} onClick={() => handleNumberClick('9')}>9</button>
+                    <button type="button" style={styles.opBtn} onClick={() => handleOperation('×')}>×</button>
 
-                    {/* Row 4 */}
-                    <button style={styles.numBtn} onClick={() => handleNumberClick('00')}>00</button>
-                    <button style={styles.numBtn} onClick={() => handleNumberClick('0')}>0</button>
-                    <button style={styles.numBtn} onClick={handleBackspace}>←</button>
-                    <button style={styles.opBtn} onClick={handlePlus}>+</button>
+                    <button type="button" style={styles.numBtn} onClick={() => handleNumberClick('00')}>00</button>
+                    <button type="button" style={styles.numBtn} onClick={() => handleNumberClick('0')}>0</button>
+                    <button type="button" style={styles.numBtn} onClick={handleBackspace}>←</button>
+                    <button type="button" style={styles.opBtn} onClick={() => handleOperation('+')}>+</button>
                 </div>
 
-                {/* Action buttons - 닫기/수정하기 버튼 */}
                 <div style={styles.actionRow}>
-                    <button style={styles.cancelBtn} onClick={onClose}>닫기</button>
-                    <button style={styles.confirmBtn} onClick={handleConfirm}>수정하기</button>
+                    <button type="button" style={styles.cancelBtn} onClick={onClose}>닫기</button>
+                    <button type="button" style={styles.confirmBtn} onClick={handleConfirm}>수정하기</button>
                 </div>
             </div>
         </div>
     );
 }
 
-// ============================================================
-// 스타일 정의 - 앱 테마(민트색/흰색)에 맞게 색상 설정
-// ============================================================
 const styles = {
     overlay: {
         position: 'fixed',
@@ -207,7 +349,7 @@ const styles = {
         zIndex: 2000,
     },
     container: {
-        backgroundColor: '#ffffff',  // 밝은 흰색 배경
+        backgroundColor: '#ffffff',
         borderTopLeftRadius: '24px',
         borderTopRightRadius: '24px',
         padding: '12px 20px 24px 20px',
@@ -227,7 +369,7 @@ const styles = {
         marginBottom: '20px',
     },
     label: {
-        color: '#14b8a6',  // var(--primary) 민트색
+        color: '#14b8a6',
         fontSize: '0.875rem',
         fontWeight: '600',
         display: 'block',
@@ -238,11 +380,41 @@ const styles = {
         alignItems: 'center',
         gap: '8px',
     },
-    displayValue: {
-        color: '#0f172a',  // 어두운 텍스트
+    displayValueEditor: {
+        color: '#0f172a',
         fontSize: '2rem',
         fontWeight: '600',
+        fontVariantNumeric: 'tabular-nums',
         flex: 1,
+        minHeight: '48px',
+        display: 'flex',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '2px',
+        cursor: 'text',
+        userSelect: 'none',
+        wordBreak: 'break-all',
+        position: 'relative',
+    },
+    displayChar: {
+        position: 'relative',
+        display: 'inline-flex',
+        alignItems: 'center',
+        minWidth: '0.62em',
+        borderRadius: '8px',
+        padding: 0,
+        transition: 'background-color 0.15s ease',
+    },
+    caretOverlay: {
+        position: 'absolute',
+        left: '-1px',
+        top: '50%',
+        width: '2px',
+        backgroundColor: '#14b8a6',
+        borderRadius: '1px',
+        pointerEvents: 'none',
+        boxSizing: 'border-box',
+        willChange: 'transform',
     },
     clearBtn: {
         background: 'transparent',
@@ -254,13 +426,13 @@ const styles = {
         justifyContent: 'center',
     },
     unit: {
-        color: '#0f172a',  // 어두운 텍스트
+        color: '#0f172a',
         fontSize: '1.25rem',
         fontWeight: '500',
     },
     underline: {
         height: '2px',
-        background: 'linear-gradient(90deg, #14b8a6, #5eead4)',  // 민트 그라데이션
+        background: 'linear-gradient(90deg, #14b8a6, #5eead4)',
         marginTop: '8px',
     },
     keypad: {
@@ -270,8 +442,8 @@ const styles = {
         marginBottom: '20px',
     },
     numBtn: {
-        backgroundColor: '#f1f5f9',  // 밝은 회색 배경
-        color: '#0f172a',  // 어두운 텍스트
+        backgroundColor: '#f1f5f9',
+        color: '#0f172a',
         border: 'none',
         borderRadius: '12px',
         padding: '18px',
@@ -281,8 +453,8 @@ const styles = {
         transition: 'background-color 0.1s',
     },
     opBtn: {
-        backgroundColor: '#e0f2f1',  // 연한 민트 배경
-        color: '#0d9488',  // 진한 민트 텍스트
+        backgroundColor: '#e0f2f1',
+        color: '#0d9488',
         border: 'none',
         borderRadius: '12px',
         padding: '18px',
@@ -291,15 +463,14 @@ const styles = {
         cursor: 'pointer',
         transition: 'background-color 0.1s',
     },
-
     actionRow: {
         display: 'flex',
         gap: '12px',
     },
     cancelBtn: {
         flex: 1,
-        backgroundColor: '#e2e8f0',  // 밝은 회색 배경
-        color: '#475569',  // 어두운 회색 텍스트
+        backgroundColor: '#e2e8f0',
+        color: '#475569',
         border: 'none',
         borderRadius: '12px',
         padding: '16px',
@@ -309,7 +480,7 @@ const styles = {
     },
     confirmBtn: {
         flex: 1.5,
-        backgroundColor: '#14b8a6',  // var(--primary) 민트색
+        backgroundColor: '#14b8a6',
         color: 'white',
         border: 'none',
         borderRadius: '12px',

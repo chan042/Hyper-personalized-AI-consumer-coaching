@@ -3,10 +3,10 @@
 
 
 // 외부 라이브러리 및 아이콘 임포트
-import { Edit2, MapPin, Calendar, X } from 'lucide-react';
+import { Edit2, Calendar, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
-import KakaoStaticMapPreview from '../common/KakaoStaticMapPreview';
+import { MapPreviewPlaceholder } from '../common/KakaoStaticMapPreview';
 import CalculatorInput from '../common/CalculatorInput';       // 금액 계산기 모달
 import CategoryPickerSheet from '../common/CategoryPickerSheet';
 import DateWheelPicker from '../common/DateWheelPicker';       // 날짜 휠 선택 모달
@@ -110,7 +110,6 @@ export default function TransactionConfirm({
     }, [initialData, selectedDate, originalInput]);
 
     const hasValidAmount = typeof amount === 'number' && amount > 0;
-    const hasLocationCoordinates = Number.isFinite(location.lat) && Number.isFinite(location.lng);
     const showAmountAnalysisFailureMessage = initialData?.amountAnalysisStatus === 'failed' && !hasValidAmount;
     const showAmountDash = showAmountAnalysisFailureMessage;
 
@@ -311,20 +310,8 @@ export default function TransactionConfirm({
                         onClick={() => setShowLocationPicker(true)}
                         style={styles.minimapShell}
                     >
-                        {hasLocationCoordinates ? (
-                            <div style={styles.minimapImage}>
-                                <KakaoStaticMapPreview
-                                    lat={location.lat}
-                                    lng={location.lng}
-                                    level={3}
-                                />
-                            </div>
-                        ) : null}
-                        <div style={{
-                            ...styles.minimapFallback,
-                            display: hasLocationCoordinates ? 'none' : 'flex',
-                        }}>
-                            <MapPin size={24} color="var(--primary)" />
+                        <div style={styles.minimapFallback}>
+                            <MapPreviewPlaceholder />
                         </div>
                     </div>
                 </div>
@@ -540,17 +527,12 @@ const styles = {
         cursor: 'pointer',
         position: 'relative',
         border: '1px solid #e2e8f0',
-        backgroundColor: '#f1f5f9',
-    },
-    minimapImage: {
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
+        backgroundColor: '#f7f0e4',
     },
     minimapFallback: {
         width: '100%',
         height: '100%',
-        backgroundColor: '#e0f2f1',
+        display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'absolute',

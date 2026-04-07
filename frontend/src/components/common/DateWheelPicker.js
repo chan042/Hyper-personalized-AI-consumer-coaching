@@ -10,7 +10,10 @@ const ITEM_HEIGHT = 40; // 아이템 높이
  */
 const WheelColumn = ({ items, value, onChange, suffix }) => {
     const listRef = useRef(null);
-    const isDragging = useRef(false);
+    const touchStateRef = useRef({
+        startY: 0,
+        startScrollTop: 0,
+    });
 
     // 초기 스크롤 위치 설정 및 외부 값 변경 시 동기화
     useEffect(() => {
@@ -43,6 +46,26 @@ const WheelColumn = ({ items, value, onChange, suffix }) => {
         }
     }, [items, value, onChange]);
 
+    const handleTouchStart = useCallback((event) => {
+        const touch = event.touches[0];
+        touchStateRef.current = {
+            startY: touch.clientY,
+            startScrollTop: listRef.current?.scrollTop || 0,
+        };
+    }, []);
+
+    const handleTouchMove = useCallback((event) => {
+        if (!listRef.current) {
+            return;
+        }
+
+        const touch = event.touches[0];
+        const deltaY = touch.clientY - touchStateRef.current.startY;
+
+        event.preventDefault();
+        listRef.current.scrollTop = touchStateRef.current.startScrollTop - deltaY;
+    }, []);
+
     return (
         <div style={styles.wheelColumnWrapper}>
             <ul
@@ -50,6 +73,8 @@ const WheelColumn = ({ items, value, onChange, suffix }) => {
                 style={styles.wheelList}
                 className="hide-scrollbar"
                 onScroll={handleScroll}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
             >
                 {/* 상단 여백 (중앙 정렬을 위해) */}
                 <li style={{ height: ITEM_HEIGHT * 2, flexShrink: 0 }} />
@@ -234,6 +259,8 @@ const styles = {
         overflow: 'hidden',
         display: 'flex',
         justifyContent: 'center',
+        touchAction: 'none',
+        overscrollBehavior: 'contain',
     },
     selectionHighlight: {
         position: 'absolute',
@@ -255,19 +282,28 @@ const styles = {
         position: 'relative',
         zIndex: 1,
         padding: '0 10px',
+        touchAction: 'none',
+        overflowX: 'hidden',
+        overscrollBehavior: 'contain',
     },
     wheelColumnWrapper: {
         flex: 1,
         height: '100%',
         position: 'relative',
         overflow: 'hidden',
+        touchAction: 'none',
+        overflowX: 'hidden',
+        overscrollBehavior: 'contain',
     },
     wheelList: {
         height: '100%',
         overflowY: 'auto',
+        overflowX: 'hidden',
         scrollSnapType: 'y mandatory',
         scrollbarWidth: 'none', // Firefox
         msOverflowStyle: 'none', // IE/Edge
+        touchAction: 'none',
+        overscrollBehavior: 'contain',
     },
     wheelItem: {
         height: '40px',

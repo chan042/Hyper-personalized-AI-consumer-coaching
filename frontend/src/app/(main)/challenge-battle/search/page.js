@@ -288,6 +288,7 @@ function BattleSearchPageContent() {
 
         const isPendingScreen = currentScreen === 'request_pending' || currentScreen === 'request_received';
         let cancelled = false;
+        let intervalId;
 
         async function syncBattleEntryScreen() {
             try {
@@ -323,7 +324,10 @@ function BattleSearchPageContent() {
 
         syncBattleEntryScreen();
 
-        const intervalId = window.setInterval(syncBattleEntryScreen, REQUEST_SCREEN_REFRESH_MS);
+        if (isPendingScreen) {
+            intervalId = window.setInterval(syncBattleEntryScreen, REQUEST_SCREEN_REFRESH_MS);
+        }
+
         const handleFocus = () => syncBattleEntryScreen();
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
@@ -336,7 +340,9 @@ function BattleSearchPageContent() {
 
         return () => {
             cancelled = true;
-            window.clearInterval(intervalId);
+            if (intervalId) {
+                window.clearInterval(intervalId);
+            }
             window.removeEventListener('focus', handleFocus);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
@@ -893,7 +899,8 @@ export default function BattleSearchPage() {
 const styles = {
     container: {
         background: 'var(--background-light, #f1f5f9)',
-        height: '100vh',
+        height: '100%',
+        minHeight: 0,
         overflow: 'hidden',
         position: 'relative',
         display: 'flex',
@@ -902,6 +909,9 @@ const styles = {
     content: {
         flex: 1,
         overflowY: 'auto',
+        overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehaviorY: 'contain',
         paddingTop: '1.5rem',
         paddingRight: '1.5rem',
         paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
@@ -1391,8 +1401,8 @@ const styles = {
         transition: 'all 0.3s ease',
     },
     blurredSection: {
-        filter: 'blur(4px)',
-        opacity: 0.5,
+        opacity: 0.55,
+        transform: 'translateY(4px)',
         pointerEvents: 'none',
         userSelect: 'none',
     },

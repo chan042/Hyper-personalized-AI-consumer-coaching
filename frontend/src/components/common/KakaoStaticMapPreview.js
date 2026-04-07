@@ -5,6 +5,14 @@ import { MapPin } from 'lucide-react';
 
 import { withLoadedKakaoMaps } from '../../lib/kakaoMaps';
 
+export function MapPreviewPlaceholder() {
+    return (
+        <div style={styles.placeholderRoot} aria-hidden="true">
+            <MapPin size={20} color="#53c5b5" strokeWidth={2.2} />
+        </div>
+    );
+}
+
 export default function KakaoStaticMapPreview({
     lat,
     lng,
@@ -63,29 +71,44 @@ export default function KakaoStaticMapPreview({
     }, [hasCoordinates, lat, lng, level, marker]);
 
     return (
-        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+        <div style={styles.previewRoot}>
             <div
                 ref={containerRef}
                 style={{
-                    width: '100%',
-                    height: '100%',
+                    ...styles.mapLayer,
                     display: isRendered && !hasError ? 'block' : 'none',
                 }}
             />
-            <div
-                style={{
-                    width: '100%',
-                    height: '100%',
-                    display: isRendered && !hasError ? 'none' : 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'absolute',
-                    inset: 0,
-                    backgroundColor: '#e0f2f1',
-                }}
-            >
-                <MapPin size={24} color="var(--primary)" />
+            <div style={{ ...styles.fallbackLayer, display: isRendered && !hasError ? 'none' : 'block' }}>
+                <MapPreviewPlaceholder />
             </div>
         </div>
     );
 }
+
+const styles = {
+    previewRoot: {
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+    },
+    mapLayer: {
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+    },
+    fallbackLayer: {
+        position: 'absolute',
+        inset: 0,
+        pointerEvents: 'none',
+    },
+    placeholderRoot: {
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f7f0e4 0%, #f3ead9 100%)',
+    },
+};

@@ -517,32 +517,86 @@
   border-bottom: 1px solid #f0f0f0;
 }
 
+.modalRowInteractive {
+  cursor: pointer;
+}
+
 .modalLabel {
   color: var(--text-sub);
   font-size: 0.875rem;
 }
 
 .modalValue {
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--text-main);
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  line-height: 1.4;
+}
+
+.modalValueText {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.4;
 }
 
 .memoInput {
   border: none;
   background: transparent;
   text-align: right;
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--text-main);
   outline: none;
   width: 150px;
+  line-height: 1.4;
+  cursor: text;
+}
+
+.memoInput::placeholder {
+  color: var(--text-guide);
+  font-weight: 500;
 }
 
 .memoInput:focus {
   border-bottom: 1px solid var(--primary);
+}
+
+.locationValueGroup {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.locationPrimaryRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.locationPrimaryValue {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.4;
+}
+
+.locationSecondaryValue {
+  font-size: 0.85rem;
+  color: #718096;
+  text-align: right;
+}
+
+.locationEmptyValue {
+  color: #a0aec0;
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 4px 0;
 }
 
 .toggleSwitch {
