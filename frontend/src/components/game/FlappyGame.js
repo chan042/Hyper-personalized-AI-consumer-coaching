@@ -12,14 +12,25 @@ const GAME_STATES = {
     DYING: 'DYING',
     GAME_OVER: 'GAME_OVER'
 };
-
-export default function FlappyGame({ onClose }) {
+export default function FlappyGame({ onClose }) {
     const canvasRef = useRef(null);
     const [gameState, setGameState] = useState(GAME_STATES.START);
     const [lives, setLives] = useState(3);
     const [score, setScore] = useState(0);
     const [characterType, setCharacterType] = useState('char_dog');
     const [earnedPoints, setEarnedPoints] = useState(null);
+    const [showPoints, setShowPoints] = useState(false);
+
+    useEffect(() => {
+        if (gameState === GAME_STATES.GAME_OVER) {
+            setShowPoints(true);
+            const timer = setTimeout(() => {
+                setShowPoints(false);
+            }, 10000);
+            return () => clearTimeout(timer);
+        }
+    }, [gameState]);
+
     const rewardSubmittedRef = useRef(false);
     const gameLoopRef = useRef(null);
     const audioRef = useRef(null);
@@ -109,6 +120,7 @@ export default function FlappyGame({ onClose }) {
         setLives(3);
         setScore(0);
         setEarnedPoints(null);
+        setShowPoints(false);
         rewardSubmittedRef.current = false;
         gameDataRef.current = {
             ...gameDataRef.current,
@@ -501,9 +513,9 @@ export default function FlappyGame({ onClose }) {
                     <div style={styles.gameOverPopup}>
                         <div style={styles.gameOverContainer}>
                             <div style={styles.cloudBg}>
-                                {earnedPoints !== null && (
+                                {showPoints && earnedPoints !== null && (
                                     <div style={styles.earnedPointsBadge}>
-                                        🎉 +{earnedPoints}P 획득!
+                                        +{earnedPoints}P
                                     </div>
                                 )}
                                 <Image
@@ -737,15 +749,12 @@ const styles = {
         top: '-50px',
         left: '50%',
         transform: 'translateX(-50%)',
-        backgroundColor: 'rgba(255, 215, 0, 0.9)',
-        color: '#fff',
-        padding: '8px 24px',
-        borderRadius: '30px',
-        fontSize: '18px',
-        fontWeight: '800',
-        textShadow: '1px 1px 2px rgba(0,0,0,0.15)',
-        boxShadow: '0 4px 12px rgba(255, 215, 0, 0.4)',
-        border: '2px solid #fff',
+        color: '#FFFFFF',
+        fontSize: '48px',
+        fontWeight: '900',
+        fontFamily: '"Arial Rounded MT Bold", "Nunito", "Quicksand", "Jua", sans-serif',
+        WebkitTextStroke: '1.5px var(--primary)',
+        textShadow: '2px 2px 0 var(--primary), -2px -2px 0 var(--primary), 2px -2px 0 var(--primary), -2px 2px 0 var(--primary), 0 6px 12px rgba(20, 184, 166, 0.6)',
         zIndex: 10,
     },
 };

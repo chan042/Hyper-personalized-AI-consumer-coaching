@@ -276,12 +276,12 @@ export default function ShopPage() {
                                         <div style={styles.productImagePlaceholder}>
                                             {/* 실제 이미지가 없으면 텍스트나 이모지로 대체 */}
                                             {product.image_url ? (
-                                                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                                                <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img
                                                         src={product.image_url}
                                                         alt={product.name}
-                                                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                        style={{ width: '60px', height: '60px', objectFit: 'contain' }}
                                                         onError={(e) => {
                                                             e.target.onerror = null;
                                                             e.target.style.display = 'none';

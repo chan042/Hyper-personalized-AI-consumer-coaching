@@ -319,7 +319,7 @@ export default function RoomPage() {
             {characterSpeech && !transitionSpeechVisible && (
                 <div style={{
                     position: 'absolute',
-                    bottom: '60px',
+                    bottom: '75px',
                     left: '20px',
                     right: '20px',
                     backgroundColor: '#fdf6e3',
@@ -407,15 +407,15 @@ const styles = {
     },
     characterContainer: {
         position: 'absolute',
-        bottom: '140px',
+        bottom: '155px',
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 5,
     },
     characterImageStack: {
         position: 'relative',
-        width: '290px',
-        height: '290px',
+        width: '300px',
+        height: '300px',
     },
     loading: {
         display: 'flex',
